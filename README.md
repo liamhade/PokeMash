@@ -1,62 +1,36 @@
-# PokeMash
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Overview
+## Getting Started
 
-**Core Concept:** ELO-based Pokémon ranking where users perform head-to-head comparisons (FaceMash style) of Pokémon cards, selecting which one they prefer. The system outputs a personalized ranked list of all Pokémon cards based on user preferences.
+First, run the development server:
 
-## Features
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-### Current
-- Head-to-head card comparison interface
-- Personal ELO-based rankings
-- Anonymous session support with localStorage
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-### Planned
-- Algorithm to recommend best-matched packs based on personal rankings
-- Cross-player comparison with global rankings
-- 82and0 mechanism
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## Architecture
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-### V1 Infrastructure
+## Learn More
 
-#### Frontend
-- **Hosting:** Vercel
-- **Framework:** React (using Next.js?)
-- **Design:** Minimal and sleek, intuitive, warm, dopamine-inducing interaction
-- **Ranking Algorithm:** Can utilize TrueSkill for advanced calculations
+To learn more about Next.js, take a look at the following resources:
 
-#### Database
-- **Service:** Supabase
-- **Purpose:** Store user rankings and comparison history
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-### V2 Infrastructure
-*(To be determined)*
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## User Experience
+## Deploy on Vercel
 
-### Anonymous → Account Upgrade
-- Let users start comparing without signing up (store progress in `localStorage`)
-- Prompt to save progress after ~20 comparisons
-- Dramatically reduces signup friction
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-## Data Management
-
-### Data Sources
-- **Primary Source:** [Pokellector.com](https://www.pokellector.com/sets) (has all cards)
-- **Formatted Data:** Pokemon TCG Data (provides data in correct format)
-
-### Data Strategy
-- Design programmatic data objects to be abstract enough for easy data-source interchange
-- Group cards by pack, era, and Pokémon to reduce comparison overhead
-- Instead of comparing all ~15,000 cards, users compare at least one card from each group
-
-### Session Queue
-- Maintain a queue of cards saved for the user on the backend
-- Allow users to pick up where they left off after leaving the site
-
-## Resources
-
-- [GitHub](#)
-- [draw.io](#)
-- [Liam Claude Chat](#)
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
