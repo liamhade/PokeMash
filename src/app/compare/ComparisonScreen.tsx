@@ -17,14 +17,19 @@ export default function ComparisonScreen() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const loadNextPair = useCallback(async () => {
-    setPhase("blank");
-    setPickedId(null);
     const playerId = getPlayerId();
     const res = await fetch(`/api/comparison/next?playerId=${playerId}`);
     const { cards } = await res.json();
-    setCards(cards);
-    // Let the blank screen render for a beat before the cards slide in.
-    requestAnimationFrame(() => requestAnimationFrame(() => setPhase("entering")));
+    // Clear the outgoing cards first so the new pair mounts below the screen
+    // without the old (now off-screen-above) cards re-rendering at "blank".
+    setCards(null);
+    setPickedId(null);
+    setPhase("blank");
+    requestAnimationFrame(() => {
+      setCards(cards);
+      // Let the blank screen render for a beat before the cards slide in.
+      requestAnimationFrame(() => requestAnimationFrame(() => setPhase("entering")));
+    });
   }, []);
 
   useEffect(() => {

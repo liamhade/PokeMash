@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Guide
+
+Whenever you work on a task from the TODO.md, you must check the boxes that you completed, and update the #LEARNING section with any helpful questions.
+
 ## Project status
 
 This repository is in the **planning / pre-implementation** stage. There is no application code, build system, or package manager yet — only the README (product spec), `LICENSE`, and configuration. When asked to build features, you are scaffolding from scratch; align new code with the architecture decisions below rather than assuming an existing framework is in place.

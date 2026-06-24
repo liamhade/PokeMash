@@ -3,6 +3,9 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { DEFAULT_RATING, updateRating } from "@/lib/glicko2";
 
+// Records the outcome of a single head-to-head comparison: updates both
+// cards' Glicko-2 ratings for this player and logs the comparison.
+// Body: { playerId, winnerCardId, loserCardId }
 export async function POST(request: NextRequest) {
   const { playerId, winnerCardId, loserCardId } = await request.json();
   if (!playerId || !winnerCardId || !loserCardId) {
@@ -14,6 +17,8 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient(await cookies());
 
+  // Look up this player's existing ratings for the two cards involved; cards
+  // they haven't rated yet start from DEFAULT_RATING.
   const { data: ranks, error: ranksError } = await supabase
     .from("card_ranks")
     .select("card_id, r, rd, mu")
@@ -27,6 +32,9 @@ export async function POST(request: NextRequest) {
   const winnerRating = rankByCardId.get(winnerCardId) ?? DEFAULT_RATING;
   const loserRating = rankByCardId.get(loserCardId) ?? DEFAULT_RATING;
 
+  // Both updates use each other's pre-update rating (not a sequential
+  // winner-then-loser update), matching the Glicko-2 spec where all rating
+  // changes for a period are computed from the same starting snapshot.
   const newWinnerRating = updateRating(winnerRating, loserRating, 1);
   const newLoserRating = updateRating(loserRating, winnerRating, 0);
 

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { DEFAULT_RATING } from "@/lib/glicko2";
 
+// Picks the next pair of cards for a player to compare. Query: ?playerId=...
 export async function GET(request: NextRequest) {
   const playerId = request.nextUrl.searchParams.get("playerId");
   if (!playerId) {

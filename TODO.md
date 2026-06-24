@@ -1,58 +1,18 @@
-# FUNCTIONALITY
+# CODE
 
-- [x] Display Supabase information on website
+## MAINTAINABILITY
 
-- [x] Add comparison functionality
+- [x] Add documentation to files in `api` so that I can understand what's going on.
 
-	- [x] Frontend
+- [ ] Add `TODO-update` skill to Claude that implements the TODO items, using explicit documentation, and updates the learning section accordingly with conceptual questions to help foster understanding of the changes.
 
-		- [x] Logic
+## FUNCTIONALITY
 
-			- [x] Glicko-2 ELO algorithm (r, RD, and mu values for each card) to calculate the ELO for a player for a card. These values are stored in the `card_ranks` table, and update on each comparison
+- [x] Home screen should be the comparison screen
 
-			- [x] UI selects the card that has the highest `RD`, and the card that has the closest `r` value to it as the current pair for comparison. This way, we gain maximum information for each comparison.
+	- [x] Remove pokemon-cards table from Subapase and homescreen.
 
-		- [x] UX
-			
-			- [x] Comparison Lifecycle
-
-				- [x] (1) Start of comparison starts with blank screen
-
-				- [x] (2) Two cards emerge from the bottom of the screen
-
-				- [x] (3) During comparisons, the cards are displayed side-by-side on the screen.
-
-				- [x] (4) Hovering over a card makes it look bigger, and causes to it glow.
-
-				- [x] (5) Clicking a card causes that card to briefly glow green around the edge.
-
-				- [x] (6) Cards shoot up off the screen, and Supabase gets updated.
-
-	- [x] Supabase
-
-		- [x] Create relational tables:
-
-			- [x] cards:
-				- card_id: UUID (primary key)
-				- name: str
-				- year: int
-				- price: float
-				- image_url: float
-
-			- [x] card_ranks:
-				- player_id: UUID
-				- card_id: UUID
-				- r: float (ELO score)
-				- RD: float (Rating Deviation)
-				- mu: float (volatility)
-				- last_updated: timestamp
-
-			- [x] comparisons:
-				- Player_id: UUID
-				- winner_card: UUID
-				- loser_card: UUID
-				- timestamp: timestamp
-
+- [x] When cards disappear above screen after the winner is clicked, they should not be seen flying back down the screen after. They should only be seen flying upwards, disappearing above the screen.
 
 # LEARNING
 
