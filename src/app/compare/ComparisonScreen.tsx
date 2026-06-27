@@ -25,7 +25,7 @@ export default function ComparisonScreen() {
   const [pos, setPos] = useState<Record<string, Position>>({});
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [keepWinner, setKeepWinner] = useState(false);
+  const [keepWinner, setKeepWinner] = useState(true);
   // True only when both cards are settled at center and a pick is allowed. Guards
   // against picking mid-animation or double-submitting a comparison.
   const [ready, setReady] = useState(false);
