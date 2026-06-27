@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
 
   // Pick the card we have the least information about, then its closest peer by
   // rating so the comparison is maximally informative.
+  // What does this do?
   const cardA = [...ratedCards].sort((x, y) => y.rd - x.rd)[0];
   const cardB = ratedCards
     .filter((card) => card.card_id !== cardA.card_id)
