@@ -1,18 +1,21 @@
 # CODE
 
-## DATABASE
-
-- [ ] (**collector numbers**) Add Collector Numbers to the Pokemon database.
-
-- [ ] (**add `year` column to `cards` table**)
-
 ## FUNCTIONAL
+
+- [ ] (**pre-loaded future comparisons**)
+	- *PROBLEM*: Card selection takes too long
+	- *SOLUTION*: Quicken card selection process by preloading the possible future cards so that when the player makes a comparison, the next card(s) to load-in is already present in memory.
+
+- [ ] (**add filters to comparison pool**) On left side of the `Play` screen, on the same level as the `Keep Winner` toggle, add a `Filter` button. Support the ability to filter by field names from the database. To start, only implement filtering on `cards.rarity`. When the user clicks the `Filter` button, a modal should popup that includes a search box titled `Rarity` above it. When the user clicks on the search box, the different values for `cards.rarity` column populate a scrollable dropdown menu. When the user types into the search box, only those values that contain the inputed string (when both are brought to lowercase) remain. There is a checkbox next to each of the values. When the user selects one of those values, it stays highlighted, and a small box with the name of the applied filter pops up next to the search box. In the code, this area will be called the `applied_filter area`. In this modal, there are three options to exit. First, the user can click the `Apply` button, which applies the filters and ensures that the next set of cards meets the filter criteria (that will required updating the `comparison/next` GET function). Next, there will be an `x` in the upper right corner that, when clicked, exits out without applying the filters. Or, the user can click anywhere outside of the modal, and the modal will close without applying filters (same function as hitting `x`).
+
+
+- [ ] (**load more cards**) Currently, we're only loading in ~100 cards from the database, rather than all of them. 
+
+- [ ] (**`lazy` card polling**) When making a comparison, rather than pulling all the cards at once or batches, we should just lazily pull the cards so that we only load into the database the cards that we need.
 
 - [ ] (**compare from `See Rankings`**) Add abilitity to click on card from `See Rankings` to compare that card on `Play` to another card.
 
-- [ ] (**load more cards**) Currently, we're only loading in ~100 cards from the database, rather than all of them.
-
-	- [ ] (**`lazy` card polling**) When making a comparison, rather than pulling all the cards at once or batches, we should just lazily pull the cards so that we only load into the database the cards that we need.
+- [ ] (**flip card over in `See Rankings`**) Ability to flip over a card and see the details there.
 
 - [ ] (**consistent card comparison**) 
 	- *DESC*:
@@ -29,18 +32,7 @@
 	- *ARCH*:
 		- Add `average_pixel_color(Card) -> RGB` function
 
-- [ ] (**add filters to comparison pool**) On left side of the `Play` screen, add filters for `Price` (min: int, nax: int), `Pack` (str), `Set` (str), `Year` (checkbox: str), and `Name` (str). Then, only the cards that satisfy those filters will be part of the `comparison pool`.
-	- *ARCH*:
-		- `comparison_pool: list[Card]`
-		- `Filter Component`
-			- `int` (min / max)
-			- `str` (search box / checkbox, similar to the search on TraceIQ)
-
 - [ ] (**add `dark mode` toggle**)
-
-- [ ] (**pre-loaded future comparisons**)
-	- *PROBLEM*: Card selection takes too long
-	- *SOLUTION*: Quicken card selection process by preloading the possible future cards so that when the player makes a comparison, the next card(s) to load-in is already present in memory.
 
 - [ ] (**"hard-choice tracker**) A "hard-choice" is one that takes more than `n` second. We should have a panel to see wha those are.
 
