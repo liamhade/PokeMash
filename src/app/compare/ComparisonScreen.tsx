@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { getPlayerId } from "@/lib/playerId";
-import RarityFilterModal from "./RarityFilterModal";
+import RarityFilterModal from "@/components/RarityFilterModal";
 
 type Card = { card_id: string; name: string; image_url: string };
 

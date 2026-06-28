@@ -2,17 +2,15 @@
 
 ## FUNCTIONAL
 
+- [ ] (**move the `filter` button to a component**) Current, editing the style of the `Filter` button means that we have to make a change in two places. That's sloppy code. Move that filter button to `components` so that we only have to change the button in one place. Also, define a `style` so that if ever want to make another button that looks like the `Filter` button, it's as simple as reusing that filter button template. Don't the the filter button template `filterTemplate` or anything like that -- it should be more generic. 
 
-- [ ] (**Add skip button**) At the bottom of the screen below the cards, add `Skip` button if the user doesn't want to compare the cards.
+- [ ] (**Add skip button**) At the bottom of the screen below the cards, add `Too Hard / Ship` button if the user doesn't want to compare the cards. This will result in a draw between the cards.
 
-- [ ] (**decide usign arrow keys**) Pick a winner by tapping the left or right arrow keys.
-
+- [ ] (**decide usign arrow keys**) Pick a winner by tapping the left or right arrow keys if the user is on a computer.
 
 - [ ] (**pre-loaded future comparisons**)
 	- *PROBLEM*: Card selection takes too long
 	- *SOLUTION*: Quicken card selection process by preloading the possible future cards so that when the player makes a comparison, the next card(s) to load-in is already present in memory.
-
-- [x] (**add filters to comparison pool**) On left side of the `Play` screen, on the same level as the `Keep Winner` toggle, add a `Filter` button. Support the ability to filter by field names from the database. To start, only implement filtering on `cards.rarity`. When the user clicks the `Filter` button, a modal should popup that includes a search box titled `Rarity` above it. When the user clicks on the search box, the different values for `cards.rarity` column populate a scrollable dropdown menu. When the user types into the search box, only those values that contain the inputed string (when both are brought to lowercase) remain. There is a checkbox next to each of the values. When the user selects one of those values, it stays highlighted, and a small box with the name of the applied filter pops up next to the search box. In the code, this area will be called the `applied_filter area`. In this modal, there are three options to exit. First, the user can click the `Apply` button, which applies the filters and ensures that the next set of cards meets the filter criteria (that will required updating the `comparison/next` GET function). Next, there will be an `x` in the upper right corner that, when clicked, exits out without applying the filters. Or, the user can click anywhere outside of the modal, and the modal will close without applying filters (same function as hitting `x`).
 
 - [ ] (**load more cards**) Currently, we're only loading in ~100 cards from the database, rather than all of them. 
 
@@ -38,21 +36,3 @@
 - [ ] (**add `dark mode` toggle**)
 
 - [ ] (**"hard-choice tracker**) A "hard-choice" is one that takes more than `n` second. We should have a panel to see wha those are.
-
-
-## STRUCTURAL
-
-- (**add `Card` object**) Add a `Card` object to easisly interface with and store the data of a card.
-
-# LEARNING
-
-- [ ] In `ComparisonScreen.tsx`, why is `rarityQuery` wrapped in `useCallback`
-  reading `selectedRaritiesRef.current` instead of just closing over the
-  `selectedRarities` state directly — what breaks in `loadNextPair` if it
-  depended on the state value instead of the ref?
-
-- [ ] In `next/route.ts`, the keep-winner branch now fetches the winner card
-  separately when it's missing from the rarity-filtered pool. What category of
-  bug would a naive `.in("rarity", rarities)` filter introduce here if we
-  *didn't* special-case the held winner, and why does the fresh challenger not
-  need the same treatment?

@@ -44,3 +44,19 @@
 - [ ] In `next/route.ts`, `supply_winner_with_fresh_card` prefers a card with no prior comparison to the winner and only then sorts by `Math.abs(x.r - winner.r) || y.rd - x.rd`. Why is an *unseen* opponent more informative than re-pitting the winner against a closely-rated card it has already beaten?
 
 - [ ] In `ComparisonScreen.tsx`, why is `keepWinner` mirrored into `keepWinnerRef` (synced in a `useEffect`) and read as `keepWinnerRef.current` inside `handlePick`, rather than just reading the `keepWinner` state variable directly?
+
+- [ ] In `ComparisonScreen.tsx`, why is `rarityQuery` wrapped in `useCallback`
+  reading `selectedRaritiesRef.current` instead of just closing over the
+  `selectedRarities` state directly — what breaks in `loadNextPair` if it
+  depended on the state value instead of the ref?
+
+- [ ] In `rankings/route.ts`, why does filtering by rarity require
+  `cards!inner(...)` plus `.in("cards.rarity", rarities)` rather than a plain
+  `cards(...)` embed — what would the query return for a ranked card whose rarity
+  doesn't match if the join stayed a left/outer one?
+
+- [ ] `RarityFilterModal.tsx` was moved into `src/components/` and is now
+  consumed by both `ComparisonScreen` and `rankings/page`. Why does keeping the
+  modal stateless about *what* gets filtered (it only emits a `string[]` via
+  `onApply`) let the same component drive two different fetches — and what would
+  couple it to one screen if it called the API itself?
