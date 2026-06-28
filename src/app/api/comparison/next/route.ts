@@ -57,15 +57,20 @@ function supply_winner_with_fresh_card(
 export async function GET(request: NextRequest) {
   const playerId = request.nextUrl.searchParams.get("playerId");
   const winnerId = request.nextUrl.searchParams.get("winnerId");
+  // Optional, repeatable: ?rarity=Common&rarity=Rare — restrict the pool to cards
+  // whose rarity is any of the selected values (OR semantics).
+  const rarities = request.nextUrl.searchParams.getAll("rarity");
   if (!playerId) {
     return NextResponse.json({ error: "playerId is required" }, { status: 400 });
   }
 
   const supabase = createClient(await cookies());
 
-  const { data: cards, error: cardsError } = await supabase
-    .from("cards")
-    .select("card_id, name, image_url");
+  let cardsQuery = supabase.from("cards").select("card_id, name, image_url");
+  if (rarities.length > 0) {
+    cardsQuery = cardsQuery.in("rarity", rarities);
+  }
+  const { data: cards, error: cardsError } = await cardsQuery;
   if (cardsError) {
     return NextResponse.json({ error: cardsError.message }, { status: 500 });
   }
@@ -91,9 +96,20 @@ export async function GET(request: NextRequest) {
 
   let pair: [RatedCard, RatedCard];
   if (winnerId) {
-    const winner = ratedCards.find((card) => card.card_id === winnerId);
+    // The held winner may sit outside an active rarity filter, so it won't be in
+    // the filtered pool. Fetch it directly in that case rather than 404-ing — the
+    // fresh challenger still comes from the filtered pool below.
+    let winner = ratedCards.find((card) => card.card_id === winnerId);
     if (!winner) {
-      return NextResponse.json({ error: "winnerId not found" }, { status: 404 });
+      const { data: winnerCard, error: winnerError } = await supabase
+        .from("cards")
+        .select("card_id, name, image_url")
+        .eq("card_id", winnerId)
+        .single();
+      if (winnerError || !winnerCard) {
+        return NextResponse.json({ error: "winnerId not found" }, { status: 404 });
+      }
+      winner = { ...winnerCard, ...(rankByCardId.get(winnerId) ?? DEFAULT_RATING) };
     }
 
     // Which cards has the winner already been compared against (as either side)?
