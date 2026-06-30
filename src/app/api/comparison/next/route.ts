@@ -36,12 +36,13 @@ const POOL_SAMPLE_SIZE = 1000;
 // pool (no effect when the pool already fits in one window).
 const SAMPLE_RETRIES = 4;
 
-// The price filter ranges over `highest_price` (the highest listed value). All three
-// price columns share identical non-null coverage, but highest_price surfaces the most
-// cards above a threshold and best matches a card's known top value. PRICE_JUNK is a
-// sentinel/placeholder (e.g. Base Set Blastoise's 9999) treated as "no price".
-const PRICE_COLUMN = "highest_price";
-const PRICE_JUNK = 9999;
+// The price filter ranges over `market_price` — the value derived from recent actual
+// sales (the closest thing to a "last sold" price). `lowest_price`/`highest_price` are
+// just the cheapest/priciest current LISTINGS (asking prices): in 99% of rows
+// lowest <= market <= highest, so those bracket the market value. PRICE_JUNK is the 0
+// sentinel market_price uses for "no sales data" (e.g. Mewtwo Star), treated as no price.
+const PRICE_COLUMN = "market_price";
+const PRICE_JUNK = 0;
 
 // A non-buzzword "Rare" is only worth comparing if it's genuinely vintage: HeartGold
 // & SoulSilver (ends Feb 2011) and earlier. The modern era begins with Black & White

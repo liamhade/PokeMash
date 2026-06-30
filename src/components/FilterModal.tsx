@@ -129,10 +129,10 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
 
         <h2 className="mb-4 text-lg font-semibold text-neutral-800">Filter cards</h2>
 
-        {/* Price range — filters on each card's highest listed value (USD) */}
+        {/* Price range — filters on each card's market value (recent-sale based), USD */}
         <section className="mb-5">
           <h3 className="mb-1 text-sm font-semibold text-neutral-700">Price (USD)</h3>
-          <p className="mb-2 text-xs text-neutral-400">By each card&rsquo;s highest listed value.</p>
+          <p className="mb-2 text-xs text-neutral-400">By each card&rsquo;s market value (recent sales).</p>
           <div className="flex items-center gap-2">
             <input
               type="number"

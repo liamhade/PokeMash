@@ -431,11 +431,16 @@
   render labels via `SERIES_LABEL`. Why does the API need zero changes for the Original
   rename but a real change for Legendary Collection?
 
-- [ ] The price filter switched from `market_price` to `highest_price` even though all three
-  price columns have identical non-null coverage. If coverage is identical, what actually
-  changed about which cards surface for `minPrice=800`, and why was "most data populated"
-  the wrong axis to compare the columns on?
+- [ ] The price filter landed on `market_price` (recent-sale value), not `highest_price`
+  (top listing), after a detour. Given all three columns have identical non-null coverage,
+  what distinguishes a *listing/asking* price from a *sold* price, and why does that make
+  `market_price` the right basis even though it surfaces far fewer cards over $800?
 
-- [ ] The price filter excludes rows where `highest_price === PRICE_JUNK` (9999). What goes
-  wrong for a `minPrice` filter if that sentinel is left in, and why is excluding it safer
-  than trusting it as a real value even though it costs us a few genuinely-pricey cards?
+- [ ] In 99% of rows `lowest_price <= market_price <= highest_price`. How does that ordering
+  evidence support reading lowest/highest as the listing range and market as the sold value
+  — and what would it have implied if `market` frequently sat *outside* that range?
+
+- [ ] `PRICE_JUNK` changed from 9999 (highest_price's troll-listing sentinel) to 0
+  (market_price's "no sales data" sentinel) when the column switched. Why is the junk value
+  column-specific, and what filter bug appears if a `maxPrice`-only filter forgets to
+  exclude it?
