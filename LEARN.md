@@ -190,3 +190,13 @@
 - [ ] `randomFloat` sets a `key` on the inner span. In Keep Winner mode the winning
   card keeps the same `card_id` across rounds — what would the animation do on a
   repeat win if that `key` stayed constant, and why does changing it fix it?
+
+- [ ] The float was moved out of the sliding `<button>` into a `relative` wrapper
+  `<div>`. Since the button slides via a CSS `transform`, why does the wrapper keep
+  occupying the card's original box — and why was that the fix for the number riding
+  off-screen with the card instead of staying in the white margin?
+
+- [ ] The `elo-float` keyframe holds opacity 1 from 25% to 60% before fading, rather
+  than fading continuously. Given the losing card slides away ~500ms after the pick
+  and the animation runs 1300ms, why does the hold-then-fade shape satisfy "don't
+  fade until the card disappears" without any JS coordinating the two timings?

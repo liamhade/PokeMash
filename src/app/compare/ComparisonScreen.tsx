@@ -20,15 +20,22 @@ function positionsFor(cards: Card[], position: Position): Record<string, Positio
   return Object.fromEntries(cards.map((card) => [card.card_id, position]));
 }
 
-// A floating "+X / -Y" rating change shown over a card after a pick. dx/dy are a
-// random outward direction (px); key forces React to remount and restart the
-// animation when the same card scores again in Keep Winner mode.
+// A floating "+X / -Y" rating change shown beside a card after a pick. dx/dy are the
+// resting offset (px); key forces React to remount and restart the animation when the
+// same card scores again in Keep Winner mode.
 type FloatDelta = { delta: number; dx: number; dy: number; key: number };
 
-function randomFloat(delta: number): FloatDelta {
-  const angle = Math.random() * 2 * Math.PI;
-  const distance = 90 + Math.random() * 60;
-  return { delta, dx: Math.cos(angle) * distance, dy: Math.sin(angle) * distance, key: Math.random() };
+// Land the number in the white margin on the card's OUTER side (away from the other
+// card) so it's readable off the card art, with a random vertical spread. dx clears
+// the card's ~130px half-width; dy stays within its height so it reads alongside it.
+function randomFloat(delta: number, side: "left" | "right"): FloatDelta {
+  const outward = side === "left" ? -1 : 1;
+  return {
+    delta,
+    dx: outward * (150 + Math.random() * 80), // 150–230px to the outer side
+    dy: (Math.random() - 0.5) * 200, // ±100px vertical spread
+    key: Math.random(),
+  };
 }
 
 export default function ComparisonScreen() {
@@ -43,10 +50,10 @@ export default function ComparisonScreen() {
 
   // Rating-change numbers currently floating over cards, keyed by card id.
   const [floats, setFloats] = useState<Record<string, FloatDelta>>({});
-  // Show a "+X / -Y" over a card. delta 0 isn't worth animating.
-  function showFloat(cardId: string, delta: number) {
+  // Show a "+X / -Y" beside a card. delta 0 isn't worth animating.
+  function showFloat(cardId: string, delta: number, side: "left" | "right") {
     if (!delta) return;
-    setFloats((prev) => ({ ...prev, [cardId]: randomFloat(delta) }));
+    setFloats((prev) => ({ ...prev, [cardId]: randomFloat(delta, side) }));
   }
   function clearFloat(cardId: string) {
     setFloats((prev) => {
@@ -146,13 +153,15 @@ export default function ComparisonScreen() {
       }),
     });
 
-    // Float the rating change over each card (+X green winner, -Y red loser).
+    // Float the rating change beside each card (+X green winner, -Y red loser), each
+    // drifting out toward its own side. cards[0] renders on the left, cards[1] right.
     const { winnerDelta, loserDelta } = (await res.json()) as {
       winnerDelta: number;
       loserDelta: number;
     };
-    showFloat(winner.card_id, winnerDelta);
-    showFloat(loser.card_id, loserDelta);
+    const winnerSide = cards[0].card_id === winner.card_id ? "left" : "right";
+    showFloat(winner.card_id, winnerDelta, winnerSide);
+    showFloat(loser.card_id, loserDelta, winnerSide === "left" ? "right" : "left");
 
     if (keepWinnerRef.current) {
       await swapLoserForFresh(winner, loser, playerId);
@@ -212,31 +221,35 @@ export default function ComparisonScreen() {
           const float = floats[card.card_id];
 
           return (
-            <button
-              key={card.card_id}
-              onClick={() => handlePick(card)}
-              onMouseEnter={() => setHoveredId(card.card_id)}
-              onMouseLeave={() => setHoveredId(null)}
-              className={[
-                "relative rounded-xl transition-all duration-500 ease-out",
-                POSITION_CLASS[pos[card.card_id] ?? "below"],
-                isHovered ? "scale-110" : "scale-100",
-                isHovered ? "shadow-[0_0_40px_12px_rgba(0,0,0,0.25)]" : "",
-                isPicked ? "shadow-[0_0_40px_12px_rgba(34,197,94,0.9)]" : "",
-              ].join(" ")}
-            >
-              <Image
-                src={card.image_url}
-                alt={card.name}
-                width={260}
-                height={360}
-                className="rounded-xl"
-                priority
-              />
+            // Wrapper stays put (the button's slide is a transform, which doesn't
+            // affect layout), so the float anchored here stays in the white margin
+            // while the card slides away instead of riding off-screen with it.
+            <div key={card.card_id} className="relative">
+              <button
+                onClick={() => handlePick(card)}
+                onMouseEnter={() => setHoveredId(card.card_id)}
+                onMouseLeave={() => setHoveredId(null)}
+                className={[
+                  "relative rounded-xl transition-all duration-500 ease-out",
+                  POSITION_CLASS[pos[card.card_id] ?? "below"],
+                  isHovered ? "scale-110" : "scale-100",
+                  isHovered ? "shadow-[0_0_40px_12px_rgba(0,0,0,0.25)]" : "",
+                  isPicked ? "shadow-[0_0_40px_12px_rgba(34,197,94,0.9)]" : "",
+                ].join(" ")}
+              >
+                <Image
+                  src={card.image_url}
+                  alt={card.name}
+                  width={260}
+                  height={360}
+                  className="rounded-xl"
+                  priority
+                />
+              </button>
 
-              {/* Rating change floating off the card. Outer span pins to the card
-                  centre; inner span runs the drift-and-fade (its own transform), so
-                  re-mounting via `key` restarts a fresh random direction each pick. */}
+              {/* Rating change floating off the card into the white margin. Outer span
+                  pins to the card centre; inner span runs the drift-and-fade (its own
+                  transform), so re-mounting via `key` restarts a fresh drift each pick. */}
               {float && (
                 <span className="pointer-events-none absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2">
                   <span
@@ -258,7 +271,7 @@ export default function ComparisonScreen() {
                   </span>
                 </span>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
