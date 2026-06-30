@@ -31,15 +31,35 @@ const ERAS = [
   { value: "modern", label: "Modern", hint: "2017+" },
 ];
 
-// The distinct `cards.set` (series) values, newest era first. Static list because
-// PostgREST can't SELECT DISTINCT without an RPC; regenerate when the catalog gains a
-// new series (keep in sync with the API's ERA_SETS).
-const SERIES = [
-  "Mega Evolution", "Scarlet & Violet", "Sword & Shield", "Sun & Moon", "XY",
-  "Black & White", "HeartGold & SoulSilver", "Platinum", "Diamond & Pearl", "EX",
-  "E-Card", "Neo", "Gym", "Classic", "Promos", "POP", "Collections",
-  "Other",
+// Selectable series, newest era first. `value` is the token sent to the API; `label` is
+// what the user sees. Most values are `cards.set` values, but a few are curated: "Original"
+// is the WOTC `Classic` set under a friendlier name, and "Legendary Collection" is a pack
+// (carved out of the `Other` set) the API matches specially. Static list (PostgREST can't
+// SELECT DISTINCT without an RPC); regenerate / keep in sync with the API's series logic.
+const SERIES: { label: string; value: string }[] = [
+  { label: "Mega Evolution", value: "Mega Evolution" },
+  { label: "Scarlet & Violet", value: "Scarlet & Violet" },
+  { label: "Sword & Shield", value: "Sword & Shield" },
+  { label: "Sun & Moon", value: "Sun & Moon" },
+  { label: "XY", value: "XY" },
+  { label: "Black & White", value: "Black & White" },
+  { label: "HeartGold & SoulSilver", value: "HeartGold & SoulSilver" },
+  { label: "Platinum", value: "Platinum" },
+  { label: "Diamond & Pearl", value: "Diamond & Pearl" },
+  { label: "EX", value: "EX" },
+  { label: "E-Card", value: "E-Card" },
+  { label: "Neo", value: "Neo" },
+  { label: "Gym", value: "Gym" },
+  { label: "Original", value: "Classic" },
+  { label: "Legendary Collection", value: "Legendary Collection" },
+  { label: "Promos", value: "Promos" },
+  { label: "POP", value: "POP" },
+  { label: "Collections", value: "Collections" },
+  { label: "Other", value: "Other" },
 ];
+
+// Look up a series label from its value (selected state stores values).
+const SERIES_LABEL = new Map(SERIES.map((s) => [s.value, s.label]));
 
 type Props = {
   // Seeds the working selection so reopening restores the applied state.
@@ -69,8 +89,8 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
     return next;
   }
 
-  const visibleSeries = SERIES.filter((name) =>
-    name.toLowerCase().includes(seriesSearch.toLowerCase()),
+  const visibleSeries = SERIES.filter((option) =>
+    option.label.toLowerCase().includes(seriesSearch.toLowerCase()),
   );
 
   function clearAll() {
@@ -168,22 +188,25 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
           {/* applied_filter area: a removable chip per selected series. */}
           {series.size > 0 && (
             <div className="mb-2 flex flex-wrap gap-2">
-              {[...series].map((name) => (
-                <span
-                  key={name}
-                  className="flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-700"
-                >
-                  {name}
-                  <button
-                    type="button"
-                    onClick={() => setSeries((prev) => toggle(prev, name))}
-                    aria-label={`Remove ${name}`}
-                    className="text-red-500 hover:text-red-800"
+              {[...series].map((value) => {
+                const label = SERIES_LABEL.get(value) ?? value;
+                return (
+                  <span
+                    key={value}
+                    className="flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-700"
                   >
-                    &times;
-                  </button>
-                </span>
-              ))}
+                    {label}
+                    <button
+                      type="button"
+                      onClick={() => setSeries((prev) => toggle(prev, value))}
+                      aria-label={`Remove ${label}`}
+                      className="text-red-500 hover:text-red-800"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                );
+              })}
             </div>
           )}
 
@@ -198,10 +221,10 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
 
           {seriesOpen && (
             <ul className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-neutral-200">
-              {visibleSeries.map((name) => {
-                const isSelected = series.has(name);
+              {visibleSeries.map((option) => {
+                const isSelected = series.has(option.value);
                 return (
-                  <li key={name}>
+                  <li key={option.value}>
                     <label
                       className={[
                         "flex cursor-pointer select-none items-center gap-3 px-3 py-2",
@@ -211,10 +234,10 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => setSeries((prev) => toggle(prev, name))}
+                        onChange={() => setSeries((prev) => toggle(prev, option.value))}
                         className="h-4 w-4 accent-red-600"
                       />
-                      <span className="text-neutral-800">{name}</span>
+                      <span className="text-neutral-800">{option.label}</span>
                     </label>
                   </li>
                 );

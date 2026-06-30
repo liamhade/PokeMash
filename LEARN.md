@@ -420,3 +420,13 @@
   ranges (the correctness authority) while leaving `ERA_SETS` stale not produce *wrong*
   cards, but instead degrade the resample success rate — and which series would have started
   flaking if EX (2003–07) had been left in the `middle` set-list?
+
+- [ ] "Legendary Collection" is a `pack` inside the `Other` set, yet it's exposed as its own
+  series and removed from the `Other` option. Trace how `matchesSeries` keeps the two
+  disjoint, and why `seriesWindowSets` still maps "Legendary Collection" to the `Other` set
+  for the DB pre-filter rather than filtering on `pack` in the query.
+
+- [ ] In `FilterModal`, `SERIES` entries now carry separate `label`/`value` (e.g. label
+  "Original" → value "Classic"), and the selected-state `Set` stores values while the chips
+  render labels via `SERIES_LABEL`. Why does the API need zero changes for the Original
+  rename but a real change for Legendary Collection?

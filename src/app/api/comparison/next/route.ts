@@ -8,7 +8,12 @@ type Card = { card_id: string; name: string; image_url: string };
 // A card joined with this player's Glicko-2 rating for it (r, rd, mu).
 type RatedCard = Card & { r: number; rd: number; mu: number };
 // The extra columns we need to decide pool eligibility (not sent to the client).
-type CardRow = Card & { rarity: string; release_date: string | null };
+type CardRow = Card & {
+  set: string | null;
+  pack: string | null;
+  rarity: string;
+  release_date: string | null;
+};
 
 // --- Comparison pool eligibility -------------------------------------------
 // Comparing Common/Uncommon cards is boring, and "interesting" differs by era.
@@ -76,6 +81,26 @@ function releaseYear(releaseDate: string | null): number | null {
   if (!releaseDate) return null;
   const date = new Date(releaseDate.trim());
   return Number.isNaN(date.getTime()) ? null : date.getFullYear();
+}
+
+// "Legendary Collection" is a curated pseudo-series: in the data it's a `pack` inside the
+// `Other` set, not a `set` of its own. We expose it as its own filter option and carve it
+// out of the `Other` option, both handled by matchesSeries (and mapped to the `Other` set
+// for DB windowing). LEGENDARY_COLLECTION is the filter token; the PACK is its data value.
+const LEGENDARY_COLLECTION = "Legendary Collection";
+const LEGENDARY_COLLECTION_PACK = "Legendary Collection (LC)";
+
+// True if the card belongs to any selected series. Most series are matched on the `set`
+// column; the two exceptions keep Legendary Collection and Other disjoint: "Legendary
+// Collection" matches its pack, and "Other" matches the Other set MINUS that pack. No
+// series selected means "no series filter", so everything passes.
+function matchesSeries(row: CardRow, series: string[]): boolean {
+  if (series.length === 0) return true;
+  return series.some((name) => {
+    if (name === LEGENDARY_COLLECTION) return row.pack === LEGENDARY_COLLECTION_PACK;
+    if (name === "Other") return row.set === "Other" && row.pack !== LEGENDARY_COLLECTION_PACK;
+    return row.set === name;
+  });
 }
 
 // True if the card's release year falls in any of the selected eras. No eras
@@ -221,6 +246,11 @@ export async function GET(request: NextRequest) {
   // prices are parsed to numbers (ignored if blank/NaN). Empty = filter not applied.
   const seriesFilter = (params.get("series") ?? "").split(",").filter(Boolean);
   const eraFilter = (params.get("eras") ?? "").split(",").filter(Boolean);
+  // For DB windowing each series maps to its underlying `set` (Legendary Collection lives
+  // in the Other set); matchesSeries() then refines precisely in JS. De-duplicated.
+  const seriesWindowSets = [
+    ...new Set(seriesFilter.map((name) => (name === LEGENDARY_COLLECTION ? "Other" : name))),
+  ];
   const minPrice = Number(params.get("minPrice"));
   const maxPrice = Number(params.get("maxPrice"));
   const hasMin = params.get("minPrice") !== null && !Number.isNaN(minPrice);
@@ -245,7 +275,7 @@ export async function GET(request: NextRequest) {
     .from("cards")
     .select("card_id", { count: "exact", head: true })
     .not("rarity", "in", excludeList);
-  if (seriesFilter.length) countQuery = countQuery.in("set", seriesFilter);
+  if (seriesWindowSets.length) countQuery = countQuery.in("set", seriesWindowSets);
   if (eraSets.length) countQuery = countQuery.in("set", eraSets);
   if (hasMin) countQuery = countQuery.not("market_price", "is", null).gte("market_price", minPrice);
   if (hasMax) countQuery = countQuery.not("market_price", "is", null).lte("market_price", maxPrice);
@@ -258,9 +288,9 @@ export async function GET(request: NextRequest) {
   async function sampleEligible(offset: number): Promise<Card[]> {
     let rowsQuery = supabase
       .from("cards")
-      .select("card_id, name, image_url, rarity, release_date")
+      .select("card_id, name, image_url, set, pack, rarity, release_date")
       .not("rarity", "in", excludeList);
-    if (seriesFilter.length) rowsQuery = rowsQuery.in("set", seriesFilter);
+    if (seriesWindowSets.length) rowsQuery = rowsQuery.in("set", seriesWindowSets);
     if (eraSets.length) rowsQuery = rowsQuery.in("set", eraSets);
     if (hasMin) rowsQuery = rowsQuery.not("market_price", "is", null).gte("market_price", minPrice);
     if (hasMax) rowsQuery = rowsQuery.not("market_price", "is", null).lte("market_price", maxPrice);
@@ -272,7 +302,12 @@ export async function GET(request: NextRequest) {
     // year-check trims boundary series the DB set-filter can't (release_date is free text).
     const byId = new Map<string, Card>();
     for (const row of (rows ?? []) as CardRow[]) {
-      if (isEligible(row) && matchesEras(row.release_date, eraFilter) && !byId.has(row.card_id)) {
+      if (
+        isEligible(row) &&
+        matchesSeries(row, seriesFilter) &&
+        matchesEras(row.release_date, eraFilter) &&
+        !byId.has(row.card_id)
+      ) {
         byId.set(row.card_id, { card_id: row.card_id, name: row.name, image_url: row.image_url });
       }
     }
