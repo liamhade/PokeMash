@@ -201,12 +201,12 @@
   and the animation runs 1300ms, why does the hold-then-fade shape satisfy "don't
   fade until the card disappears" without any JS coordinating the two timings?
 
-- [ ] A stale `-Y` was replaying when a previously-lost card returned. Trace exactly
-  why `onAnimationEnd` failed to clean up the loser's float entry, and why a card
-  unmounting mid-animation is the trigger — what's the lifecycle gap a `setTimeout`
-  in `showFloat` closes that the DOM event can't?
+- [ ] The stale `-Y` bug worsened from "sometimes" to "every time" over a session.
+  Explain how each loser leaking a `floats` entry (its wrapper unmounts before
+  `onAnimationEnd`) turns into an *accumulating* set, and why that makes a returning
+  card progressively more likely to collide with a leftover entry.
 
-- [ ] `FLOAT_DURATION_MS` (1300) duplicates the `1.3s` in the `.elo-float` CSS — a
-  deliberate coupling. What goes wrong if the two drift apart (in each direction:
-  timer shorter vs. longer than the animation), and what would it take to derive one
-  from the other instead of hand-syncing?
+- [ ] The first fix attempt was a `setTimeout(clearFloat, 1300)` in `showFloat`; the
+  real fix clears floats deterministically on board changes (`loadNextPair` resets,
+  swap clears loser+incoming). Why is "clean up when the board changes" more reliable
+  than "clean up after a duration" for state tied to which cards are on screen?
