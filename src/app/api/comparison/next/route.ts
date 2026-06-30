@@ -50,24 +50,30 @@ function isEnergyCard(name: string): boolean {
   return /\bEnergy$/i.test(stripped);
 }
 
-// "Promo" and "Rare" are catch-all rarities that lump boring non-holos in with the
-// occasional buzzword chase card (e.g. "Deoxys ex", "Umbreon Star"). We keep such a
-// card only when its name carries a featured mechanic. Full-art cards always get
-// their own distinct rarity (e.g. Reshiram 113/114 is "Ultra Rare"), so this never
-// drops a full art. The mechanic is a trailing token, so we anchor on the name's end.
+// "Promo", "Rare" and "Rare Holo" are catch-all rarities that lump boring non-holos
+// / plain modern foils in with the occasional buzzword chase card (e.g. "Deoxys ex",
+// "Umbreon Star"). We keep such a card only when its name carries a featured mechanic.
+// Full-art cards always get their own distinct rarity (e.g. Reshiram 113/114 is
+// "Ultra Rare"), so this never drops a full art. The mechanic is a trailing token,
+// so we anchor on the name's end.
 const FEATURED_MECHANIC = /(\bGX|\bVMAX|\bVSTAR|\bV|\bex|\bEX|\bLV\.?X|\bBREAK|\bPrime|\bLEGEND|\bStar|★)$/;
 function hasFeaturedMechanic(name: string): boolean {
   return FEATURED_MECHANIC.test(name.trim());
 }
 
+// Rarities judged by name/era rather than rarity alone: a "Rare"/"Rare Holo" is kept
+// with a featured mechanic OR if genuinely vintage (pre-Black & White); a "Promo"
+// only with a mechanic (a promo has no reliable date-era meaning).
+const VINTAGE_ELIGIBLE_RARITIES = new Set(["Rare", "Rare Holo"]);
+
 // The rules a SQL `not in` filter can't express: drop energy cards; keep a "Promo"
-// only with a featured mechanic; keep a "Rare" with a featured mechanic OR if it's
-// genuinely vintage (pre-Black & White). (The always-dropped rarities are excluded
-// in the query.)
+// only with a featured mechanic; keep a "Rare"/"Rare Holo" with a featured mechanic
+// OR if it's genuinely vintage. (The always-dropped rarities are excluded in the query.)
 function isEligible(row: CardRow): boolean {
   if (isEnergyCard(row.name)) return false;
   if (row.rarity === "Promo") return hasFeaturedMechanic(row.name);
-  if (row.rarity === "Rare") return hasFeaturedMechanic(row.name) || isVintage(row.release_date);
+  if (VINTAGE_ELIGIBLE_RARITIES.has(row.rarity))
+    return hasFeaturedMechanic(row.name) || isVintage(row.release_date);
   return true;
 }
 

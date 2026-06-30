@@ -167,3 +167,12 @@
   facts: Reshiram 113/114 is stored as `Ultra Rare`, and 0 of 2601 `Rare` cards have
   secret-style numbering (numerator > denominator). Why is that pair of observations
   stronger evidence than either alone, and what single counterexample would break it?
+
+- [ ] `Rare` and `Rare Holo` were unified into `VINTAGE_ELIGIBLE_RARITIES` (a Set)
+  rather than two `if` branches. What made a Set the right structure here, and at what
+  point (how many such rarities) does that beat chained `||` comparisons for clarity?
+
+- [ ] Both a 1999 Base Set Charizard and a 2018 Scizor are stored as `Rare Holo`, yet
+  one is a chase card and the other a plain foil. Since the rarity value is identical,
+  what single field distinguishes them in our rule — and why is that more reliable
+  here than, say, trying to read "holo-ness" or art type from the data?
