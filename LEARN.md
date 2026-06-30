@@ -255,3 +255,9 @@
   property of `next/font`'s generated family name makes it incompatible with
   `@font-palette-values { font-family: ... }`, and what did self-hosting cost us that
   next/font gave for free?
+
+- [ ] Switching to Bitcount Prop Single let us delete the @font-face, both
+  @font-palette-values, the self-hosted .ttf, and the inline `fontPalette` — back to
+  one `next/font` line + `text-green-500`/`text-red-500`. What single property of the
+  font made all that machinery unnecessary, and what cheap check (which table?) would
+  have flagged the Coral Pixels detour up front?

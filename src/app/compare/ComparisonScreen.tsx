@@ -265,11 +265,7 @@ export default function ComparisonScreen() {
                       {
                         "--float-x": `${float.dx}px`,
                         "--float-y": `${float.dy}px`,
-                        fontFamily: "var(--font-elo)", // Coral Pixels (see globals.css)
-                        // Coral Pixels is a color font, so we recolor it via a palette
-                        // override, not CSS color. text-green/red below is just the
-                        // fallback color if the font fails to load (monochrome glyph).
-                        fontPalette: float.delta > 0 ? "--elo-win" : "--elo-lose",
+                        fontFamily: "var(--font-elo)", // Bitcount Prop Single (see layout.tsx)
                       } as React.CSSProperties
                     }
                     className={[

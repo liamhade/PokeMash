@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Source_Code_Pro } from "next/font/google";
+import { Source_Code_Pro, Bitcount_Prop_Single } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 
@@ -12,10 +12,12 @@ const sourceCodePro = Source_Code_Pro({
   subsets: ["latin"],
 });
 
-// The ELO-float font (Coral Pixels) is NOT loaded here: it's a color (COLR/CPAL)
-// font we recolor with @font-palette-values, which needs a fixed family name that
-// next/font's hashed names can't provide. It's self-hosted via @font-face in
-// globals.css instead.
+// Pixel font for the floating ELO change numbers (--font-elo). Monochrome, so the
+// green/red is applied with normal CSS color in ComparisonScreen.
+const bitcountPropSingle = Bitcount_Prop_Single({
+  variable: "--font-elo",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
   title: "PokeMash",
@@ -30,7 +32,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sourceCodePro.variable} h-full antialiased`}
+      className={`${sourceCodePro.variable} ${bitcountPropSingle.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <NavBar />
