@@ -62,5 +62,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  // Whole-point rating changes, for the floating "+X / -Y" the Play screen shows
+  // after a pick. winnerDelta is normally positive, loserDelta negative.
+  return NextResponse.json({
+    ok: true,
+    winnerDelta: Math.round(newWinnerRating.r - winnerRating.r),
+    loserDelta: Math.round(newLoserRating.r - loserRating.r),
+  });
 }
