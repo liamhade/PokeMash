@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Source_Code_Pro, Pixelify_Sans } from "next/font/google";
+import { Source_Code_Pro, Coral_Pixels } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 
@@ -13,9 +13,11 @@ const sourceCodePro = Source_Code_Pro({
 });
 
 // Decorative pixel font used only for the floating ELO change numbers (--font-elo).
-const pixelifySans = Pixelify_Sans({
+// Coral Pixels ships a single weight, so next/font requires an explicit `weight`.
+const coralPixels = Coral_Pixels({
   variable: "--font-elo",
   subsets: ["latin"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -31,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sourceCodePro.variable} ${pixelifySans.variable} h-full antialiased`}
+      className={`${sourceCodePro.variable} ${coralPixels.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <NavBar />

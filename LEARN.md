@@ -242,11 +242,11 @@
   each its own `next/font` call. What's the cost of adding a third font this way, and
   when does "one variable per font, applied where needed" beat a single global font?
 
-- [ ] The coral color uses Tailwind's arbitrary value `text-[#ff7f50]` instead of a
-  named utility like `text-green-500`. When is reaching for an arbitrary value the
-  right call, and what do you give up (theme consistency, reuse) versus defining a
-  color token once?
+- [ ] "Coral Pixels" was first misread as a coral *color* and then corrected to a
+  *font*. Looking at the diff, which file did each interpretation touch
+  (`ComparisonScreen.tsx` className vs `layout.tsx` import) — and what does that say
+  about where "font" vs "color" decisions live in this codebase?
 
-- [ ] Coloring both floats coral drops the green/red win-vs-loss cue, leaving only the
-  `+`/`-` sign. What does that trade between aesthetics and at-a-glance readability,
-  and for whom (e.g. color-blind users) might the sign-only signal actually be better?
+- [ ] `Coral_Pixels` needs an explicit `weight: "400"` while `Source_Code_Pro` didn't.
+  What distinguishes a variable font from a single-weight one in `next/font/google`,
+  and why does the non-variable one force you to name a weight?

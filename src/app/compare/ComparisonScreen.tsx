@@ -271,7 +271,7 @@ export default function ComparisonScreen() {
                     className={[
                       "elo-float block text-4xl font-bold tabular-nums",
                       "drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]",
-                      "text-[#ff7f50]", // coral for both; the +/- sign signals win vs loss
+                      float.delta > 0 ? "text-green-500" : "text-red-500",
                     ].join(" ")}
                   >
                     {float.delta > 0 ? `+${float.delta}` : float.delta}
