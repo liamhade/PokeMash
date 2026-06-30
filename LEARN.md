@@ -107,3 +107,13 @@
 - [ ] Suppressing a lint rule with a targeted `eslint-disable-next-line` + comment
   vs. restructuring the code to satisfy it: what's the risk of each, and what made
   the disable the honest choice here rather than hiding a real bug?
+
+- [ ] In `next/route.ts`, why is the `Common/Uncommon/No Rarity/Double Rare`
+  exclusion done in the SQL `not in` filter, but the plain-`Rare` era rule done in
+  JS via `isEligible`? What property of `release_date` forces that split, and what
+  would break if I tried to express `year < 2023` directly in the PostgREST query?
+
+- [ ] The route does a `count` query and then a `range(offset, offset + 1000)` at a
+  random offset instead of just selecting the first 1000 eligible cards. What
+  problem with PostgREST's row cap does the random window solve, and how does this
+  compare to the `order by random() limit` the SQL function version would use?

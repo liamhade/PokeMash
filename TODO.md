@@ -6,12 +6,14 @@
 	- *PROBLEM*: Card selection takes too long.
 	- *SOLUTION*: Quicken card selection process by preloading the possible future cards so that when the player makes a comparison, the next card(s) to load-in is already present in memory. This function must work for both selections of the `Keep Winner` toggle.
 
-- [ ] (**rarity-restricted comparison pool**)
+- [x] (**rarity-restricted comparison pool**) — DONE (in app code; see DONE.md). Follow-up below to move it into the DB.
 	- *PROBLEM*: Comparing common/uncommon cards is boring, so the comparison pool should exclude them — but "interesting" means different things per era.
-	- *SOLUTION*:
-		- **Vintage sets**: only load `rare` and `promo` cards.
-		- **Modern sets**: many more rarity tiers exist and modern `rare` cards aren't full arts, so only load **full-art** cards.
-	- *NOTE*: This supersedes the old manual rarity `Filter` button, which was **removed** from `ComparisonScreen.tsx` (the `FilterButton`/`RarityFilterModal` components and `/api/filters/rarity` route are left in the repo + git history so the filter UI can be reintroduced alongside this rule if we want manual override later).
+	- *SOLUTION (as built)*: `/api/comparison/next` now drops `Common`/`Uncommon`/`No Rarity`/`Double Rare` (the modern ex, not full art), keeps plain `Rare` only for vintage sets (release year < `VINTAGE_CUTOFF_YEAR` = 2023), and keeps everything else (all holo/ex/GX/V/Illustration/Ultra/Secret/Promo/Trainer Gallery/Mega rarities). Net effect: vintage = rares + promo; modern = full-arts only.
+	- *NOTE*: This superseded the old manual rarity `Filter` button (removed earlier; `FilterButton`/`RarityFilterModal`/`api/filters/rarity` kept in repo + git history for possible reintroduction).
+
+- [ ] (**move comparison pool rule into the database**)
+	- *PROBLEM*: The rarity rule above lives in TypeScript because the app's read-only key can't create DB objects. That means an extra `cards` read per request and logic split from the data.
+	- *SOLUTION*: Apply `supabase/migrations/20260630_comparison_pool.sql` (creates `comparison_pool()`), then switch `/api/comparison/next` back to `supabase.rpc("comparison_pool")`. Needs someone with Supabase DB access.
 
 - [ ] (**increase new card novetly**) 
 	- *PROBLEM*: Card comparisons don't feel new enough. Currently, the comparison function often compares the same cards over and over again, rather than pulling new cards from the database. 

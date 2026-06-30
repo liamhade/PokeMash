@@ -6,6 +6,42 @@ import { DEFAULT_RATING } from "@/lib/glicko2";
 type Card = { card_id: string; name: string; image_url: string };
 // A card joined with this player's Glicko-2 rating for it (r, rd, mu).
 type RatedCard = Card & { r: number; rd: number; mu: number };
+// The extra columns we need to decide pool eligibility (not sent to the client).
+type CardRow = Card & { rarity: string; release_date: string | null };
+
+// --- Comparison pool eligibility -------------------------------------------
+// Comparing Common/Uncommon cards is boring, and "interesting" differs by era.
+// These rules decide which cards may appear on the Play screen.
+//
+// NOTE: this logic is mirrored in supabase/migrations/20260630_comparison_pool.sql.
+// For now it lives here (the app's read-only key can't create that DB function);
+// move it into the database when someone with DB access can apply the migration.
+
+// Always excluded: boring base rarities + the modern ex card ("Double Rare",
+// which is framed art, not full art). Excluded server-side via a `not in` filter.
+const DROP_RARITIES = ["Common", "Uncommon", "No Rarity", "Double Rare"];
+
+// Plain "Rare" is era-dependent: a real chase card in VINTAGE sets, but in the
+// modern (Scarlet & Violet, 2023+) ladder it's a non-full-art black-star rare.
+// So keep "Rare" only for sets released before this year.
+const VINTAGE_CUTOFF_YEAR = 2023;
+
+// Cards to pull per request — a random window into the eligible pool so repeat
+// visits don't always surface the same cards.
+const POOL_SAMPLE_SIZE = 1000;
+
+// release_date is free text like " May 22, 2026"; pull the first 4-digit year.
+function releaseYear(releaseDate: string | null): number {
+  const match = (releaseDate ?? "").match(/\d{4}/);
+  return match ? Number(match[0]) : 0;
+}
+
+// The era-dependent rule a SQL `not in` filter can't express: drop plain "Rare"
+// from modern sets. (The always-dropped rarities are already excluded in the query.)
+function isEligible(row: CardRow): boolean {
+  if (row.rarity === "Rare") return releaseYear(row.release_date) < VINTAGE_CUTOFF_YEAR;
+  return true;
+}
 
 // Fisher-Yates in-place shuffle. We shuffle the card pool per request so that
 // players whose ratings are still tied (e.g. everything at the default rd=350)
@@ -57,24 +93,38 @@ function supply_winner_with_fresh_card(
 export async function GET(request: NextRequest) {
   const playerId = request.nextUrl.searchParams.get("playerId");
   const winnerId = request.nextUrl.searchParams.get("winnerId");
-  // Optional, repeatable: ?rarity=Common&rarity=Rare — restrict the pool to cards
-  // whose rarity is any of the selected values (OR semantics).
-  const rarities = request.nextUrl.searchParams.getAll("rarity");
   if (!playerId) {
     return NextResponse.json({ error: "playerId is required" }, { status: 400 });
   }
 
   const supabase = createClient(await cookies());
 
-  let cardsQuery = supabase.from("cards").select("card_id, name, image_url");
-  if (rarities.length > 0) {
-    cardsQuery = cardsQuery.in("rarity", rarities);
+  // Build the eligible comparison pool. Exclude the always-dropped rarities in the
+  // query, then sample a random window (the DB caps a select at ~1000 rows, so we
+  // offset into the eligible set instead of always taking the first page), and
+  // finally drop modern plain "Rare" in JS — release_date is free text the DB
+  // filter can't compare by year. Quote the values so spaces ("No Rarity") parse.
+  const excludeList = `(${DROP_RARITIES.map((rarity) => `"${rarity}"`).join(",")})`;
+  const { count, error: countError } = await supabase
+    .from("cards")
+    .select("card_id", { count: "exact", head: true })
+    .not("rarity", "in", excludeList);
+  if (countError) {
+    return NextResponse.json({ error: countError.message }, { status: 500 });
   }
-  const { data: cards, error: cardsError } = await cardsQuery;
+  const offset = Math.max(0, Math.floor(Math.random() * ((count ?? 0) - POOL_SAMPLE_SIZE)));
+  const { data: rows, error: cardsError } = await supabase
+    .from("cards")
+    .select("card_id, name, image_url, rarity, release_date")
+    .not("rarity", "in", excludeList)
+    .range(offset, offset + POOL_SAMPLE_SIZE - 1);
   if (cardsError) {
     return NextResponse.json({ error: cardsError.message }, { status: 500 });
   }
-  if (!cards || cards.length < 2) {
+  const cards: Card[] = ((rows ?? []) as CardRow[])
+    .filter(isEligible)
+    .map(({ card_id, name, image_url }) => ({ card_id, name, image_url }));
+  if (cards.length < 2) {
     return NextResponse.json({ error: "Not enough cards to compare" }, { status: 409 });
   }
 
@@ -96,9 +146,9 @@ export async function GET(request: NextRequest) {
 
   let pair: [RatedCard, RatedCard];
   if (winnerId) {
-    // The held winner may sit outside an active rarity filter, so it won't be in
-    // the filtered pool. Fetch it directly in that case rather than 404-ing — the
-    // fresh challenger still comes from the filtered pool below.
+    // The held winner may fall outside the sampled eligible pool, so it won't be
+    // in `ratedCards`. Fetch it directly in that case rather than 404-ing — the
+    // fresh challenger still comes from the eligible pool below.
     let winner = ratedCards.find((card) => card.card_id === winnerId);
     if (!winner) {
       const { data: winnerCard, error: winnerError } = await supabase
