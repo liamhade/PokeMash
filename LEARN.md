@@ -370,3 +370,13 @@
   Trace what would get persisted (and then restored on the next visit) if it saved on every
   `cards` change instead — think about the `null`/`"below"` states `loadNextPair` and
   `swapLoserForFresh` pass through mid-animation.
+
+- [ ] `next/route.ts` now de-dupes the eligible pool into `eligibleById` (a `Map` keyed by
+  `card_id`). Given `information_rich_pair` and `supply_winner_with_fresh_card` already
+  filter out the first/winner card by id, what *additional* self-match scenario does the
+  pool-level dedup actually close that those per-pair filters don't?
+
+- [ ] The dedup keeps the FIRST row seen for each `card_id` (`!eligibleById.has(...)`) rather
+  than the last. Since the rows come from a `.range()` window over the `cards` table, why is
+  "first vs last wins" a safe thing not to worry about here — and when would that choice
+  start to matter?

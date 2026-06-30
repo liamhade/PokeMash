@@ -187,9 +187,20 @@ export async function GET(request: NextRequest) {
   if (cardsError) {
     return NextResponse.json({ error: cardsError.message }, { status: 500 });
   }
-  const cards: Card[] = ((rows ?? []) as CardRow[])
-    .filter(isEligible)
-    .map(({ card_id, name, image_url }) => ({ card_id, name, image_url }));
+  // De-duplicate by card_id so a card can never be matched against itself: even if the
+  // source data holds the same card under more than one row, it appears at most once in
+  // the pool, and both pair-builders below select two distinct entries from it.
+  const eligibleById = new Map<string, Card>();
+  for (const row of (rows ?? []) as CardRow[]) {
+    if (isEligible(row) && !eligibleById.has(row.card_id)) {
+      eligibleById.set(row.card_id, {
+        card_id: row.card_id,
+        name: row.name,
+        image_url: row.image_url,
+      });
+    }
+  }
+  const cards: Card[] = [...eligibleById.values()];
   if (cards.length < 2) {
     return NextResponse.json({ error: "Not enough cards to compare" }, { status: 409 });
   }
