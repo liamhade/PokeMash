@@ -270,3 +270,13 @@
   a soft band (random of the 30 nearest). What does each layer buy that the other
   doesn't — i.e. why not just one of them — and how does raising `EXPLORE_EPSILON`
   toward 1 turn this into the planned "Prioritize New Cards" behavior?
+
+- [ ] Bumping the `<Image>` to 325×450 grew the card, but `randomFloat` still uses a
+  188px minimum outward distance against what was a ~130px half-width — now ~162px.
+  Does the float still clear the card edge, and at what card size would the number
+  start landing back on the art?
+
+- [ ] Next's `<Image width/height>` sets both the intrinsic size and (absent CSS
+  overrides) the rendered size. Why does changing these two numbers resize the card on
+  screen here, and when would you instead control display size with CSS and leave
+  width/height as the source aspect ratio?

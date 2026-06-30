@@ -246,8 +246,8 @@ export default function ComparisonScreen() {
                 <Image
                   src={card.image_url}
                   alt={card.name}
-                  width={260}
-                  height={360}
+                  width={325}
+                  height={450}
                   className="rounded-xl"
                   priority
                 />
