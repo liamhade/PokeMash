@@ -222,3 +222,13 @@
   Reason about why that, plus Keep Winner holding the same card, makes a player see a
   recurring cluster of similar-rated cards — and what `comparedOpponentIds` being the
   *winner's* history (not global) fails to prevent.
+
+- [ ] Item/Stadium cards are excluded by matching `normalizeName(row.name)` against a
+  name list generated with the *same* normalization. Why must the generation-time and
+  runtime normalizations be identical, and what failure mode (false negatives) appears
+  if one side, say, keeps apostrophes while the other strips them?
+
+- [ ] We pulled Item/Stadium names from the Pokémon TCG API into a static file rather
+  than adding a `subtype` column to Supabase. What does the static-list approach trade
+  away (think new sets, accuracy, who can edit it) versus a real subtype column, and
+  why was it still the right call given the read-only key and no DB access right now?

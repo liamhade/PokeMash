@@ -12,6 +12,9 @@
 --   * DROP energy cards (named "<X> Energy", optionally with {symbols} or a
 --     "Prism Star" tag). Trainers like "Energy Retrieval" are kept (Energy is not
 --     the last word). Matched by name because the data has no card-type column.
+--   * DROP Trainer "Item"/"Stadium" cards. This filter lives ONLY in the app
+--     (api/comparison/next via itemStadiumNames.ts, a name list from the Pokemon TCG
+--     API) and is NOT mirrored here — a SQL version would want a real subtype column.
 --   * "Promo", "Rare" and "Rare Holo" are catch-all rarities mixing boring non-holos
 --     / plain modern foils with the odd buzzword chase card. Keep one only if its
 --     name has a featured mechanic (GX/V/VMAX/VSTAR/ex/EX/LV.X/BREAK/Prime/LEGEND/

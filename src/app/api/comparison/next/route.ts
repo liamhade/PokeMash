@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { DEFAULT_RATING } from "@/lib/glicko2";
+import { ITEM_STADIUM_NAMES } from "@/lib/itemStadiumNames";
 
 type Card = { card_id: string; name: string; image_url: string };
 // A card joined with this player's Glicko-2 rating for it (r, rd, mu).
@@ -66,11 +67,26 @@ function hasFeaturedMechanic(name: string): boolean {
 // only with a mechanic (a promo has no reliable date-era meaning).
 const VINTAGE_ELIGIBLE_RARITIES = new Set(["Rare", "Rare Holo"]);
 
-// The rules a SQL `not in` filter can't express: drop energy cards; keep a "Promo"
-// only with a featured mechanic; keep a "Rare"/"Rare Holo" with a featured mechanic
-// OR if it's genuinely vintage. (The always-dropped rarities are excluded in the query.)
+// Trainer "Item" and "Stadium" cards aren't fun to compare. The data has no card-type
+// column, so we match by name against a list pulled from the Pokemon TCG API (see
+// itemStadiumNames.ts). This normalization MUST match how that list was generated.
+function normalizeName(name: string): string {
+  return name
+    .normalize("NFKD")
+    .replace(/[^\x00-\x7f]/g, "") // drop non-ASCII (incl. combining accents)
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, " ") // punctuation -> space, so apostrophes etc. don't matter
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// The rules a SQL `not in` filter can't express: drop energy cards and Item/Stadium
+// trainers; keep a "Promo" only with a featured mechanic; keep a "Rare"/"Rare Holo"
+// with a featured mechanic OR if it's genuinely vintage. (The always-dropped rarities
+// are excluded in the query.)
 function isEligible(row: CardRow): boolean {
   if (isEnergyCard(row.name)) return false;
+  if (ITEM_STADIUM_NAMES.has(normalizeName(row.name))) return false;
   if (row.rarity === "Promo") return hasFeaturedMechanic(row.name);
   if (VINTAGE_ELIGIBLE_RARITIES.has(row.rarity))
     return hasFeaturedMechanic(row.name) || isVintage(row.release_date);
