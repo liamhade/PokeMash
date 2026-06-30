@@ -47,38 +47,41 @@ body {
   will-change: transform, opacity;
 }
 
-/* Winning-streak flame. A layered box-shadow forms a hot core fading to an outer glow
-   in the tier color (--flame-color, an "R G B" triple); the SVG #flame-distort filter
-   (turbulence + displacement) ruffles those edges into wavering tongues, and the
-   flicker keyframe pulses the brightness/scale so it dances like real fire. */
+/* Winning-streak flame. `.flame` is a card-sized layer holding teardrop `.flame-tongue`
+   outlines anchored around the edges; the SVG #flame-distort filter (turbulence +
+   displacement) ripples every tongue's outline so they wiggle like fire, and the
+   per-tongue opacity flicker makes them dance. --flame-color (an "R G B" triple) sets
+   the tier color; a faint box-shadow adds an ambient colored halo. */
 @keyframes flame-flicker {
   0%,
   100% {
-    opacity: 0.92;
-    transform: scale(1);
-  }
-  20% {
-    opacity: 1;
-    transform: scale(1.03);
-  }
-  45% {
     opacity: 0.8;
-    transform: scale(0.985);
   }
-  70% {
+  30% {
     opacity: 1;
-    transform: scale(1.02);
+  }
+  55% {
+    opacity: 0.6;
+  }
+  80% {
+    opacity: 0.92;
   }
 }
 
 .flame {
-  border-radius: 0.75rem; /* match the card's rounded-xl so the glow hugs its shape */
-  box-shadow:
-    0 0 4px 1px rgb(var(--flame-color) / 1),
-    0 0 13px 4px rgb(var(--flame-color) / 0.8),
-    0 0 28px 10px rgb(var(--flame-color) / 0.5),
-    0 0 50px 20px rgb(var(--flame-color) / 0.22);
+  border-radius: 0.75rem; /* match the card's rounded-xl so the halo hugs its shape */
+  box-shadow: 0 0 22px 5px rgb(var(--flame-color) / 0.22);
   filter: url(#flame-distort);
-  animation: flame-flicker 0.45s ease-in-out infinite;
-  will-change: transform, opacity;
+}
+
+.flame-tongue {
+  position: absolute;
+  width: 18px;
+  height: 30px;
+  /* Teardrop: three rounded corners + one sharp, rotated so the point faces outward. */
+  border: 2px solid rgb(var(--flame-color) / 0.95);
+  background: rgb(var(--flame-color) / 0.12);
+  border-radius: 0 50% 50% 50%;
+  transform: translate(-50%, -50%) rotate(var(--rot));
+  animation: flame-flicker 0.5s ease-in-out infinite;
 }

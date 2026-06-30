@@ -37,6 +37,26 @@ function flameColor(streak: number): string | null {
   return null;
 }
 
+// Teardrop flame tongues placed around the card edge. `left`/`top` are the anchor on
+// the card border (%), `edge` is which way the tongue points out (0=up, 90=right,
+// 180=down, 270=left). The CSS teardrop's point sits at +45° from that.
+type Tongue = { left: string; top: string; edge: number };
+const FLAME_TONGUES: Tongue[] = [
+  { left: "18%", top: "0%", edge: 0 }, // top edge
+  { left: "39%", top: "0%", edge: 0 },
+  { left: "61%", top: "0%", edge: 0 },
+  { left: "82%", top: "0%", edge: 0 },
+  { left: "100%", top: "25%", edge: 90 }, // right edge
+  { left: "100%", top: "55%", edge: 90 },
+  { left: "100%", top: "82%", edge: 90 },
+  { left: "78%", top: "100%", edge: 180 }, // bottom edge
+  { left: "50%", top: "100%", edge: 180 },
+  { left: "22%", top: "100%", edge: 180 },
+  { left: "0%", top: "82%", edge: 270 }, // left edge
+  { left: "0%", top: "55%", edge: 270 },
+  { left: "0%", top: "25%", edge: 270 },
+];
+
 function randomFloat(delta: number, side: "left" | "right"): FloatDelta {
   const outward = side === "left" ? -1 : 1;
   return {
@@ -224,7 +244,7 @@ export default function ComparisonScreen() {
               repeatCount="indefinite"
             />
           </feTurbulence>
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale={22} xChannelSelector="R" yChannelSelector="G" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale={7} xChannelSelector="R" yChannelSelector="G" />
         </filter>
       </svg>
 
@@ -280,14 +300,30 @@ export default function ComparisonScreen() {
                   isPicked ? "shadow-[0_0_40px_12px_rgba(34,197,94,0.9)]" : "",
                 ].join(" ")}
               >
-                {/* Streak flame: a flickering glow around the card (box-shadow radiates
-                    outside the card). Color escalates with the streak via --flame-color. */}
+                {/* Streak flame: teardrop tongues around the card edge, their outlines
+                    rippled by the #flame-distort turbulence filter so they wiggle like
+                    fire. Color escalates with the streak via --flame-color. */}
                 {flame && (
                   <span
                     aria-hidden
                     className="flame pointer-events-none absolute inset-0 rounded-xl"
                     style={{ "--flame-color": flame } as React.CSSProperties}
-                  />
+                  >
+                    {FLAME_TONGUES.map((tongue, i) => (
+                      <span
+                        key={i}
+                        className="flame-tongue"
+                        style={
+                          {
+                            left: tongue.left,
+                            top: tongue.top,
+                            "--rot": `${tongue.edge + 45}deg`,
+                            animationDelay: `${(i % 5) * 0.09}s`,
+                          } as React.CSSProperties
+                        }
+                      />
+                    ))}
+                  </span>
                 )}
                 <Image
                   src={card.image_url}

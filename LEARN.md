@@ -300,3 +300,12 @@
   the pure-CSS approach win (scales to any card size, recolorable via `--flame-color`,
   no asset) and what does it risk (cross-browser filter quirks, "is it convincing?"),
   and when would a real asset be the better call?
+
+- [ ] A `.flame-tongue` is a square-ish div with `border-radius: 0 50% 50% 50%` rotated
+  by `var(--rot)` (`edge + 45°`). Why does that border-radius make a teardrop, and why
+  is the `+45°` needed to aim the point outward for an `edge` of 0/90/180/270?
+
+- [ ] The tongues' flicker animates only `opacity`, while the wiggle comes from the SVG
+  filter — not from an animated `transform`. Given each tongue already uses `transform`
+  for its `translate(...) rotate(...)` placement, why would animating `transform` for
+  the flicker have broken the layout (recall the earlier float-centering bug)?
