@@ -271,8 +271,10 @@ export default function ComparisonScreen() {
     <div className="flex flex-1 flex-col bg-white relative overflow-hidden">
       {/* Minimal streak legend: which glow color maps to which win streak. Centered on the
           15%-from-top line (i.e. 85% up this card area, which excludes the nav banner above
-          it) and 15% in from the left. Colors come from STREAK_TIERS (single source). */}
-      <ul className="absolute left-[15%] top-[15%] z-20 flex -translate-y-1/2 flex-col gap-2 select-none">
+          it). Horizontally it keeps the original left-4 (1rem) edge offset and shifts 15%
+          further in from there — relative to where it started, not an absolute 15%-from-edge.
+          Colors come from STREAK_TIERS (single source). */}
+      <ul className="absolute left-[calc(1rem_+_15%)] top-[15%] z-20 flex -translate-y-1/2 flex-col gap-2 select-none">
         {STREAK_TIERS.map((tier) => (
           <li key={tier.streak} className="flex items-center gap-2 text-xs text-neutral-500">
             <span
