@@ -280,3 +280,13 @@
   overrides) the rendered size. Why does changing these two numbers resize the card on
   screen here, and when would you instead control display size with CSS and leave
   width/height as the source aspect ratio?
+
+- [ ] The streak needs both `streak` (count) and `streakCardId` (which card it belongs
+  to). Walk through what would break with only a count: when the held winner finally
+  loses and the challenger takes over, how does comparing `winner.card_id ===
+  streakCardId` reset the flame correctly?
+
+- [ ] The flame is a separate absolutely-positioned `<span class="flame">` rather than
+  a class on the `<button>`. Given the button already sets `box-shadow` for hover and
+  picked states, why does a dedicated element avoid a conflict — and why does the
+  flame's box-shadow still appear *around* the card despite the span being `inset-0`?

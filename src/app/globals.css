@@ -46,3 +46,31 @@ body {
   animation: elo-float 1300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
   will-change: transform, opacity;
 }
+
+/* Winning-streak flame: a flickering colored glow around the card. --flame-color is
+   an "R G B" triple (set inline per streak tier); the irregular keyframe steps make
+   the glow shimmer like fire. */
+@keyframes flame {
+  0% {
+    box-shadow: 0 0 18px 4px rgb(var(--flame-color) / 0.85), 0 0 38px 10px rgb(var(--flame-color) / 0.45);
+  }
+  20% {
+    box-shadow: 0 0 27px 7px rgb(var(--flame-color) / 0.95), 0 0 54px 15px rgb(var(--flame-color) / 0.55);
+  }
+  40% {
+    box-shadow: 0 0 15px 3px rgb(var(--flame-color) / 0.8), 0 0 33px 9px rgb(var(--flame-color) / 0.4);
+  }
+  60% {
+    box-shadow: 0 0 31px 8px rgb(var(--flame-color) / 1), 0 0 62px 18px rgb(var(--flame-color) / 0.6);
+  }
+  80% {
+    box-shadow: 0 0 22px 5px rgb(var(--flame-color) / 0.9), 0 0 46px 13px rgb(var(--flame-color) / 0.5);
+  }
+  100% {
+    box-shadow: 0 0 18px 4px rgb(var(--flame-color) / 0.85), 0 0 38px 10px rgb(var(--flame-color) / 0.45);
+  }
+}
+
+.flame {
+  animation: flame 0.55s ease-in-out infinite;
+}

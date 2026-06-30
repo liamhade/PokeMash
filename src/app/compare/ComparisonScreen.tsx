@@ -28,6 +28,15 @@ type FloatDelta = { delta: number; dx: number; dy: number; key: number };
 // Land the number in the white margin on the card's OUTER side (away from the other
 // card) so it's readable off the card art, with a random vertical spread. dx clears
 // the card's ~130px half-width; dy stays within its height so it reads alongside it.
+// Winning-streak flame tier → glow color (as an "R G B" triple for rgb(... / a)).
+// Escalates with the streak; null below the first tier (no flame).
+function flameColor(streak: number): string | null {
+  if (streak >= 20) return "147 51 234"; // purple
+  if (streak >= 10) return "37 99 235"; // blue
+  if (streak >= 5) return "153 27 27"; // dark red
+  return null;
+}
+
 function randomFloat(delta: number, side: "left" | "right"): FloatDelta {
   const outward = side === "left" ? -1 : 1;
   return {
@@ -47,6 +56,11 @@ export default function ComparisonScreen() {
   // True only when both cards are settled at center and a pick is allowed. Guards
   // against picking mid-animation or double-submitting a comparison.
   const [ready, setReady] = useState(false);
+
+  // Consecutive wins of the currently-held card, for the streak flame. streakCardId
+  // is which card the streak belongs to; it resets when a different card wins.
+  const [streak, setStreak] = useState(0);
+  const [streakCardId, setStreakCardId] = useState<string | null>(null);
 
   // Rating-change numbers currently floating over cards, keyed by card id.
   const [floats, setFloats] = useState<Record<string, FloatDelta>>({});
@@ -145,6 +159,10 @@ export default function ComparisonScreen() {
     setReady(false);
     setPickedId(winner.card_id);
 
+    // Extend the streak if the same card won again, otherwise start a new one.
+    setStreak((prev) => (winner.card_id === streakCardId ? prev + 1 : 1));
+    setStreakCardId(winner.card_id);
+
     const playerId = getPlayerId();
     // Await the comparison before fetching the next card so the swap's "already
     // compared" history includes this result (otherwise the just-beaten loser
@@ -225,6 +243,8 @@ export default function ComparisonScreen() {
           const isPicked = pickedId === card.card_id;
           const isHovered = hoveredId === card.card_id && ready;
           const float = floats[card.card_id];
+          // Streak flame only on the card the streak belongs to (the held winner).
+          const flame = card.card_id === streakCardId ? flameColor(streak) : null;
 
           return (
             // Wrapper stays put (the button's slide is a transform, which doesn't
@@ -243,6 +263,15 @@ export default function ComparisonScreen() {
                   isPicked ? "shadow-[0_0_40px_12px_rgba(34,197,94,0.9)]" : "",
                 ].join(" ")}
               >
+                {/* Streak flame: a flickering glow around the card (box-shadow radiates
+                    outside the card). Color escalates with the streak via --flame-color. */}
+                {flame && (
+                  <span
+                    aria-hidden
+                    className="flame pointer-events-none absolute inset-0 rounded-xl"
+                    style={{ "--flame-color": flame } as React.CSSProperties}
+                  />
+                )}
                 <Image
                   src={card.image_url}
                   alt={card.name}
