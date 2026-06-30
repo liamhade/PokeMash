@@ -157,3 +157,13 @@
   `\bV$`). Walk through why "Pikachu VMAX" is NOT matched by the `\bV$` alternative
   but IS matched by `\bVMAX$`, and why the trailing `$` is what prevents a stray "V"
   in the middle of a name from counting.
+
+- [ ] `isVintage` compares full dates (`new Date(releaseDate) < MODERN_ERA_START`)
+  instead of `year < 2011`. Given HeartGold & SoulSilver ends 2011-02-09 and Black &
+  White starts 2011-03-09, what specific card would a year-only cutoff misclassify,
+  and why does the boundary landing inside one calendar year force date comparison?
+
+- [ ] We concluded dropping non-buzzword `Rare` "never drops a full art" from two
+  facts: Reshiram 113/114 is stored as `Ultra Rare`, and 0 of 2601 `Rare` cards have
+  secret-style numbering (numerator > denominator). Why is that pair of observations
+  stronger evidence than either alone, and what single counterexample would break it?

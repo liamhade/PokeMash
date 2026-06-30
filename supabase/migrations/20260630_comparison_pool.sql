@@ -12,18 +12,19 @@
 --   * DROP energy cards (named "<X> Energy", optionally with {symbols} or a
 --     "Prism Star" tag). Trainers like "Energy Retrieval" are kept (Energy is not
 --     the last word). Matched by name because the data has no card-type column.
---   * Plain "Rare": era-dependent. Kept only for VINTAGE sets (release year < 2023),
---     because pre-2023 a "Rare" is a real chase card, whereas in the modern
---     (Scarlet & Violet, 2023+) ladder "Rare" is a non-full-art black-star common-ish
---     card sitting below Double Rare / Illustration Rare / etc.
+--   * "Promo" and "Rare" are catch-all rarities mixing boring non-holos with the odd
+--     buzzword chase card. Keep one only if its name has a featured mechanic
+--     (GX/V/VMAX/VSTAR/ex/EX/LV.X/BREAK/Prime/LEGEND/Star). "Rare" is ALSO kept when
+--     genuinely vintage — released before Black & White (2011-03-09), i.e. HeartGold
+--     & SoulSilver and earlier. Full-art cards always carry a distinct rarity (e.g.
+--     Reshiram 113/114 is "Ultra Rare"), so this never drops a full art.
 --   * KEEP everything else: all holo/ex/GX/V/VMAX/VSTAR/Illustration/Ultra/Secret/
---     Promo/Trainer Gallery/Mega rarities, etc. Per-era mechanic rares stay: regular
+--     Trainer Gallery/Mega rarities, etc. Per-era mechanic rares stay: regular
 --     GX (Sun & Moon), V/VMAX/VSTAR (Sword & Shield), EX (XY) — but NOT the regular
 --     ex of Scarlet & Violet / Mega Evolution, which is the already-dropped Double Rare.
 --
--- VINTAGE_CUTOFF_YEAR is 2023. To shift the vintage/modern boundary, change the
--- literal below. release_date is free text like " May 22, 2026", so we pull the
--- first 4-digit run as the year.
+-- The vintage cutoff is the start of Black & White (2011-03-01). release_date is free
+-- text like "Apr 25, 2011", parsed with to_date(..., 'Mon DD, YYYY').
 --
 -- order by random() + limit gives each request a varied eligible sample (the API's
 -- pair-selection then works within that sample), the same intent as the old
@@ -40,17 +41,14 @@ as $$
     -- Drop energy cards: strip {symbols} and "Prism Star", then exclude names whose
     -- last word is "Energy". Keeps trainers like "Energy Retrieval".
     and trim(regexp_replace(regexp_replace(c.name, '\{[^}]*\}', '', 'g'), 'prism star', '', 'gi')) !~* 'energy$'
-    -- Promos share one rarity, so judge them by mechanic: keep only featured chase
-    -- cards (GX/V/VMAX/VSTAR/ex/EX/LV.X/BREAK/Prime/LEGEND/Star), drop plain promos.
-    -- The mechanic is always preceded by a space or hyphen at the end of the name.
+    -- "Promo"/"Rare" are catch-all rarities: keep one only if its name has a featured
+    -- mechanic (preceded by a space or hyphen at the end of the name). "Rare" is also
+    -- kept when genuinely vintage — released before Black & White (2011-03-09).
     and (
-      c.rarity <> 'Promo'
+      c.rarity not in ('Promo', 'Rare')
       or c.name ~ '[ -](GX|VMAX|VSTAR|V|ex|EX|LV\.?X|BREAK|Prime|LEGEND|Star)$'
       or c.name ~ '★$'
-    )
-    and (
-      c.rarity <> 'Rare'
-      or coalesce((regexp_match(c.release_date, '(\d{4})'))[1]::int, 0) < 2023
+      or (c.rarity = 'Rare' and to_date(trim(c.release_date), 'Mon DD, YYYY') < date '2011-03-01')
     )
   order by random()
   limit sample_size;

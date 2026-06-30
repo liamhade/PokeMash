@@ -21,19 +21,19 @@ type CardRow = Card & { rarity: string; release_date: string | null };
 // which is framed art, not full art). Excluded server-side via a `not in` filter.
 const DROP_RARITIES = ["Common", "Uncommon", "No Rarity", "Double Rare"];
 
-// Plain "Rare" is era-dependent: a real chase card in VINTAGE sets, but in the
-// modern (Scarlet & Violet, 2023+) ladder it's a non-full-art black-star rare.
-// So keep "Rare" only for sets released before this year.
-const VINTAGE_CUTOFF_YEAR = 2023;
-
 // Cards to pull per request — a random window into the eligible pool so repeat
 // visits don't always surface the same cards.
 const POOL_SAMPLE_SIZE = 1000;
 
-// release_date is free text like " May 22, 2026"; pull the first 4-digit year.
-function releaseYear(releaseDate: string | null): number {
-  const match = (releaseDate ?? "").match(/\d{4}/);
-  return match ? Number(match[0]) : 0;
+// A non-buzzword "Rare" is only worth comparing if it's genuinely vintage: HeartGold
+// & SoulSilver (ends Feb 2011) and earlier. The modern era begins with Black & White
+// (starts Mar 2011). The boundary falls inside 2011, so we compare full release dates
+// (free text like "Apr 25, 2011"), not just the year.
+const MODERN_ERA_START = new Date("2011-03-01");
+function isVintage(releaseDate: string | null): boolean {
+  if (!releaseDate) return false;
+  const date = new Date(releaseDate.trim());
+  return !Number.isNaN(date.getTime()) && date < MODERN_ERA_START;
 }
 
 // Energy cards aren't fun to compare, so drop them. They're named "<X> Energy"
@@ -50,23 +50,24 @@ function isEnergyCard(name: string): boolean {
   return /\bEnergy$/i.test(stripped);
 }
 
-// Every promo shares the single "Promo" rarity, so we can't judge it by rarity like
-// other cards. Instead hold it to the same bar by its card mechanic: keep only the
-// featured chase cards (the GX / V / VMAX / VSTAR / ex / EX / LV.X / BREAK / Prime /
-// LEGEND / Star families the non-promo rules keep), and drop plain-Pokemon promos.
-// The mechanic is always a trailing token, so we anchor on the end of the name.
-const PROMO_MECHANIC = /(\bGX|\bVMAX|\bVSTAR|\bV|\bex|\bEX|\bLV\.?X|\bBREAK|\bPrime|\bLEGEND|\bStar|★)$/;
-function isFeaturedPromo(name: string): boolean {
-  return PROMO_MECHANIC.test(name.trim());
+// "Promo" and "Rare" are catch-all rarities that lump boring non-holos in with the
+// occasional buzzword chase card (e.g. "Deoxys ex", "Umbreon Star"). We keep such a
+// card only when its name carries a featured mechanic. Full-art cards always get
+// their own distinct rarity (e.g. Reshiram 113/114 is "Ultra Rare"), so this never
+// drops a full art. The mechanic is a trailing token, so we anchor on the name's end.
+const FEATURED_MECHANIC = /(\bGX|\bVMAX|\bVSTAR|\bV|\bex|\bEX|\bLV\.?X|\bBREAK|\bPrime|\bLEGEND|\bStar|★)$/;
+function hasFeaturedMechanic(name: string): boolean {
+  return FEATURED_MECHANIC.test(name.trim());
 }
 
-// The rules a SQL `not in` filter can't express: drop energy cards; hold promos to
-// the featured-mechanic bar; and keep plain "Rare" only for vintage sets. (The
-// always-dropped rarities are excluded in the query.)
+// The rules a SQL `not in` filter can't express: drop energy cards; keep a "Promo"
+// only with a featured mechanic; keep a "Rare" with a featured mechanic OR if it's
+// genuinely vintage (pre-Black & White). (The always-dropped rarities are excluded
+// in the query.)
 function isEligible(row: CardRow): boolean {
   if (isEnergyCard(row.name)) return false;
-  if (row.rarity === "Promo") return isFeaturedPromo(row.name);
-  if (row.rarity === "Rare") return releaseYear(row.release_date) < VINTAGE_CUTOFF_YEAR;
+  if (row.rarity === "Promo") return hasFeaturedMechanic(row.name);
+  if (row.rarity === "Rare") return hasFeaturedMechanic(row.name) || isVintage(row.release_date);
   return true;
 }
 
