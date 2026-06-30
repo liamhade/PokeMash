@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Source_Code_Pro } from "next/font/google";
+import { Source_Code_Pro, Bitcount_Ink } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 
@@ -9,6 +9,12 @@ import NavBar from "@/components/NavBar";
 // (e.g. Inter, Roboto, Poppins) and update the variable name in globals.css.
 const sourceCodePro = Source_Code_Pro({
   variable: "--font-source-code-pro",
+  subsets: ["latin"],
+});
+
+// Decorative pixel font used only for the floating ELO change numbers (--font-elo).
+const bitcountInk = Bitcount_Ink({
+  variable: "--font-elo",
   subsets: ["latin"],
 });
 
@@ -25,7 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sourceCodePro.variable} h-full antialiased`}
+      className={`${sourceCodePro.variable} ${bitcountInk.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <NavBar />

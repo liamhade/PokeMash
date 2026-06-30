@@ -210,3 +210,15 @@
   real fix clears floats deterministically on board changes (`loadNextPair` resets,
   swap clears loser+incoming). Why is "clean up when the board changes" more reliable
   than "clean up after a duration" for state tied to which cards are on screen?
+
+- [ ] Bitcount Ink is loaded as a second `next/font/google` with its own `--font-elo`
+  variable and applied only to the float span, while the site stays on Source Code
+  Pro. Why scope a font with a CSS variable on one element instead of swapping the
+  global `--font-sans`, and what does the "Skipping generating a fallback font"
+  warning tell you about size-adjust fallbacks for a pixel font?
+
+- [ ] In `supply_winner_with_fresh_card`, the challenger is chosen by
+  `Math.abs(x.r - winner.r)` (nearest rating) among cards the winner hasn't faced.
+  Reason about why that, plus Keep Winner holding the same card, makes a player see a
+  recurring cluster of similar-rated cards — and what `comparedOpponentIds` being the
+  *winner's* history (not global) fails to prevent.

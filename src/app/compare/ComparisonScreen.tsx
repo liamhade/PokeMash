@@ -32,7 +32,7 @@ function randomFloat(delta: number, side: "left" | "right"): FloatDelta {
   const outward = side === "left" ? -1 : 1;
   return {
     delta,
-    dx: outward * (150 + Math.random() * 80), // 150–230px to the outer side
+    dx: outward * (188 + Math.random() * 80), // 188–268px to the outer side (min +25%)
     dy: (Math.random() - 0.5) * 200, // ±100px vertical spread
     key: Math.random(),
   };
@@ -265,6 +265,7 @@ export default function ComparisonScreen() {
                       {
                         "--float-x": `${float.dx}px`,
                         "--float-y": `${float.dy}px`,
+                        fontFamily: "var(--font-elo)", // Bitcount Ink, see layout.tsx
                       } as React.CSSProperties
                     }
                     className={[
