@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { getPlayerId } from "@/lib/playerId";
 import RarityFilterModal from "@/components/RarityFilterModal";
+import FilterButton from "@/components/FilterButton";
 
 type RankedCard = {
   rank: number;
@@ -66,13 +67,7 @@ export default function RankingsPage() {
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex px-6 py-4">
-        <button
-          type="button"
-          onClick={openFilter}
-          className="rounded-full bg-neutral-100 px-5 py-2 font-semibold text-neutral-800 transition-colors hover:bg-neutral-200"
-        >
-          Filter
-        </button>
+        <FilterButton onClick={openFilter} />
       </div>
 
       {!data ? (

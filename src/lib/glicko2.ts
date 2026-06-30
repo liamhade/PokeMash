@@ -37,9 +37,9 @@ function E(mu: number, muOpponent: number, phiOpponent: number) {
 
 /**
  * Updates a player's (here: a card's) rating after a single result against one opponent.
- * `score` is 1 for a win, 0 for a loss.
+ * `score` is 1 for a win, 0 for a loss, 0.5 for a draw.
  */
-export function updateRating(player: GlickoRating, opponent: GlickoRating, score: 0 | 1): GlickoRating {
+export function updateRating(player: GlickoRating, opponent: GlickoRating, score: 0 | 0.5 | 1): GlickoRating {
   const a = toGlickoScale(player);
   const b = toGlickoScale(opponent);
 

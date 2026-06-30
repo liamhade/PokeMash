@@ -5,9 +5,11 @@ import { DEFAULT_RATING, updateRating } from "@/lib/glicko2";
 
 // Records the outcome of a single head-to-head comparison: updates both
 // cards' Glicko-2 ratings for this player and logs the comparison.
-// Body: { playerId, winnerCardId, loserCardId }
+// Body: { playerId, winnerCardId, loserCardId, outcome?: "win" | "draw" }
+// A "draw" (the user skipped) scores both cards 0.5; the two card ids land in
+// winner_card/loser_card arbitrarily and the row is flagged is_draw.
 export async function POST(request: NextRequest) {
-  const { playerId, winnerCardId, loserCardId } = await request.json();
+  const { playerId, winnerCardId, loserCardId, outcome = "win" } = await request.json();
   if (!playerId || !winnerCardId || !loserCardId) {
     return NextResponse.json(
       { error: "playerId, winnerCardId and loserCardId are required" },
@@ -32,11 +34,12 @@ export async function POST(request: NextRequest) {
   const winnerRating = rankByCardId.get(winnerCardId) ?? DEFAULT_RATING;
   const loserRating = rankByCardId.get(loserCardId) ?? DEFAULT_RATING;
 
+  const isDraw = outcome === "draw";
   // Both updates use each other's pre-update rating (not a sequential
   // winner-then-loser update), matching the Glicko-2 spec where all rating
   // changes for a period are computed from the same starting snapshot.
-  const newWinnerRating = updateRating(winnerRating, loserRating, 1);
-  const newLoserRating = updateRating(loserRating, winnerRating, 0);
+  const newWinnerRating = updateRating(winnerRating, loserRating, isDraw ? 0.5 : 1);
+  const newLoserRating = updateRating(loserRating, winnerRating, isDraw ? 0.5 : 0);
 
   const { error: upsertError } = await supabase.from("card_ranks").upsert(
     [
@@ -53,6 +56,7 @@ export async function POST(request: NextRequest) {
     player_id: playerId,
     winner_card: winnerCardId,
     loser_card: loserCardId,
+    is_draw: isDraw,
   });
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });

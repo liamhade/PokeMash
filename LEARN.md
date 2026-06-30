@@ -60,3 +60,14 @@
   modal stateless about *what* gets filtered (it only emits a `string[]` via
   `onApply`) let the same component drive two different fetches — and what would
   couple it to one screen if it called the API itself?
+
+- [ ] In `ComparisonScreen.tsx`, the new arrow-key `useEffect` has *no*
+  dependency array, so it re-subscribes the `keydown` listener every render. Why
+  is that needed for `handlePick(cards[0])` to fire against the *current* pair,
+  and what stale-pair bug would an empty `[]` deps array reintroduce?
+
+- [ ] The Filter button was split into two components: `PillButton` (generic
+  style) and `FilterButton` (Filter-specific). Why is that two-layer split better
+  than one combined component — what can each layer change independently, and how
+  does adding the "Too Hard / Skip" button as another `PillButton` justify the
+  generic layer existing?
