@@ -176,3 +176,17 @@
   one is a chase card and the other a plain foil. Since the rarity value is identical,
   what single field distinguishes them in our rule — and why is that more reliable
   here than, say, trying to read "holo-ness" or art type from the data?
+
+- [ ] The floating "+X" uses two nested spans: an outer that's `-translate-x-1/2
+  -translate-y-1/2` and an inner with the `elo-float` animation. Why can't the
+  centering and the drift live on the *same* element — what does a CSS `transform`
+  keyframe do to a Tailwind `-translate` class on that element?
+
+- [ ] The rating delta is computed in the `/api/comparison` POST and sent back to the
+  client, rather than recomputed in `ComparisonScreen` with `glicko2.ts`. What bug
+  would client-side recomputation risk here, and how does this reflect "single source
+  of truth" for the rating math?
+
+- [ ] `randomFloat` sets a `key` on the inner span. In Keep Winner mode the winning
+  card keeps the same `card_id` across rounds — what would the animation do on a
+  repeat win if that `key` stayed constant, and why does changing it fix it?

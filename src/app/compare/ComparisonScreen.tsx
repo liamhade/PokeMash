@@ -20,6 +20,17 @@ function positionsFor(cards: Card[], position: Position): Record<string, Positio
   return Object.fromEntries(cards.map((card) => [card.card_id, position]));
 }
 
+// A floating "+X / -Y" rating change shown over a card after a pick. dx/dy are a
+// random outward direction (px); key forces React to remount and restart the
+// animation when the same card scores again in Keep Winner mode.
+type FloatDelta = { delta: number; dx: number; dy: number; key: number };
+
+function randomFloat(delta: number): FloatDelta {
+  const angle = Math.random() * 2 * Math.PI;
+  const distance = 90 + Math.random() * 60;
+  return { delta, dx: Math.cos(angle) * distance, dy: Math.sin(angle) * distance, key: Math.random() };
+}
+
 export default function ComparisonScreen() {
   const [cards, setCards] = useState<Card[] | null>(null);
   const [pos, setPos] = useState<Record<string, Position>>({});
@@ -29,6 +40,21 @@ export default function ComparisonScreen() {
   // True only when both cards are settled at center and a pick is allowed. Guards
   // against picking mid-animation or double-submitting a comparison.
   const [ready, setReady] = useState(false);
+
+  // Rating-change numbers currently floating over cards, keyed by card id.
+  const [floats, setFloats] = useState<Record<string, FloatDelta>>({});
+  // Show a "+X / -Y" over a card. delta 0 isn't worth animating.
+  function showFloat(cardId: string, delta: number) {
+    if (!delta) return;
+    setFloats((prev) => ({ ...prev, [cardId]: randomFloat(delta) }));
+  }
+  function clearFloat(cardId: string) {
+    setFloats((prev) => {
+      const next = { ...prev };
+      delete next[cardId];
+      return next;
+    });
+  }
 
   // Read the toggle inside async callbacks without making them depend on it.
   const keepWinnerRef = useRef(keepWinner);
@@ -110,7 +136,7 @@ export default function ComparisonScreen() {
     // Await the comparison before fetching the next card so the swap's "already
     // compared" history includes this result (otherwise the just-beaten loser
     // could be served right back as the fresh challenger).
-    await fetch("/api/comparison", {
+    const res = await fetch("/api/comparison", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -119,6 +145,14 @@ export default function ComparisonScreen() {
         loserCardId: loser.card_id,
       }),
     });
+
+    // Float the rating change over each card (+X green winner, -Y red loser).
+    const { winnerDelta, loserDelta } = (await res.json()) as {
+      winnerDelta: number;
+      loserDelta: number;
+    };
+    showFloat(winner.card_id, winnerDelta);
+    showFloat(loser.card_id, loserDelta);
 
     if (keepWinnerRef.current) {
       await swapLoserForFresh(winner, loser, playerId);
@@ -175,6 +209,7 @@ export default function ComparisonScreen() {
         {cards?.map((card) => {
           const isPicked = pickedId === card.card_id;
           const isHovered = hoveredId === card.card_id && ready;
+          const float = floats[card.card_id];
 
           return (
             <button
@@ -198,6 +233,31 @@ export default function ComparisonScreen() {
                 className="rounded-xl"
                 priority
               />
+
+              {/* Rating change floating off the card. Outer span pins to the card
+                  centre; inner span runs the drift-and-fade (its own transform), so
+                  re-mounting via `key` restarts a fresh random direction each pick. */}
+              {float && (
+                <span className="pointer-events-none absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2">
+                  <span
+                    key={float.key}
+                    onAnimationEnd={() => clearFloat(card.card_id)}
+                    style={
+                      {
+                        "--float-x": `${float.dx}px`,
+                        "--float-y": `${float.dy}px`,
+                      } as React.CSSProperties
+                    }
+                    className={[
+                      "elo-float block text-4xl font-bold tabular-nums",
+                      "drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]",
+                      float.delta > 0 ? "text-green-500" : "text-red-500",
+                    ].join(" ")}
+                  >
+                    {float.delta > 0 ? `+${float.delta}` : float.delta}
+                  </span>
+                </span>
+              )}
             </button>
           );
         })}

@@ -18,3 +18,26 @@ body {
      font loads or if it fails — it's a monospace typeface. */
   font-family: var(--font-sans), monospace;
 }
+
+/* The "+X / -Y" rating change that pops over a card after a pick: a quick scale-in,
+   then a drift outward in a per-card random direction (--float-x / --float-y, set
+   inline) while fading. Used by .elo-float in ComparisonScreen. */
+@keyframes elo-float {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(calc(var(--float-x) * 0.2), calc(var(--float-y) * 0.2)) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--float-x), var(--float-y)) scale(1);
+  }
+}
+
+.elo-float {
+  animation: elo-float 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
