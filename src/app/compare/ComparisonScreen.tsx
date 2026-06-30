@@ -224,7 +224,9 @@ export default function ComparisonScreen() {
         </label>
       </div>
 
-      <div className="flex flex-1 items-center justify-center gap-8 pb-40 relative z-10">
+      {/* gap-8 is the mobile spacing (looks right on iPhone); lg:gap-24 triples it
+          (2rem -> 6rem) on laptop/desktop widths only, leaving phones unchanged. */}
+      <div className="flex flex-1 items-center justify-center gap-8 lg:gap-24 pb-40 relative z-10">
         {cards?.map((card) => {
           const isPicked = pickedId === card.card_id;
           const isHovered = hoveredId === card.card_id && ready;

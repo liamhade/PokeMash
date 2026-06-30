@@ -80,3 +80,11 @@
 - [ ] Renaming a UI label is a one-word change, yet `DONE.md`/`TODO.md` still call
   this screen "See Rankings". What's the tradeoff between updating every reference
   to a feature's name versus letting spec docs drift from the live UI text?
+
+- [ ] In `ComparisonScreen.tsx`, why does writing `gap-8 lg:gap-24` (rather than
+  replacing `gap-8` with `gap-24`) leave the iPhone layout untouched — what does
+  Tailwind's mobile-first breakpoint model do when no `lg:` rule applies?
+
+- [ ] I picked the `lg:` (1024px) breakpoint to mean "computer". What would I have
+  to check about iPad and large-phone logical widths to be confident this rule
+  never triggers on a device the user considers a "phone"?
