@@ -38,7 +38,7 @@ const SERIES = [
   "Mega Evolution", "Scarlet & Violet", "Sword & Shield", "Sun & Moon", "XY",
   "Black & White", "HeartGold & SoulSilver", "Platinum", "Diamond & Pearl", "EX",
   "E-Card", "Neo", "Gym", "Classic", "Promos", "POP", "Collections",
-  "Other", "Misc.",
+  "Other",
 ];
 
 type Props = {

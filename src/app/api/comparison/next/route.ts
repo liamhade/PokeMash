@@ -69,7 +69,7 @@ const ERA_YEAR_RANGES: Record<string, [number, number]> = {
 const ERA_SETS: Record<string, string[]> = {
   vintage: ["Classic", "Promos", "Neo", "Gym", "Other", "E-Card", "EX", "POP"],
   middle: ["Promos", "Other", "POP", "Diamond & Pearl", "Platinum", "HeartGold & SoulSilver", "Black & White", "XY"],
-  modern: ["Promos", "Other", "Sun & Moon", "Sword & Shield", "Scarlet & Violet", "Misc.", "Mega Evolution", "Collections"],
+  modern: ["Promos", "Other", "Sun & Moon", "Sword & Shield", "Scarlet & Violet", "Mega Evolution", "Collections"],
 };
 
 function releaseYear(releaseDate: string | null): number | null {
