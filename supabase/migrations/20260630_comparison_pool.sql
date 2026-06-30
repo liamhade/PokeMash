@@ -9,12 +9,17 @@
 --
 -- Eligibility rule:
 --   * DROP always: Common, Uncommon, No Rarity, Double Rare (modern ex = not full art).
+--   * DROP energy cards (named "<X> Energy", optionally with {symbols} or a
+--     "Prism Star" tag). Trainers like "Energy Retrieval" are kept (Energy is not
+--     the last word). Matched by name because the data has no card-type column.
 --   * Plain "Rare": era-dependent. Kept only for VINTAGE sets (release year < 2023),
 --     because pre-2023 a "Rare" is a real chase card, whereas in the modern
 --     (Scarlet & Violet, 2023+) ladder "Rare" is a non-full-art black-star common-ish
 --     card sitting below Double Rare / Illustration Rare / etc.
 --   * KEEP everything else: all holo/ex/GX/V/VMAX/VSTAR/Illustration/Ultra/Secret/
---     Promo/Trainer Gallery/Mega rarities, etc.
+--     Promo/Trainer Gallery/Mega rarities, etc. Per-era mechanic rares stay: regular
+--     GX (Sun & Moon), V/VMAX/VSTAR (Sword & Shield), EX (XY) — but NOT the regular
+--     ex of Scarlet & Violet / Mega Evolution, which is the already-dropped Double Rare.
 --
 -- VINTAGE_CUTOFF_YEAR is 2023. To shift the vintage/modern boundary, change the
 -- literal below. release_date is free text like " May 22, 2026", so we pull the
@@ -32,6 +37,9 @@ as $$
   select c.card_id, c.name, c.image_url
   from cards c
   where c.rarity not in ('Common', 'Uncommon', 'No Rarity', 'Double Rare')
+    -- Drop energy cards: strip {symbols} and "Prism Star", then exclude names whose
+    -- last word is "Energy". Keeps trainers like "Energy Retrieval".
+    and trim(regexp_replace(regexp_replace(c.name, '\{[^}]*\}', '', 'g'), 'prism star', '', 'gi')) !~* 'energy$'
     and (
       c.rarity <> 'Rare'
       or coalesce((regexp_match(c.release_date, '(\d{4})'))[1]::int, 0) < 2023

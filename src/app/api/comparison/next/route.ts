@@ -36,9 +36,24 @@ function releaseYear(releaseDate: string | null): number {
   return match ? Number(match[0]) : 0;
 }
 
-// The era-dependent rule a SQL `not in` filter can't express: drop plain "Rare"
-// from modern sets. (The always-dropped rarities are already excluded in the query.)
+// Energy cards aren't fun to compare, so drop them. They're named "<X> Energy"
+// (optionally with element symbols like "{G}" or a "Prism Star" tag), so we anchor
+// on "Energy" being the LAST word after stripping those. This deliberately keeps
+// trainers like "Energy Retrieval" / "Ancient Booster Energy Capsule" (Energy is
+// not the final word). Done by name because the data has no card-type column.
+function isEnergyCard(name: string): boolean {
+  const stripped = name
+    .replace(/\{[^}]*\}/g, "") // element symbols, e.g. {G}{R}
+    .replace(/prism star/gi, "") // subtype tag, e.g. "Beast Energy Prism Star"
+    .replace(/\s+/g, " ")
+    .trim();
+  return /\bEnergy$/i.test(stripped);
+}
+
+// The rules a SQL `not in` filter can't express: drop energy cards, and keep plain
+// "Rare" only for vintage sets. (The always-dropped rarities are excluded in the query.)
 function isEligible(row: CardRow): boolean {
+  if (isEnergyCard(row.name)) return false;
   if (row.rarity === "Rare") return releaseYear(row.release_date) < VINTAGE_CUTOFF_YEAR;
   return true;
 }

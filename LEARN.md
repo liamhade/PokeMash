@@ -117,3 +117,14 @@
   random offset instead of just selecting the first 1000 eligible cards. What
   problem with PostgREST's row cap does the random window solve, and how does this
   compare to the `order by random() limit` the SQL function version would use?
+
+- [ ] `isEnergyCard` strips `{symbols}` and "Prism Star" and then tests `/\bEnergy$/i`
+  rather than just checking `name.includes("Energy")`. Walk through why "Energy
+  Retrieval" and "Beast Energy Prism Star" each need that anchoring to be classified
+  correctly — what goes wrong with a plain substring match?
+
+- [ ] Energy removal is done in JS (`isEligible`) while the boring rarities are
+  excluded in the SQL query. Given energy cards can carry *kept* rarities (e.g.
+  "Spiky Energy" is Hyper Rare), why couldn't the existing `not in (...)` rarity
+  filter have removed them, and what does that tell you about when a filter belongs
+  in the query vs. in code?
