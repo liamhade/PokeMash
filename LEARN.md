@@ -241,3 +241,12 @@
 - [ ] The site uses two fonts (Source Code Pro globally, Pixelify Sans for ELO floats),
   each its own `next/font` call. What's the cost of adding a third font this way, and
   when does "one variable per font, applied where needed" beat a single global font?
+
+- [ ] The coral color uses Tailwind's arbitrary value `text-[#ff7f50]` instead of a
+  named utility like `text-green-500`. When is reaching for an arbitrary value the
+  right call, and what do you give up (theme consistency, reuse) versus defining a
+  color token once?
+
+- [ ] Coloring both floats coral drops the green/red win-vs-loss cue, leaving only the
+  `+`/`-` sign. What does that trade between aesthetics and at-a-glance readability,
+  and for whom (e.g. color-blind users) might the sign-only signal actually be better?
