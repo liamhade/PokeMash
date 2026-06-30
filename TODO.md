@@ -2,13 +2,7 @@
 
 ## FUNCTIONAL
 
-- [ ] (**streak flame — make it look like real fire**) ← ACTIVE / needs rework
-	- *STATUS*: The winning-streak LOGIC works in Keep Winner mode. `src/app/compare/ComparisonScreen.tsx` tracks `streak` + `streakCardId` (same card winning extends it, a new winner resets it), and `flameColor(streak)` returns the tier color: **5 wins → dark red, 10 → blue, 20 → purple** (`--flame-color` is an "R G B" triple). The flame renders as a `.flame` overlay on the held winner's card.
-	- *PROBLEM*: the VISUAL looks bad / doesn't read as fire. Already tried and rejected: (a) flickering box-shadow glow; (b) box-shadow ruffled by an SVG turbulence/displacement filter; (c) current version — teardrop `.flame-tongue` outlines around the card edges rippled by the `#flame-distort` filter + opacity flicker.
-	- *GOAL*: a **subtle but clearly-flame** effect — wiggling teardrop/tongue shapes (like real fire) around the card, still recolored per tier via `--flame-color`.
-	- *RECOMMENDED NEXT*: stop fighting with CSS box-shadow/filter tricks. Use a flame **asset** — a hand-built looping **SVG** of layered flame tongues (recolorable via `currentColor`/CSS vars, scales cleanly, one file in `/public`), or a **Lottie** fire animation (most realistic; needs a small player lib). Keep ALL the streak logic + tiers; only replace the rendering.
-	- *FILES*: `ComparisonScreen.tsx` — the `.flame` render block, `FLAME_TONGUES`, `flameColor()`, `streak`/`streakCardId` state, and the inline `<filter id="flame-distort">` SVG. `src/app/globals.css` — `.flame`, `.flame-tongue`, `@keyframes flame-flicker`.
-	- *TEST*: Keep Winner on, pick the same card 5× in a row → flame appears.
+- [x] (**streak flame — make it look like real fire**) — DONE (see DONE.md). Reimplemented as hand-built SVG flame tongues (layered outer/inner teardrop paths, wide base → wavy point) that rise + sway via CSS `scale`/`rotate`, with a tip-fade mask and colored glow. Dropped the `#flame-distort` turbulence filter and box-shadow tricks. Streak logic + per-tier colors unchanged.
 
 - [ ] (**pre-loaded future comparisons**)
 	- *PROBLEM*: Card selection takes too long.

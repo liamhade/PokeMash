@@ -309,3 +309,17 @@
   filter — not from an animated `transform`. Given each tongue already uses `transform`
   for its `translate(...) rotate(...)` placement, why would animating `transform` for
   the flicker have broken the layout (recall the earlier float-centering bug)?
+
+- [ ] The reworked flame splits motion across two keyframe sets: `flame-rise` animates
+  the individual `scale` property and `flame-sway` animates `rotate`, both on
+  `.flame-tongue-svg`. What would happen if I'd instead written both as `transform:`
+  keyframes (e.g. `transform: scaleY(...)` and `transform: rotate(...)`) running at
+  once — and why do the *individual* `scale`/`rotate` properties compose where two
+  `transform` animations don't?
+
+- [ ] The `FLAME_OUTER_PATH`/`FLAME_INNER_PATH` flame shape starts at `M5 60`, never
+  returns to that bottom-left point until the closing `Z`, and tapers to a single point
+  at `y=0`. Contrast that with the first broken version (`M12 56 ... 12 56 Z`, a point at
+  both ends): why does a *wide base + single tip* read as fire while a *two-tip* shape
+  reads as a leaf, and what role does the `mask: linear-gradient(to top, ...)` tip-fade
+  play on top of the shape?

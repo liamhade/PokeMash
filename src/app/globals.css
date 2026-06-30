@@ -47,41 +47,62 @@ body {
   will-change: transform, opacity;
 }
 
-/* Winning-streak flame. `.flame` is a card-sized layer holding teardrop `.flame-tongue`
-   outlines anchored around the edges; the SVG #flame-distort filter (turbulence +
-   displacement) ripples every tongue's outline so they wiggle like fire, and the
-   per-tongue opacity flicker makes them dance. --flame-color (an "R G B" triple) sets
-   the tier color; a faint box-shadow adds an ambient colored halo. */
-@keyframes flame-flicker {
+/* Winning-streak flame. `.flame` is a card-sized layer holding SVG teardrop tongues
+   (`.flame-tongue`) anchored around the edge, each rotated by --rot to point outward.
+   The inner <svg> RISES (vertical flicker) and SWAYS (side-to-side) via the individual
+   `scale`/`rotate` transform properties — separate properties so the two motions
+   compose instead of overwriting one shared `transform`. A tip-fade mask dissolves each
+   point into the air and a colored drop-shadow adds glow. --flame-color (an "R G B"
+   triple) sets the tier color. */
+@keyframes flame-rise {
   0%,
   100% {
-    opacity: 0.8;
+    scale: 1 0.88;
   }
-  30% {
-    opacity: 1;
+  50% {
+    scale: 0.9 1.16;
   }
-  55% {
-    opacity: 0.6;
+}
+@keyframes flame-sway {
+  0%,
+  100% {
+    rotate: -5deg;
   }
-  80% {
-    opacity: 0.92;
+  50% {
+    rotate: 5deg;
   }
 }
 
 .flame {
-  border-radius: 0.75rem; /* match the card's rounded-xl so the halo hugs its shape */
-  box-shadow: 0 0 22px 5px rgb(var(--flame-color) / 0.22);
-  filter: url(#flame-distort);
+  /* soft colored halo shared by every tongue */
+  filter: drop-shadow(0 0 5px rgb(var(--flame-color) / 0.55));
 }
 
 .flame-tongue {
   position: absolute;
-  width: 18px;
-  height: 30px;
-  /* Teardrop: three rounded corners + one sharp, rotated so the point faces outward. */
-  border: 2px solid rgb(var(--flame-color) / 0.95);
-  background: rgb(var(--flame-color) / 0.12);
-  border-radius: 0 50% 50% 50%;
-  transform: translate(-50%, -50%) rotate(var(--rot));
-  animation: flame-flicker 0.5s ease-in-out infinite;
+  width: 26px;
+  height: 60px;
+  /* Plant the base (bottom-center) on the edge anchor, then rotate to aim the point
+     outward; --s gives each tongue a slightly different size. */
+  transform: translate(-50%, -100%) rotate(var(--rot)) scale(var(--s, 1));
+  transform-origin: 50% 100%;
+}
+
+.flame-tongue-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%; /* base — rise/sway pivot where the flame meets the card */
+  /* Fade the pointed tip so the tongue dissolves like real fire. Applied in the svg's
+     local box (top = tip), so it tracks the point through the rotation/animation. */
+  -webkit-mask: linear-gradient(to top, #000 25%, rgb(0 0 0 / 0.15) 100%);
+  mask: linear-gradient(to top, #000 25%, rgb(0 0 0 / 0.15) 100%);
+  animation: flame-rise 1.3s ease-in-out infinite, flame-sway 2.1s ease-in-out infinite;
+}
+
+.flame-outer {
+  fill: rgb(var(--flame-color) / 0.4);
+}
+.flame-inner {
+  fill: rgb(var(--flame-color) / 0.9);
 }

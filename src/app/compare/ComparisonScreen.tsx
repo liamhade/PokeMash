@@ -37,25 +37,38 @@ function flameColor(streak: number): string | null {
   return null;
 }
 
-// Teardrop flame tongues placed around the card edge. `left`/`top` are the anchor on
-// the card border (%), `edge` is which way the tongue points out (0=up, 90=right,
-// 180=down, 270=left). The CSS teardrop's point sits at +45° from that.
+// SVG flame tongues placed around the card edge. `left`/`top` are the anchor on the
+// card border (%); `edge` is the outward direction in degrees (0=up, 90=right,
+// 180=down, 270=left) and is used directly to rotate the tongue so its point aims away
+// from the card.
 type Tongue = { left: string; top: string; edge: number };
 const FLAME_TONGUES: Tongue[] = [
-  { left: "18%", top: "0%", edge: 0 }, // top edge
-  { left: "39%", top: "0%", edge: 0 },
-  { left: "61%", top: "0%", edge: 0 },
-  { left: "82%", top: "0%", edge: 0 },
-  { left: "100%", top: "25%", edge: 90 }, // right edge
-  { left: "100%", top: "55%", edge: 90 },
-  { left: "100%", top: "82%", edge: 90 },
-  { left: "78%", top: "100%", edge: 180 }, // bottom edge
-  { left: "50%", top: "100%", edge: 180 },
-  { left: "22%", top: "100%", edge: 180 },
-  { left: "0%", top: "82%", edge: 270 }, // left edge
-  { left: "0%", top: "55%", edge: 270 },
-  { left: "0%", top: "25%", edge: 270 },
+  { left: "13%", top: "0%", edge: 0 }, // top edge
+  { left: "31%", top: "0%", edge: 0 },
+  { left: "50%", top: "0%", edge: 0 },
+  { left: "69%", top: "0%", edge: 0 },
+  { left: "87%", top: "0%", edge: 0 },
+  { left: "100%", top: "22%", edge: 90 }, // right edge
+  { left: "100%", top: "50%", edge: 90 },
+  { left: "100%", top: "78%", edge: 90 },
+  { left: "84%", top: "100%", edge: 180 }, // bottom edge
+  { left: "61%", top: "100%", edge: 180 },
+  { left: "39%", top: "100%", edge: 180 },
+  { left: "16%", top: "100%", edge: 180 },
+  { left: "0%", top: "78%", edge: 270 }, // left edge
+  { left: "0%", top: "50%", edge: 270 },
+  { left: "0%", top: "22%", edge: 270 },
 ];
+
+// Each tongue is two stacked flame paths in a 26×60 viewBox — a wider, fainter OUTER
+// body and a slimmer, brighter INNER core. The shape has a WIDE flat base (the Z closes
+// a straight bottom edge across x≈5–21) rooted on the card and tapers through a wavy
+// S-curve to a single point at the top (y=0); drawing the point "up" lets `edge` rotate
+// the tongue to face outward, and the layered pair reads as a flame with depth.
+const FLAME_OUTER_PATH =
+  "M5 60 C2 45 4 23 10 12 C12 6 11 3 13 0 C15 3 14 6 16 12 C22 23 24 45 21 60 Z";
+const FLAME_INNER_PATH =
+  "M8 60 C6 46 7 28 11 14 C12 8 11.5 3 13 0 C14.5 3 14 8 15 14 C19 28 20 46 18 60 Z";
 
 function randomFloat(delta: number, side: "left" | "right"): FloatDelta {
   const outward = side === "left" ? -1 : 1;
@@ -231,23 +244,6 @@ export default function ComparisonScreen() {
 
   return (
     <div className="flex flex-1 flex-col bg-white relative overflow-hidden">
-      {/* Turbulence filter that ruffles the streak flame's edges into wavering, fire-
-          like tongues (referenced by .flame in globals.css). Rendered once. The
-          animated baseFrequency makes the noise flow so the flames keep moving. */}
-      <svg aria-hidden width="0" height="0" className="absolute">
-        <filter id="flame-distort" x="-50%" y="-50%" width="200%" height="200%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.02 0.05" numOctaves={2} seed={7} result="noise">
-            <animate
-              attributeName="baseFrequency"
-              dur="2.6s"
-              values="0.02 0.05;0.025 0.085;0.02 0.05"
-              repeatCount="indefinite"
-            />
-          </feTurbulence>
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale={7} xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-      </svg>
-
       {/* Filter button removed for now (see TODO: rarity-restricted comparison
           pool). Keep Winner stays right-aligned on its own. */}
       <div className="flex justify-end px-6 py-4">
@@ -300,13 +296,14 @@ export default function ComparisonScreen() {
                   isPicked ? "shadow-[0_0_40px_12px_rgba(34,197,94,0.9)]" : "",
                 ].join(" ")}
               >
-                {/* Streak flame: teardrop tongues around the card edge, their outlines
-                    rippled by the #flame-distort turbulence filter so they wiggle like
-                    fire. Color escalates with the streak via --flame-color. */}
+                {/* Streak flame: SVG teardrop tongues licking outward from the card
+                    edge, each rising and swaying so they dance like fire. Sits behind
+                    the card (z-0) so the bases tuck against the edge; color escalates
+                    with the streak via --flame-color. */}
                 {flame && (
                   <span
                     aria-hidden
-                    className="flame pointer-events-none absolute inset-0 rounded-xl"
+                    className="flame pointer-events-none absolute inset-0 z-0 rounded-xl"
                     style={{ "--flame-color": flame } as React.CSSProperties}
                   >
                     {FLAME_TONGUES.map((tongue, i) => (
@@ -317,11 +314,22 @@ export default function ComparisonScreen() {
                           {
                             left: tongue.left,
                             top: tongue.top,
-                            "--rot": `${tongue.edge + 45}deg`,
-                            animationDelay: `${(i % 5) * 0.09}s`,
+                            "--rot": `${tongue.edge}deg`,
+                            // Slight per-tongue size variance for an uneven, organic edge.
+                            "--s": 0.8 + (i % 3) * 0.18,
                           } as React.CSSProperties
                         }
-                      />
+                      >
+                        <svg
+                          viewBox="0 0 26 60"
+                          className="flame-tongue-svg"
+                          // Desync each tongue's flicker/sway so the ring never pulses in unison.
+                          style={{ animationDelay: `${-(i * 0.19)}s` }}
+                        >
+                          <path className="flame-outer" d={FLAME_OUTER_PATH} />
+                          <path className="flame-inner" d={FLAME_INNER_PATH} />
+                        </svg>
+                      </span>
                     ))}
                   </span>
                 )}
@@ -330,7 +338,7 @@ export default function ComparisonScreen() {
                   alt={card.name}
                   width={325}
                   height={450}
-                  className="rounded-xl"
+                  className="relative z-10 rounded-xl"
                   priority
                 />
               </button>
