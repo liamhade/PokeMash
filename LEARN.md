@@ -323,3 +323,16 @@
   both ends): why does a *wide base + single tip* read as fire while a *two-tip* shape
   reads as a leaf, and what role does the `mask: linear-gradient(to top, ...)` tip-fade
   play on top of the shape?
+
+- [ ] The redesigned flame keeps its `filter: blur(1.4px)` STATIC and only animates
+  `transform`/`opacity` on `.flame-tongue-svg`. Walk through why a transform animation
+  over a statically-blurred, `will-change`-promoted layer is GPU-cheap, whereas the
+  earlier version's `drop-shadow` on the `.flame` *container* (whose children animated)
+  forced an expensive per-frame re-render — what does the compositor reuse in the first
+  case that it can't in the second?
+
+- [ ] Per-tier color is now a baked `<linearGradient>` chosen by `gradId` from a shared
+  hidden `<defs>`, instead of filling each path with `rgb(var(--flame-color))`. Given a
+  CSS custom property set on `.flame` *does* cascade to a descendant `<stop>`, why is the
+  three-fixed-gradients approach still the better call here — think about duplicate
+  gradient `id`s across 19 tongues and what `fill="url(#id)"` resolves to.

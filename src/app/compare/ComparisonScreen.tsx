@@ -28,47 +28,59 @@ type FloatDelta = { delta: number; dx: number; dy: number; key: number };
 // Land the number in the white margin on the card's OUTER side (away from the other
 // card) so it's readable off the card art, with a random vertical spread. dx clears
 // the card's ~130px half-width; dy stays within its height so it reads alongside it.
-// Winning-streak flame tier → glow color (as an "R G B" triple for rgb(... / a)).
-// Escalates with the streak; null below the first tier (no flame).
-function flameColor(streak: number): string | null {
-  if (streak >= 20) return "147 51 234"; // purple
-  if (streak >= 10) return "37 99 235"; // blue
-  if (streak >= 5) return "153 27 27"; // dark red
+// Winning-streak flame tier. `rgb` (an "R G B" triple) colors the surrounding glow;
+// `gradId` selects one of the three pre-defined vertical gradients (FLAME_GRADIENTS)
+// that fill the flame tongues — escalating with the streak, null below the first tier.
+type FlameTier = { rgb: string; gradId: string };
+function flameTier(streak: number): FlameTier | null {
+  if (streak >= 20) return { rgb: "147 51 234", gradId: "flame-grad-purple" };
+  if (streak >= 10) return { rgb: "37 99 235", gradId: "flame-grad-blue" };
+  if (streak >= 5) return { rgb: "153 27 27", gradId: "flame-grad-red" };
   return null;
 }
 
-// SVG flame tongues placed around the card edge. `left`/`top` are the anchor on the
-// card border (%); `edge` is the outward direction in degrees (0=up, 90=right,
-// 180=down, 270=left) and is used directly to rotate the tongue so its point aims away
-// from the card.
-type Tongue = { left: string; top: string; edge: number };
-const FLAME_TONGUES: Tongue[] = [
-  { left: "13%", top: "0%", edge: 0 }, // top edge
-  { left: "31%", top: "0%", edge: 0 },
-  { left: "50%", top: "0%", edge: 0 },
-  { left: "69%", top: "0%", edge: 0 },
-  { left: "87%", top: "0%", edge: 0 },
-  { left: "100%", top: "22%", edge: 90 }, // right edge
-  { left: "100%", top: "50%", edge: 90 },
-  { left: "100%", top: "78%", edge: 90 },
-  { left: "84%", top: "100%", edge: 180 }, // bottom edge
-  { left: "61%", top: "100%", edge: 180 },
-  { left: "39%", top: "100%", edge: 180 },
-  { left: "16%", top: "100%", edge: 180 },
-  { left: "0%", top: "78%", edge: 270 }, // left edge
-  { left: "0%", top: "50%", edge: 270 },
-  { left: "0%", top: "22%", edge: 270 },
+// The three tier gradients, rendered once into a hidden <svg defs>. Each fades a bright
+// hot base → the tier color → transparent tip (y1=1 bottom, y2=0 top), so a flat-filled
+// path reads as a glowing flame without any per-element/per-frame filter work.
+const FLAME_GRADIENTS = [
+  { id: "flame-grad-red", base: "234 88 88", mid: "153 27 27" },
+  { id: "flame-grad-blue", base: "96 165 250", mid: "37 99 235" },
+  { id: "flame-grad-purple", base: "192 132 252", mid: "147 51 234" },
 ];
 
-// Each tongue is two stacked flame paths in a 26×60 viewBox — a wider, fainter OUTER
-// body and a slimmer, brighter INNER core. The shape has a WIDE flat base (the Z closes
-// a straight bottom edge across x≈5–21) rooted on the card and tapers through a wavy
-// S-curve to a single point at the top (y=0); drawing the point "up" lets `edge` rotate
-// the tongue to face outward, and the layered pair reads as a flame with depth.
-const FLAME_OUTER_PATH =
-  "M5 60 C2 45 4 23 10 12 C12 6 11 3 13 0 C15 3 14 6 16 12 C22 23 24 45 21 60 Z";
-const FLAME_INNER_PATH =
-  "M8 60 C6 46 7 28 11 14 C12 8 11.5 3 13 0 C14.5 3 14 8 15 14 C19 28 20 46 18 60 Z";
+// Flame tongues, all pointing UP, ringing the whole card. `left`/`top` anchor the base
+// (%); top-edge tongues rise above the card, side tongues climb the edges, bottom
+// tongues (top > 100%) rise from beneath. `scale` varies each tongue's size for an
+// uneven, organic ring. The flame layer sits behind the card, so the inner halves tuck
+// out of sight and only the outward-licking flames show.
+type Tongue = { left: string; top: string; scale: number };
+const FLAME_TONGUES: Tongue[] = [
+  { left: "8%", top: "0%", scale: 1.05 }, // top edge (tallest — the crown)
+  { left: "22%", top: "0%", scale: 1.2 },
+  { left: "36%", top: "0%", scale: 1.0 },
+  { left: "50%", top: "0%", scale: 1.25 },
+  { left: "64%", top: "0%", scale: 1.0 },
+  { left: "78%", top: "0%", scale: 1.2 },
+  { left: "92%", top: "0%", scale: 1.05 },
+  { left: "0%", top: "20%", scale: 0.85 }, // left edge (climbing)
+  { left: "0%", top: "42%", scale: 0.95 },
+  { left: "0%", top: "64%", scale: 0.9 },
+  { left: "0%", top: "85%", scale: 0.85 },
+  { left: "100%", top: "20%", scale: 0.85 }, // right edge (climbing)
+  { left: "100%", top: "42%", scale: 0.95 },
+  { left: "100%", top: "64%", scale: 0.9 },
+  { left: "100%", top: "85%", scale: 0.85 },
+  { left: "18%", top: "108%", scale: 0.95 }, // bottom edge (rising from beneath)
+  { left: "41%", top: "110%", scale: 1.0 },
+  { left: "59%", top: "110%", scale: 1.0 },
+  { left: "82%", top: "108%", scale: 0.95 },
+];
+
+// One flame-tongue path in a 30×70 viewBox: a wide rooted base (x≈6–24 at y=70) tapering
+// through a wavy S-curve to a single point at the top (y=0). The gradient fill gives it
+// depth, so a single path per tongue (no stacked layers) keeps the node count low.
+const FLAME_PATH =
+  "M6 70 C3 52 6 30 12 14 C14 8 12 4 15 0 C18 4 16 8 18 14 C24 30 27 52 24 70 Z";
 
 function randomFloat(delta: number, side: "left" | "right"): FloatDelta {
   const outward = side === "left" ? -1 : 1;
@@ -244,6 +256,20 @@ export default function ComparisonScreen() {
 
   return (
     <div className="flex flex-1 flex-col bg-white relative overflow-hidden">
+      {/* Streak-flame tier gradients, defined once. Fixed colors (not CSS vars) let one
+          shared <defs> fill every tongue without per-element gradients. */}
+      <svg aria-hidden width="0" height="0" className="absolute">
+        <defs>
+          {FLAME_GRADIENTS.map((g) => (
+            <linearGradient key={g.id} id={g.id} x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0" stopColor={`rgb(${g.base})`} stopOpacity="1" />
+              <stop offset="0.5" stopColor={`rgb(${g.mid})`} stopOpacity="0.85" />
+              <stop offset="1" stopColor={`rgb(${g.mid})`} stopOpacity="0" />
+            </linearGradient>
+          ))}
+        </defs>
+      </svg>
+
       {/* Filter button removed for now (see TODO: rarity-restricted comparison
           pool). Keep Winner stays right-aligned on its own. */}
       <div className="flex justify-end px-6 py-4">
@@ -277,7 +303,7 @@ export default function ComparisonScreen() {
           const isHovered = hoveredId === card.card_id && ready;
           const float = floats[card.card_id];
           // Streak flame only on the card the streak belongs to (the held winner).
-          const flame = card.card_id === streakCardId ? flameColor(streak) : null;
+          const flame = card.card_id === streakCardId ? flameTier(streak) : null;
 
           return (
             // Wrapper stays put (the button's slide is a transform, which doesn't
@@ -296,16 +322,18 @@ export default function ComparisonScreen() {
                   isPicked ? "shadow-[0_0_40px_12px_rgba(34,197,94,0.9)]" : "",
                 ].join(" ")}
               >
-                {/* Streak flame: SVG teardrop tongues licking outward from the card
-                    edge, each rising and swaying so they dance like fire. Sits behind
-                    the card (z-0) so the bases tuck against the edge; color escalates
-                    with the streak via --flame-color. */}
+                {/* Streak flame: a colored glow wrapping the whole card edge plus a ring
+                    of upward-licking SVG flame tongues around the card. Sits behind the
+                    card (z-0) so each tongue's inner half tucks out of sight. Color/tier
+                    escalates with the streak via --flame-color + the gradient id. Only
+                    transform/opacity animate (see globals.css) to stay GPU-cheap. */}
                 {flame && (
                   <span
                     aria-hidden
-                    className="flame pointer-events-none absolute inset-0 z-0 rounded-xl"
-                    style={{ "--flame-color": flame } as React.CSSProperties}
+                    className="flame pointer-events-none absolute inset-0 z-0"
+                    style={{ "--flame-color": flame.rgb } as React.CSSProperties}
                   >
+                    <span className="flame-glow" />
                     {FLAME_TONGUES.map((tongue, i) => (
                       <span
                         key={i}
@@ -314,20 +342,20 @@ export default function ComparisonScreen() {
                           {
                             left: tongue.left,
                             top: tongue.top,
-                            "--rot": `${tongue.edge}deg`,
-                            // Slight per-tongue size variance for an uneven, organic edge.
-                            "--s": 0.8 + (i % 3) * 0.18,
+                            "--s": tongue.scale,
                           } as React.CSSProperties
                         }
                       >
                         <svg
-                          viewBox="0 0 26 60"
+                          viewBox="0 0 30 70"
                           className="flame-tongue-svg"
-                          // Desync each tongue's flicker/sway so the ring never pulses in unison.
-                          style={{ animationDelay: `${-(i * 0.19)}s` }}
+                          // Desync + vary each tongue so the ring flickers organically.
+                          style={{
+                            animationDelay: `${-(i * 0.13)}s`,
+                            animationDuration: `${1.15 + (i % 4) * 0.22}s`,
+                          }}
                         >
-                          <path className="flame-outer" d={FLAME_OUTER_PATH} />
-                          <path className="flame-inner" d={FLAME_INNER_PATH} />
+                          <path d={FLAME_PATH} fill={`url(#${flame.gradId})`} />
                         </svg>
                       </span>
                     ))}
