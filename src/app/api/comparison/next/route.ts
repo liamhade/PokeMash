@@ -26,6 +26,11 @@ const DROP_RARITIES = ["Common", "Uncommon", "No Rarity", "Double Rare"];
 // visits don't always surface the same cards.
 const POOL_SAMPLE_SIZE = 1000;
 
+// A restrictive filter can leave a given random window with fewer than two eligible
+// cards. Resample with a fresh offset up to this many times before reporting an empty
+// pool (no effect when the pool already fits in one window).
+const SAMPLE_RETRIES = 4;
+
 // A non-buzzword "Rare" is only worth comparing if it's genuinely vintage: HeartGold
 // & SoulSilver (ends Feb 2011) and earlier. The modern era begins with Black & White
 // (starts Mar 2011). The boundary falls inside 2011, so we compare full release dates
@@ -35,6 +40,54 @@ function isVintage(releaseDate: string | null): boolean {
   if (!releaseDate) return false;
   const date = new Date(releaseDate.trim());
   return !Number.isNaN(date.getTime()) && date < MODERN_ERA_START;
+}
+
+// --- User-controlled filters (price / era / series) ------------------------
+// Optional filters the player sets via the Filter modal, layered on top of the
+// always-on rarity rules above. Series and price are pushed into the DB query;
+// era is applied in JS here because release_date is free text the DB can't
+// compare by year.
+
+// Era buckets by release year. These are TCG eras, not literal 10-year decades:
+// vintage = WOTC→Platinum/HGSS, middle = Black & White→Sun & Moon, modern =
+// Sword & Shield onward. Boundaries align with the rough year a new base era began.
+const ERA_YEAR_RANGES: Record<string, [number, number]> = {
+  vintage: [0, 2010],
+  middle: [2011, 2019],
+  modern: [2020, 9999],
+};
+
+// Which `set` (series) values to draw on for each era. The random sample window is
+// contiguous, so an era filter applied only in JS would often miss the era's rows
+// entirely; pre-filtering the DB query to these series keeps the window era-relevant,
+// and matchesEras() then trims to the exact release year. A series is listed under an
+// era only where it has SUBSTANTIAL volume — boundary series that merely graze an era
+// (HGSS's 2011 tail, Sword & Shield's lone 2019 set, Sun & Moon's 2020–21 tail) are
+// left off that era so they don't dilute the window with rows the year-check discards.
+// The long, continuously-printed catch-alls (Promos, Other) really do span, so they
+// stay in every era. Regenerate when the catalog gains new series.
+const ERA_SETS: Record<string, string[]> = {
+  vintage: ["Classic", "Promos", "Neo", "Gym", "Other", "E-Card", "EX", "POP", "Trainer Kits", "Diamond & Pearl", "Platinum", "HeartGold & SoulSilver"],
+  middle: ["Promos", "Other", "Trainer Kits", "Black & White", "XY", "Sun & Moon", "Collections"],
+  modern: ["Promos", "Other", "Sword & Shield", "Scarlet & Violet", "Misc.", "Mega Evolution"],
+};
+
+function releaseYear(releaseDate: string | null): number | null {
+  if (!releaseDate) return null;
+  const date = new Date(releaseDate.trim());
+  return Number.isNaN(date.getTime()) ? null : date.getFullYear();
+}
+
+// True if the card's release year falls in any of the selected eras. No eras
+// selected means "no era filter", so everything passes.
+function matchesEras(releaseDate: string | null, eras: string[]): boolean {
+  if (eras.length === 0) return true;
+  const year = releaseYear(releaseDate);
+  if (year === null) return false;
+  return eras.some((era) => {
+    const range = ERA_YEAR_RANGES[era];
+    return range !== undefined && year >= range[0] && year <= range[1];
+  });
 }
 
 // Energy cards aren't fun to compare, so drop them. They're named "<X> Energy"
@@ -157,11 +210,24 @@ function supply_winner_with_fresh_card(
 // Query: ?playerId=...  and optionally &winnerId=... (Keep Winner mode: returns
 // the winner plus one fresh challenger instead of a brand-new pair).
 export async function GET(request: NextRequest) {
-  const playerId = request.nextUrl.searchParams.get("playerId");
-  const winnerId = request.nextUrl.searchParams.get("winnerId");
+  const params = request.nextUrl.searchParams;
+  const playerId = params.get("playerId");
+  const winnerId = params.get("winnerId");
   if (!playerId) {
     return NextResponse.json({ error: "playerId is required" }, { status: 400 });
   }
+
+  // Optional Filter-modal selections. Multi-value filters arrive comma-separated;
+  // prices are parsed to numbers (ignored if blank/NaN). Empty = filter not applied.
+  const seriesFilter = (params.get("series") ?? "").split(",").filter(Boolean);
+  const eraFilter = (params.get("eras") ?? "").split(",").filter(Boolean);
+  const minPrice = Number(params.get("minPrice"));
+  const maxPrice = Number(params.get("maxPrice"));
+  const hasMin = params.get("minPrice") !== null && !Number.isNaN(minPrice);
+  const hasMax = params.get("maxPrice") !== null && !Number.isNaN(maxPrice);
+  // The series that touch any selected era — used to keep the DB sample era-relevant
+  // (precise year trimming still happens in matchesEras below). De-duplicated across eras.
+  const eraSets = [...new Set(eraFilter.flatMap((era) => ERA_SETS[era] ?? []))];
 
   const supabase = createClient(await cookies());
 
@@ -171,36 +237,61 @@ export async function GET(request: NextRequest) {
   // finally drop modern plain "Rare" in JS — release_date is free text the DB
   // filter can't compare by year. Quote the values so spaces ("No Rarity") parse.
   const excludeList = `(${DROP_RARITIES.map((rarity) => `"${rarity}"`).join(",")})`;
-  const { count, error: countError } = await supabase
+  // The count and sample queries must apply the SAME filters so the random window is
+  // drawn from the filtered population. Series (`set`) and price go in the DB query;
+  // era is applied in JS below (release_date is free text the DB can't compare by year).
+  // Each query repeats the filter chain (as the file already does for the rarity exclude).
+  let countQuery = supabase
     .from("cards")
     .select("card_id", { count: "exact", head: true })
     .not("rarity", "in", excludeList);
+  if (seriesFilter.length) countQuery = countQuery.in("set", seriesFilter);
+  if (eraSets.length) countQuery = countQuery.in("set", eraSets);
+  if (hasMin) countQuery = countQuery.not("market_price", "is", null).gte("market_price", minPrice);
+  if (hasMax) countQuery = countQuery.not("market_price", "is", null).lte("market_price", maxPrice);
+  const { count, error: countError } = await countQuery;
   if (countError) {
     return NextResponse.json({ error: countError.message }, { status: 500 });
   }
-  const offset = Math.max(0, Math.floor(Math.random() * ((count ?? 0) - POOL_SAMPLE_SIZE)));
-  const { data: rows, error: cardsError } = await supabase
-    .from("cards")
-    .select("card_id, name, image_url, rarity, release_date")
-    .not("rarity", "in", excludeList)
-    .range(offset, offset + POOL_SAMPLE_SIZE - 1);
-  if (cardsError) {
-    return NextResponse.json({ error: cardsError.message }, { status: 500 });
-  }
-  // De-duplicate by card_id so a card can never be matched against itself: even if the
-  // source data holds the same card under more than one row, it appears at most once in
-  // the pool, and both pair-builders below select two distinct entries from it.
-  const eligibleById = new Map<string, Card>();
-  for (const row of (rows ?? []) as CardRow[]) {
-    if (isEligible(row) && !eligibleById.has(row.card_id)) {
-      eligibleById.set(row.card_id, {
-        card_id: row.card_id,
-        name: row.name,
-        image_url: row.image_url,
-      });
+  // Fetch a random window and reduce it to eligible cards. Repeats the same filter chain
+  // as the count query (the file already duplicates filters across count/rows).
+  async function sampleEligible(offset: number): Promise<Card[]> {
+    let rowsQuery = supabase
+      .from("cards")
+      .select("card_id, name, image_url, rarity, release_date")
+      .not("rarity", "in", excludeList);
+    if (seriesFilter.length) rowsQuery = rowsQuery.in("set", seriesFilter);
+    if (eraSets.length) rowsQuery = rowsQuery.in("set", eraSets);
+    if (hasMin) rowsQuery = rowsQuery.not("market_price", "is", null).gte("market_price", minPrice);
+    if (hasMax) rowsQuery = rowsQuery.not("market_price", "is", null).lte("market_price", maxPrice);
+    const { data: rows, error } = await rowsQuery.range(offset, offset + POOL_SAMPLE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    // De-duplicate by card_id so a card can never be matched against itself: even if the
+    // source data holds the same card under more than one row, it appears at most once in
+    // the pool, and both pair-builders below select two distinct entries from it. The era
+    // year-check trims boundary series the DB set-filter can't (release_date is free text).
+    const byId = new Map<string, Card>();
+    for (const row of (rows ?? []) as CardRow[]) {
+      if (isEligible(row) && matchesEras(row.release_date, eraFilter) && !byId.has(row.card_id)) {
+        byId.set(row.card_id, { card_id: row.card_id, name: row.name, image_url: row.image_url });
+      }
     }
+    return [...byId.values()];
   }
-  const cards: Card[] = [...eligibleById.values()];
+
+  // A restrictive filter can leave a single window with <2 eligible cards, so resample
+  // with fresh offsets a few times before giving up. When the pool fits in one window
+  // (maxOffset 0) every sample is identical, so one attempt is enough.
+  const maxOffset = Math.max(0, (count ?? 0) - POOL_SAMPLE_SIZE);
+  let cards: Card[] = [];
+  try {
+    for (let attempt = 0; attempt < SAMPLE_RETRIES && cards.length < 2; attempt++) {
+      cards = await sampleEligible(Math.floor(Math.random() * (maxOffset + 1)));
+      if (maxOffset === 0) break;
+    }
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  }
   if (cards.length < 2) {
     return NextResponse.json({ error: "Not enough cards to compare" }, { status: 409 });
   }

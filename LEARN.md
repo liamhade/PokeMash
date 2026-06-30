@@ -389,3 +389,18 @@
   tracked under TODO: make logo dark). What are the tradeoffs of the filter approach — think
   about scaling/retina sharpness, the 1px offsets at different DPRs, and why this is a
   stopgap rather than the real fix.
+
+- [ ] In `next/route.ts`, series and price filters are pushed into the Supabase query but
+  era is filtered two ways: a DB `set IN (...)` pre-filter (`eraSets`) AND a JS year check
+  (`matchesEras`). Why is the DB pre-filter alone insufficient for a series like Promos, and
+  why is the JS check alone insufficient given the contiguous `.range()` sampling?
+
+- [ ] `ERA_SETS` lists a series under an era only where it has *substantial* volume, omitting
+  boundary grazes (HGSS's 2011 tail, Sword & Shield's 2019 set). What goes wrong with the
+  resample success rate if a mostly-modern series like Sword & Shield is included in the
+  `middle` list, and how does that interact with `SAMPLE_RETRIES`?
+
+- [ ] The empty-window problem is handled by resampling with a fresh random offset up to
+  `SAMPLE_RETRIES` times, and the loop `break`s early when `maxOffset === 0`. Why is
+  retrying pointless in that case, and what determines whether `maxOffset` is 0 for a given
+  filter combination?
