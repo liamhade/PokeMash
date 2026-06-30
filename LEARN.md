@@ -98,3 +98,12 @@
   in the repo even though nothing imports them now. When is keeping
   soon-to-return dead code the right call versus deleting it and trusting git
   history to bring it back?
+
+- [ ] The `set-state-in-effect` lint fired on `loadNextPair()` even though that
+  function only calls `setState` after `await fetch`. Why can't the lint rule see
+  that the state updates are no longer synchronous, and what about an `await`
+  boundary makes the "cascading render" concern not apply?
+
+- [ ] Suppressing a lint rule with a targeted `eslint-disable-next-line` + comment
+  vs. restructuring the code to satisfy it: what's the risk of each, and what made
+  the disable the honest choice here rather than hiding a real bug?

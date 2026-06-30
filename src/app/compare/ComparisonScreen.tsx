@@ -61,7 +61,11 @@ export default function ComparisonScreen() {
     });
   }, []);
 
+  // Load the first pair on mount. loadNextPair is async and only calls setState
+  // *after* `await fetch`, so there is no synchronous render cascade here — but the
+  // lint rule can't see through the async boundary, hence the targeted disable.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadNextPair();
   }, [loadNextPair]);
 
