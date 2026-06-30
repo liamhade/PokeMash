@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { getPlayerId } from "@/lib/playerId";
-import PillButton from "@/components/PillButton";
 
 type Card = { card_id: string; name: string; image_url: string };
 
@@ -129,28 +128,6 @@ export default function ComparisonScreen() {
     }
   }
 
-  // The pair is too close to call: record a draw (both cards score 0.5) and move
-  // on. A draw has no winner to hold, so always slide both cards out and serve a
-  // brand-new pair, regardless of the Keep Winner toggle.
-  async function handleSkip() {
-    if (!ready || !cards) return;
-    setReady(false);
-
-    await fetch("/api/comparison", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        playerId: getPlayerId(),
-        winnerCardId: cards[0].card_id,
-        loserCardId: cards[1].card_id,
-        outcome: "draw",
-      }),
-    });
-
-    setPos(positionsFor(cards, "above"));
-    setTimeout(() => loadNextPair(), 500);
-  }
-
   // Desktop shortcut: Left/Right arrow picks the left/right card. cards[0] and
   // cards[1] match the render order below, and Keep Winner replaces the loser in
   // place so the index→side mapping stays stable across rounds. handlePick itself
@@ -224,12 +201,6 @@ export default function ComparisonScreen() {
             </button>
           );
         })}
-      </div>
-
-      <div className="absolute bottom-8 left-0 right-0 z-20 flex justify-center">
-        <PillButton onClick={handleSkip} disabled={!ready}>
-          Too Hard / Skip
-        </PillButton>
       </div>
     </div>
   );

@@ -138,3 +138,12 @@
   time (self-hosting, the generated `--font-source-code-pro` variable, the
   "Fallback" font) and what problems — layout shift, privacy, an extra request — does
   that solve?
+
+- [ ] Removing the Skip button also meant deleting `handleSkip`. Which user-facing
+  capability disappeared with it (hint: the `outcome: "draw"` POST), and what would
+  I need to re-add — UI and request — to bring draws back later?
+
+- [ ] After deleting the button I also removed the `PillButton` import but left the
+  `PillButton.tsx` file in the repo (like `FilterButton`). Why does an unused import
+  cause a lint error while an unused *file* doesn't, and what does that imply about
+  how the linter and the bundler each decide what's "dead"?
