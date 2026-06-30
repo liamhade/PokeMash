@@ -404,3 +404,13 @@
   `SAMPLE_RETRIES` times, and the loop `break`s early when `maxOffset === 0`. Why is
   retrying pointless in that case, and what determines whether `maxOffset` is 0 for a given
   filter combination?
+
+- [ ] `applyFilters` sets `filtersRef.current = next` synchronously *and* calls `setFilters`,
+  even though a `useEffect` already syncs the ref to state. Why is the synchronous ref write
+  necessary for the `loadNextPair()` call on the next line to fetch with the new filters,
+  given `loadNextPair` is a `useCallback([])` that closes over `filtersRef`?
+
+- [ ] The series dropdown reads from a static `SERIES` array in `FilterModal` instead of an
+  API call, while the old rarity filter fetched `distinct_rarities()` via an RPC. What
+  pushed this toward a hardcoded list, and what's the maintenance hazard that the
+  `keep in sync with the API's ERA_SETS` comment is guarding against?

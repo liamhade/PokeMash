@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { getPlayerId } from "@/lib/playerId";
+import FilterButton from "@/components/FilterButton";
+import FilterModal, {
+  EMPTY_FILTERS,
+  hasActiveFilters,
+  type Filters,
+} from "@/components/FilterModal";
 
 type Card = { card_id: string; name: string; image_url: string };
 
@@ -85,6 +91,18 @@ function writeSavedComparison(saved: SavedComparison) {
   }
 }
 
+// Serialize the active filters into a query-string fragment for /api/comparison/next.
+// Returns "" when nothing is set (so the URL stays clean), otherwise a leading-"&" chunk.
+function buildFilterQuery(filters: Filters): string {
+  const params = new URLSearchParams();
+  if (filters.series.length) params.set("series", filters.series.join(","));
+  if (filters.eras.length) params.set("eras", filters.eras.join(","));
+  if (filters.minPrice) params.set("minPrice", filters.minPrice);
+  if (filters.maxPrice) params.set("maxPrice", filters.maxPrice);
+  const query = params.toString();
+  return query ? `&${query}` : "";
+}
+
 export default function ComparisonScreen() {
   const [cards, setCards] = useState<Card[] | null>(null);
   const [pos, setPos] = useState<Record<string, Position>>({});
@@ -99,6 +117,17 @@ export default function ComparisonScreen() {
   // is which card the streak belongs to; it resets when a different card wins.
   const [streak, setStreak] = useState(0);
   const [streakCardId, setStreakCardId] = useState<string | null>(null);
+
+  // Active pool filters (price/era/series) and whether the Filter modal is open. True
+  // poolEmpty means the current filters matched fewer than two cards.
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [poolEmpty, setPoolEmpty] = useState(false);
+  // Read filters inside async fetch callbacks without making them depend on filters.
+  const filtersRef = useRef(filters);
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   // Rating-change numbers currently floating over cards, keyed by card id.
   const [floats, setFloats] = useState<Record<string, FloatDelta>>({});
@@ -123,8 +152,10 @@ export default function ComparisonScreen() {
 
   const loadNextPair = useCallback(async () => {
     const playerId = getPlayerId();
-    const res = await fetch(`/api/comparison/next?playerId=${playerId}`);
-    const { cards: next } = (await res.json()) as { cards: Card[] };
+    const res = await fetch(
+      `/api/comparison/next?playerId=${playerId}${buildFilterQuery(filtersRef.current)}`,
+    );
+    const { cards: next } = (await res.json()) as { cards?: Card[] };
 
     // Clear the outgoing cards first so the new pair mounts below the screen
     // without the old (now off-screen-above) cards re-rendering at center.
@@ -133,6 +164,12 @@ export default function ComparisonScreen() {
     setCards(null);
     setPos({});
     setFloats({}); // a fresh pair carries no rating floats from the previous round
+    // Filters can match fewer than two cards; show a message instead of crashing.
+    if (!next || next.length < 2) {
+      setPoolEmpty(true);
+      return;
+    }
+    setPoolEmpty(false);
     requestAnimationFrame(() => {
       setCards(next);
       setPos(positionsFor(next, "below"));
@@ -178,10 +215,16 @@ export default function ComparisonScreen() {
   // freshly chosen challenger up into the loser's now-empty slot.
   async function swapLoserForFresh(winner: Card, loser: Card, playerId: string) {
     const res = await fetch(
-      `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}`,
+      `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}${buildFilterQuery(filtersRef.current)}`,
     );
-    const { cards: next } = (await res.json()) as { cards: Card[] };
-    const fresh = next.find((card) => card.card_id !== winner.card_id)!;
+    const { cards: next } = (await res.json()) as { cards?: Card[] };
+    const fresh = next?.find((card) => card.card_id !== winner.card_id);
+    // No fresh challenger fits the filters; fall back to a full reload, which surfaces
+    // the empty-pool message rather than leaving a stuck board.
+    if (!fresh) {
+      loadNextPair();
+      return;
+    }
 
     setPos((prev) => ({ ...prev, [loser.card_id]: "above" }));
 
@@ -267,6 +310,17 @@ export default function ComparisonScreen() {
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
+  // Commit the modal's selection and immediately reload under the new constraints. The
+  // ref is set synchronously so the loadNextPair call below reads the new filters (the
+  // backing effect would only update it after this render).
+  function applyFilters(next: Filters) {
+    setFilters(next);
+    filtersRef.current = next;
+    setFilterOpen(false);
+    setReady(false);
+    loadNextPair();
+  }
+
   return (
     <div className="flex flex-1 flex-col bg-white relative overflow-hidden">
       {/* Minimal streak legend: which glow color maps to which win streak. Centered on the
@@ -274,7 +328,7 @@ export default function ComparisonScreen() {
           it). Horizontally it keeps the original left-4 (1rem) edge offset and shifts 15%
           further in from there — relative to where it started, not an absolute 15%-from-edge.
           Colors come from STREAK_TIERS (single source). */}
-      <ul className="absolute left-[calc(1rem_+_15%)] top-[15%] z-20 flex -translate-y-1/2 flex-col gap-2 select-none">
+      <ul className="absolute left-8 top-[15%] z-20 flex -translate-y-1/2 flex-col gap-2 select-none">
         {STREAK_TIERS.map((tier) => (
           <li key={tier.streak} className="flex items-center gap-2 text-xs text-neutral-500">
             <span
@@ -289,9 +343,18 @@ export default function ComparisonScreen() {
         ))}
       </ul>
 
-      {/* Filter button removed for now (see TODO: rarity-restricted comparison
-          pool). Keep Winner stays right-aligned on its own. */}
-      <div className="flex justify-end px-6 py-4">
+      {/* Toolbar: Filter on the left, Keep Winner on the right. A dot badges the Filter
+          button when any price/era/series filter is active. */}
+      <div className="flex items-center justify-between px-6 py-4">
+        <div className="relative">
+          <FilterButton onClick={() => setFilterOpen(true)} />
+          {hasActiveFilters(filters) && (
+            <span
+              aria-hidden
+              className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-600 ring-2 ring-white"
+            />
+          )}
+        </div>
         <label className="flex cursor-pointer select-none items-center gap-3">
           <span className="font-semibold text-neutral-800">Keep Winner</span>
           <button
@@ -317,6 +380,12 @@ export default function ComparisonScreen() {
       {/* gap-8 is the mobile spacing (looks right on iPhone); lg:gap-24 triples it
           (2rem -> 6rem) on laptop/desktop widths only, leaving phones unchanged. */}
       <div className="flex flex-1 items-center justify-center gap-8 lg:gap-16 pb-40 relative z-10">
+        {poolEmpty && (
+          <p className="max-w-xs text-center text-neutral-500">
+            No cards match these filters. Open{" "}
+            <span className="font-semibold text-neutral-700">Filter</span> to widen them.
+          </p>
+        )}
         {cards?.map((card) => {
           const isPicked = pickedId === card.card_id;
           const isHovered = hoveredId === card.card_id && ready;
@@ -390,6 +459,15 @@ export default function ComparisonScreen() {
           );
         })}
       </div>
+
+      {/* Mounted only while open so its working state resets from `filters` each time. */}
+      {filterOpen && (
+        <FilterModal
+          initial={filters}
+          onApply={applyFilters}
+          onClose={() => setFilterOpen(false)}
+        />
+      )}
     </div>
   );
 }
