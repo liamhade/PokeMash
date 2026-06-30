@@ -3,7 +3,7 @@ import Link from "next/link";
 import NavButton from "./NavButton";
 
 // Rests atop every screen (rendered in the root layout). Logo on the left; the
-// Play / See Rankings actions sit in the middle, pushed toward the right. The
+// Play / Rankings actions sit in the middle, pushed toward the right. The
 // shadow makes the bar look like it floats above the page.
 export default function NavBar() {
   return (
@@ -16,7 +16,7 @@ export default function NavBar() {
           keeps them off the very edge. */}
       <nav className="ml-auto mr-8 flex items-center gap-2">
         <NavButton href="/compare">Play</NavButton>
-        <NavButton href="/rankings">See Rankings</NavButton>
+        <NavButton href="/rankings">Rankings</NavButton>
       </nav>
     </header>
   );

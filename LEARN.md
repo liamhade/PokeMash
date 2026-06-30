@@ -71,3 +71,12 @@
   than one combined component — what can each layer change independently, and how
   does adding the "Too Hard / Skip" button as another `PillButton` justify the
   generic layer existing?
+
+- [ ] In `NavBar.tsx`, the `NavButton` link still points at `href="/rankings"`
+  even though its visible text changed from "See Rankings" to "Rankings" — why is
+  the route path independent of the button label, and what would break if I'd
+  "fixed" the route to match the new wording?
+
+- [ ] Renaming a UI label is a one-word change, yet `DONE.md`/`TODO.md` still call
+  this screen "See Rankings". What's the tradeoff between updating every reference
+  to a feature's name versus letting spec docs drift from the live UI text?
