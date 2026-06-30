@@ -211,6 +211,23 @@ export default function ComparisonScreen() {
 
   return (
     <div className="flex flex-1 flex-col bg-white relative overflow-hidden">
+      {/* Turbulence filter that ruffles the streak flame's edges into wavering, fire-
+          like tongues (referenced by .flame in globals.css). Rendered once. The
+          animated baseFrequency makes the noise flow so the flames keep moving. */}
+      <svg aria-hidden width="0" height="0" className="absolute">
+        <filter id="flame-distort" x="-50%" y="-50%" width="200%" height="200%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.02 0.05" numOctaves={2} seed={7} result="noise">
+            <animate
+              attributeName="baseFrequency"
+              dur="2.6s"
+              values="0.02 0.05;0.025 0.085;0.02 0.05"
+              repeatCount="indefinite"
+            />
+          </feTurbulence>
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale={22} xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </svg>
+
       {/* Filter button removed for now (see TODO: rarity-restricted comparison
           pool). Keep Winner stays right-aligned on its own. */}
       <div className="flex justify-end px-6 py-4">

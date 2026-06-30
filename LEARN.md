@@ -290,3 +290,13 @@
   a class on the `<button>`. Given the button already sets `box-shadow` for hover and
   picked states, why does a dedicated element avoid a conflict — and why does the
   flame's box-shadow still appear *around* the card despite the span being `inset-0`?
+
+- [ ] The realistic flame is a `box-shadow` ruffled by an SVG `feTurbulence` +
+  `feDisplacementMap` filter. What does each filter primitive contribute (noise vs.
+  pixel-pushing), and why does animating `feTurbulence`'s `baseFrequency` make the
+  flames *move* rather than just sit there distorted?
+
+- [ ] We reached for a CSS/SVG filter instead of a flame image/GIF/Lottie. What does
+  the pure-CSS approach win (scales to any card size, recolorable via `--flame-color`,
+  no asset) and what does it risk (cross-browser filter quirks, "is it convincing?"),
+  and when would a real asset be the better call?

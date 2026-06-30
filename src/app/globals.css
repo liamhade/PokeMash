@@ -47,30 +47,38 @@ body {
   will-change: transform, opacity;
 }
 
-/* Winning-streak flame: a flickering colored glow around the card. --flame-color is
-   an "R G B" triple (set inline per streak tier); the irregular keyframe steps make
-   the glow shimmer like fire. */
-@keyframes flame {
-  0% {
-    box-shadow: 0 0 18px 4px rgb(var(--flame-color) / 0.85), 0 0 38px 10px rgb(var(--flame-color) / 0.45);
+/* Winning-streak flame. A layered box-shadow forms a hot core fading to an outer glow
+   in the tier color (--flame-color, an "R G B" triple); the SVG #flame-distort filter
+   (turbulence + displacement) ruffles those edges into wavering tongues, and the
+   flicker keyframe pulses the brightness/scale so it dances like real fire. */
+@keyframes flame-flicker {
+  0%,
+  100% {
+    opacity: 0.92;
+    transform: scale(1);
   }
   20% {
-    box-shadow: 0 0 27px 7px rgb(var(--flame-color) / 0.95), 0 0 54px 15px rgb(var(--flame-color) / 0.55);
+    opacity: 1;
+    transform: scale(1.03);
   }
-  40% {
-    box-shadow: 0 0 15px 3px rgb(var(--flame-color) / 0.8), 0 0 33px 9px rgb(var(--flame-color) / 0.4);
+  45% {
+    opacity: 0.8;
+    transform: scale(0.985);
   }
-  60% {
-    box-shadow: 0 0 31px 8px rgb(var(--flame-color) / 1), 0 0 62px 18px rgb(var(--flame-color) / 0.6);
-  }
-  80% {
-    box-shadow: 0 0 22px 5px rgb(var(--flame-color) / 0.9), 0 0 46px 13px rgb(var(--flame-color) / 0.5);
-  }
-  100% {
-    box-shadow: 0 0 18px 4px rgb(var(--flame-color) / 0.85), 0 0 38px 10px rgb(var(--flame-color) / 0.45);
+  70% {
+    opacity: 1;
+    transform: scale(1.02);
   }
 }
 
 .flame {
-  animation: flame 0.55s ease-in-out infinite;
+  border-radius: 0.75rem; /* match the card's rounded-xl so the glow hugs its shape */
+  box-shadow:
+    0 0 4px 1px rgb(var(--flame-color) / 1),
+    0 0 13px 4px rgb(var(--flame-color) / 0.8),
+    0 0 28px 10px rgb(var(--flame-color) / 0.5),
+    0 0 50px 20px rgb(var(--flame-color) / 0.22);
+  filter: url(#flame-distort);
+  animation: flame-flicker 0.45s ease-in-out infinite;
+  will-change: transform, opacity;
 }
