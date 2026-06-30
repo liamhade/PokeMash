@@ -3,6 +3,30 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Font for the ELO-change floats. Self-hosted (not next/font) so the palette
+     overrides below can reference it by a fixed family name. */
+  --font-elo: "Coral Pixels";
+}
+
+/* Coral Pixels is a color (COLR/CPAL) font, so CSS `color` is ignored; we recolor
+   it by overriding all 32 palette entries. One palette for winners (green), one for
+   losers (red); the float span picks via `font-palette`. */
+@font-face {
+  font-family: "Coral Pixels";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/coral-pixels.ttf") format("truetype");
+}
+
+@font-palette-values --elo-win {
+  font-family: "Coral Pixels";
+  override-colors: 0 #22c55e, 1 #22c55e, 2 #22c55e, 3 #22c55e, 4 #22c55e, 5 #22c55e, 6 #22c55e, 7 #22c55e, 8 #22c55e, 9 #22c55e, 10 #22c55e, 11 #22c55e, 12 #22c55e, 13 #22c55e, 14 #22c55e, 15 #22c55e, 16 #22c55e, 17 #22c55e, 18 #22c55e, 19 #22c55e, 20 #22c55e, 21 #22c55e, 22 #22c55e, 23 #22c55e, 24 #22c55e, 25 #22c55e, 26 #22c55e, 27 #22c55e, 28 #22c55e, 29 #22c55e, 30 #22c55e, 31 #22c55e;
+}
+
+@font-palette-values --elo-lose {
+  font-family: "Coral Pixels";
+  override-colors: 0 #ef4444, 1 #ef4444, 2 #ef4444, 3 #ef4444, 4 #ef4444, 5 #ef4444, 6 #ef4444, 7 #ef4444, 8 #ef4444, 9 #ef4444, 10 #ef4444, 11 #ef4444, 12 #ef4444, 13 #ef4444, 14 #ef4444, 15 #ef4444, 16 #ef4444, 17 #ef4444, 18 #ef4444, 19 #ef4444, 20 #ef4444, 21 #ef4444, 22 #ef4444, 23 #ef4444, 24 #ef4444, 25 #ef4444, 26 #ef4444, 27 #ef4444, 28 #ef4444, 29 #ef4444, 30 #ef4444, 31 #ef4444;
 }
 
 @theme inline {

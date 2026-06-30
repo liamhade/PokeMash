@@ -247,6 +247,11 @@
   (`ComparisonScreen.tsx` className vs `layout.tsx` import) — and what does that say
   about where "font" vs "color" decisions live in this codebase?
 
-- [ ] `Coral_Pixels` needs an explicit `weight: "400"` while `Source_Code_Pro` didn't.
-  What distinguishes a variable font from a single-weight one in `next/font/google`,
-  and why does the non-variable one force you to name a weight?
+- [ ] Coral Pixels is a COLR/CPAL color font, so `text-green-500` does nothing to it.
+  How does `@font-palette-values` + `font-palette` recolor it instead, and why did we
+  have to override all 32 CPAL entries rather than just index 0?
+
+- [ ] Recoloring forced us OFF `next/font` and onto a hand-written `@font-face`. What
+  property of `next/font`'s generated family name makes it incompatible with
+  `@font-palette-values { font-family: ... }`, and what did self-hosting cost us that
+  next/font gave for free?
