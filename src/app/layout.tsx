@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Source_Code_Pro } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// App-wide font. next/font/google self-hosts the font at build time and exposes it
+// as a CSS variable (--font-source-code-pro) that globals.css wires into Tailwind's
+// --font-sans. To try a different font, swap this import + call for any Google font
+// (e.g. Inter, Roboto, Poppins) and update the variable name in globals.css.
+const sourceCodePro = Source_Code_Pro({
+  variable: "--font-source-code-pro",
   subsets: ["latin"],
 });
 
@@ -26,7 +25,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${sourceCodePro.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <NavBar />

@@ -128,3 +128,13 @@
   "Spiky Energy" is Hyper Rare), why couldn't the existing `not in (...)` rarity
   filter have removed them, and what does that tell you about when a filter belongs
   in the query vs. in code?
+
+- [ ] Geist was imported and wired to `--font-sans`, yet the site rendered in Arial.
+  What in `globals.css` overrode it, and why does a `body { font-family: ... }` rule
+  win over the Tailwind `--font-sans` theme variable?
+
+- [ ] `Source_Code_Pro` is imported from `next/font/google` rather than via a
+  `<link>` to Google Fonts or a raw `@font-face`. What does next/font do at build
+  time (self-hosting, the generated `--font-source-code-pro` variable, the
+  "Fallback" font) and what problems — layout shift, privacy, an extra request — does
+  that solve?
