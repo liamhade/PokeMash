@@ -50,10 +50,22 @@ function isEnergyCard(name: string): boolean {
   return /\bEnergy$/i.test(stripped);
 }
 
-// The rules a SQL `not in` filter can't express: drop energy cards, and keep plain
-// "Rare" only for vintage sets. (The always-dropped rarities are excluded in the query.)
+// Every promo shares the single "Promo" rarity, so we can't judge it by rarity like
+// other cards. Instead hold it to the same bar by its card mechanic: keep only the
+// featured chase cards (the GX / V / VMAX / VSTAR / ex / EX / LV.X / BREAK / Prime /
+// LEGEND / Star families the non-promo rules keep), and drop plain-Pokemon promos.
+// The mechanic is always a trailing token, so we anchor on the end of the name.
+const PROMO_MECHANIC = /(\bGX|\bVMAX|\bVSTAR|\bV|\bex|\bEX|\bLV\.?X|\bBREAK|\bPrime|\bLEGEND|\bStar|★)$/;
+function isFeaturedPromo(name: string): boolean {
+  return PROMO_MECHANIC.test(name.trim());
+}
+
+// The rules a SQL `not in` filter can't express: drop energy cards; hold promos to
+// the featured-mechanic bar; and keep plain "Rare" only for vintage sets. (The
+// always-dropped rarities are excluded in the query.)
 function isEligible(row: CardRow): boolean {
   if (isEnergyCard(row.name)) return false;
+  if (row.rarity === "Promo") return isFeaturedPromo(row.name);
   if (row.rarity === "Rare") return releaseYear(row.release_date) < VINTAGE_CUTOFF_YEAR;
   return true;
 }

@@ -147,3 +147,13 @@
   `PillButton.tsx` file in the repo (like `FilterButton`). Why does an unused import
   cause a lint error while an unused *file* doesn't, and what does that imply about
   how the linter and the bundler each decide what's "dead"?
+
+- [ ] Promos are filtered by `isFeaturedPromo` (name mechanic) while every other card
+  is filtered by `rarity`. Why does the single shared "Promo" rarity force a
+  name-based rule, and what kind of promo does this approach wrongly drop that the
+  rarity-based rule would have kept for a non-promo (hint: a holo of a plain Pokemon)?
+
+- [ ] `PROMO_MECHANIC` is anchored with `$` and uses `\b` before each token (e.g.
+  `\bV$`). Walk through why "Pikachu VMAX" is NOT matched by the `\bV$` alternative
+  but IS matched by `\bVMAX$`, and why the trailing `$` is what prevents a stray "V"
+  in the middle of a name from counting.

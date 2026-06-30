@@ -40,6 +40,14 @@ as $$
     -- Drop energy cards: strip {symbols} and "Prism Star", then exclude names whose
     -- last word is "Energy". Keeps trainers like "Energy Retrieval".
     and trim(regexp_replace(regexp_replace(c.name, '\{[^}]*\}', '', 'g'), 'prism star', '', 'gi')) !~* 'energy$'
+    -- Promos share one rarity, so judge them by mechanic: keep only featured chase
+    -- cards (GX/V/VMAX/VSTAR/ex/EX/LV.X/BREAK/Prime/LEGEND/Star), drop plain promos.
+    -- The mechanic is always preceded by a space or hyphen at the end of the name.
+    and (
+      c.rarity <> 'Promo'
+      or c.name ~ '[ -](GX|VMAX|VSTAR|V|ex|EX|LV\.?X|BREAK|Prime|LEGEND|Star)$'
+      or c.name ~ '★$'
+    )
     and (
       c.rarity <> 'Rare'
       or coalesce((regexp_match(c.release_date, '(\d{4})'))[1]::int, 0) < 2023
