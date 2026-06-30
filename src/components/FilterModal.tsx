@@ -24,10 +24,11 @@ export function hasActiveFilters(filters: Filters): boolean {
 }
 
 // Era buckets. Values match the API's ERA_YEAR_RANGES keys; hints describe the year span.
+// Hints use explicit start–end years (not a "≤" glyph, which rendered oversized).
 const ERAS = [
-  { value: "vintage", label: "Vintage", hint: "≤2010" },
-  { value: "middle", label: "Middle", hint: "2011–19" },
-  { value: "modern", label: "Modern", hint: "2020+" },
+  { value: "vintage", label: "Vintage", hint: "1999–2007" },
+  { value: "middle", label: "Middle", hint: "2008–2016" },
+  { value: "modern", label: "Modern", hint: "2017+" },
 ];
 
 // The distinct `cards.set` (series) values, newest era first. Static list because
@@ -36,7 +37,7 @@ const ERAS = [
 const SERIES = [
   "Mega Evolution", "Scarlet & Violet", "Sword & Shield", "Sun & Moon", "XY",
   "Black & White", "HeartGold & SoulSilver", "Platinum", "Diamond & Pearl", "EX",
-  "E-Card", "Neo", "Gym", "Classic", "Promos", "Trainer Kits", "POP", "Collections",
+  "E-Card", "Neo", "Gym", "Classic", "Promos", "POP", "Collections",
   "Other", "Misc.",
 ];
 

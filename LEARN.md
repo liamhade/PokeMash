@@ -414,3 +414,9 @@
   API call, while the old rarity filter fetched `distinct_rarities()` via an RPC. What
   pushed this toward a hardcoded list, and what's the maintenance hazard that the
   `keep in sync with the API's ERA_SETS` comment is guarding against?
+
+- [ ] When the era boundaries moved (vintage now ≤2007, middle 2008–2016), both
+  `ERA_YEAR_RANGES` and `ERA_SETS` had to change together. Why does shifting only the year
+  ranges (the correctness authority) while leaving `ERA_SETS` stale not produce *wrong*
+  cards, but instead degrade the resample success rate — and which series would have started
+  flaking if EX (2003–07) had been left in the `middle` set-list?

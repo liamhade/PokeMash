@@ -52,24 +52,24 @@ function isVintage(releaseDate: string | null): boolean {
 // vintage = WOTC→Platinum/HGSS, middle = Black & White→Sun & Moon, modern =
 // Sword & Shield onward. Boundaries align with the rough year a new base era began.
 const ERA_YEAR_RANGES: Record<string, [number, number]> = {
-  vintage: [0, 2010],
-  middle: [2011, 2019],
-  modern: [2020, 9999],
+  vintage: [0, 2007], // through the EX era (ends 2007)
+  middle: [2008, 2016], // Diamond & Pearl through XY (ends 2016)
+  modern: [2017, 9999], // Sun & Moon onward
 };
 
-// Which `set` (series) values to draw on for each era. The random sample window is
-// contiguous, so an era filter applied only in JS would often miss the era's rows
-// entirely; pre-filtering the DB query to these series keeps the window era-relevant,
-// and matchesEras() then trims to the exact release year. A series is listed under an
-// era only where it has SUBSTANTIAL volume — boundary series that merely graze an era
-// (HGSS's 2011 tail, Sword & Shield's lone 2019 set, Sun & Moon's 2020–21 tail) are
-// left off that era so they don't dilute the window with rows the year-check discards.
-// The long, continuously-printed catch-alls (Promos, Other) really do span, so they
-// stay in every era. Regenerate when the catalog gains new series.
+// Which `set` (series) values to draw on for each era (boundaries: vintage ≤2007,
+// middle 2008–2016, modern 2017+). The random sample window is contiguous, so an era
+// filter applied only in JS would often miss the era's rows entirely; pre-filtering the
+// DB query to these series keeps the window era-relevant, and matchesEras() then trims
+// to the exact release year. A series is listed under an era only where it has
+// SUBSTANTIAL volume — boundary series that merely graze an era (XY's 2017–18 tail, Sun
+// & Moon's 2016 set) are left off it so they don't dilute the window with rows the
+// year-check discards. The long, continuously-printed catch-alls (Promos, Other) really
+// do span, so they stay in every era. Regenerate when the catalog gains new series.
 const ERA_SETS: Record<string, string[]> = {
-  vintage: ["Classic", "Promos", "Neo", "Gym", "Other", "E-Card", "EX", "POP", "Trainer Kits", "Diamond & Pearl", "Platinum", "HeartGold & SoulSilver"],
-  middle: ["Promos", "Other", "Trainer Kits", "Black & White", "XY", "Sun & Moon", "Collections"],
-  modern: ["Promos", "Other", "Sword & Shield", "Scarlet & Violet", "Misc.", "Mega Evolution"],
+  vintage: ["Classic", "Promos", "Neo", "Gym", "Other", "E-Card", "EX", "POP"],
+  middle: ["Promos", "Other", "POP", "Diamond & Pearl", "Platinum", "HeartGold & SoulSilver", "Black & White", "XY"],
+  modern: ["Promos", "Other", "Sun & Moon", "Sword & Shield", "Scarlet & Violet", "Misc.", "Mega Evolution", "Collections"],
 };
 
 function releaseYear(releaseDate: string | null): number | null {
