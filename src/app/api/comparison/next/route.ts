@@ -117,11 +117,19 @@ function information_rich_pair(cards: RatedCard[]): [RatedCard, RatedCard] {
   return [cardA, cardB];
 }
 
+// Challenger-selection knobs for Keep Winner mode. Always taking the single nearest
+// rating gives the most informative matchup but keeps surfacing the same narrow power
+// band, so we add novelty two ways: usually pick at random from the SOFT_BAND_SIZE
+// closest cards (close but varied), and EXPLORE_EPSILON of the time pick a completely
+// random unseen card (a wildcard from anywhere in the pool).
+const SOFT_BAND_SIZE = 30;
+const EXPLORE_EPSILON = 0.3;
+
 /**
- * Given a fixed `winner` the player wants to keep on screen, choose the fresh
- * card to face it next. Prefers a card the winner has never been compared
- * against; among the candidates it favours a similar rating (`r`, a close
- * matchup) and then higher uncertainty (`rd`, more to learn).
+ * Given a fixed `winner` the player wants to keep on screen, choose the fresh card to
+ * face it next. Prefers cards the winner has never faced. Then, to balance close
+ * matchups against novelty: with probability EXPLORE_EPSILON return a random unseen
+ * card; otherwise return a random card from the SOFT_BAND_SIZE nearest by rating.
  */
 function supply_winner_with_fresh_card(
   winner: RatedCard,
@@ -132,9 +140,17 @@ function supply_winner_with_fresh_card(
   const unseen = pool.filter((card) => !comparedOpponentIds.has(card.card_id));
   // Fall back to the full pool only once every card has already faced the winner.
   const choices = unseen.length > 0 ? unseen : pool;
-  return [...choices].sort(
-    (x, y) => Math.abs(x.r - winner.r) - Math.abs(y.r - winner.r) || y.rd - x.rd,
-  )[0];
+
+  // Explore: a completely random card, to break out of the rating band.
+  if (Math.random() < EXPLORE_EPSILON) {
+    return choices[Math.floor(Math.random() * choices.length)];
+  }
+  // Exploit (soft band): a random card from the nearest-by-rating group (tie-break:
+  // higher rd), not always the single closest — keeps the matchup close but varied.
+  const band = [...choices]
+    .sort((x, y) => Math.abs(x.r - winner.r) - Math.abs(y.r - winner.r) || y.rd - x.rd)
+    .slice(0, SOFT_BAND_SIZE);
+  return band[Math.floor(Math.random() * band.length)];
 }
 
 // Picks the next pair of cards for a player to compare.

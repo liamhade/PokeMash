@@ -261,3 +261,12 @@
   one `next/font` line + `text-green-500`/`text-red-500`. What single property of the
   font made all that machinery unnecessary, and what cheap check (which table?) would
   have flagged the Coral Pixels detour up front?
+
+- [ ] In `supply_winner_with_fresh_card`, `band` uses `.slice(0, SOFT_BAND_SIZE)` and
+  then a random index. Why does this stay correct when `choices.length < 30`, and what
+  would break if we instead indexed `band[Math.floor(Math.random()*30)]` directly?
+
+- [ ] The new selection is epsilon-greedy (random card 30% of the time) wrapped around
+  a soft band (random of the 30 nearest). What does each layer buy that the other
+  doesn't — i.e. why not just one of them — and how does raising `EXPLORE_EPSILON`
+  toward 1 turn this into the planned "Prioritize New Cards" behavior?
