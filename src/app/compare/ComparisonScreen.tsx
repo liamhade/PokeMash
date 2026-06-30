@@ -25,6 +25,10 @@ function positionsFor(cards: Card[], position: Position): Record<string, Positio
 // same card scores again in Keep Winner mode.
 type FloatDelta = { delta: number; dx: number; dy: number; key: number };
 
+// Lifetime of a float, matching the `.elo-float` animation in globals.css. Used to
+// guarantee cleanup (see showFloat) — keep the two values in sync.
+const FLOAT_DURATION_MS = 1300;
+
 // Land the number in the white margin on the card's OUTER side (away from the other
 // card) so it's readable off the card art, with a random vertical spread. dx clears
 // the card's ~130px half-width; dy stays within its height so it reads alongside it.
@@ -54,6 +58,10 @@ export default function ComparisonScreen() {
   function showFloat(cardId: string, delta: number, side: "left" | "right") {
     if (!delta) return;
     setFloats((prev) => ({ ...prev, [cardId]: randomFloat(delta, side) }));
+    // Guaranteed cleanup: the card can unmount mid-animation (in Keep Winner mode the
+    // loser is swapped out at ~500ms), and then its `onAnimationEnd` never fires —
+    // leaving a stale float that would replay when that card_id returns to the board.
+    window.setTimeout(() => clearFloat(cardId), FLOAT_DURATION_MS);
   }
   function clearFloat(cardId: string) {
     setFloats((prev) => {

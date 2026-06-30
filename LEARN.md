@@ -200,3 +200,13 @@
   than fading continuously. Given the losing card slides away ~500ms after the pick
   and the animation runs 1300ms, why does the hold-then-fade shape satisfy "don't
   fade until the card disappears" without any JS coordinating the two timings?
+
+- [ ] A stale `-Y` was replaying when a previously-lost card returned. Trace exactly
+  why `onAnimationEnd` failed to clean up the loser's float entry, and why a card
+  unmounting mid-animation is the trigger — what's the lifecycle gap a `setTimeout`
+  in `showFloat` closes that the DOM event can't?
+
+- [ ] `FLOAT_DURATION_MS` (1300) duplicates the `1.3s` in the `.elo-float` CSS — a
+  deliberate coupling. What goes wrong if the two drift apart (in each direction:
+  timer shorter vs. longer than the animation), and what would it take to derive one
+  from the other instead of hand-syncing?
