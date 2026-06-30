@@ -88,3 +88,13 @@
 - [ ] I picked the `lg:` (1024px) breakpoint to mean "computer". What would I have
   to check about iPad and large-phone logical widths to be confident this rule
   never triggers on a device the user considers a "phone"?
+
+- [ ] After deleting the filter feature, `loadNextPair`'s dependency array became
+  `[]` instead of `[rarityQuery]`. Why was `rarityQuery` a dependency before, and
+  what stale-closure bug would I risk if I'd left a real changing value out of that
+  array instead of removing it entirely?
+
+- [ ] I left `FilterButton.tsx`, `RarityFilterModal.tsx`, and `/api/filters/rarity`
+  in the repo even though nothing imports them now. When is keeping
+  soon-to-return dead code the right call versus deleting it and trusting git
+  history to bring it back?

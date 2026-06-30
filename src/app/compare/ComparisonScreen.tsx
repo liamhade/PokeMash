@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { getPlayerId } from "@/lib/playerId";
-import RarityFilterModal from "@/components/RarityFilterModal";
-import FilterButton from "@/components/FilterButton";
 import PillButton from "@/components/PillButton";
 
 type Card = { card_id: string; name: string; image_url: string };
@@ -33,50 +31,15 @@ export default function ComparisonScreen() {
   // against picking mid-animation or double-submitting a comparison.
   const [ready, setReady] = useState(false);
 
-  const [filterOpen, setFilterOpen] = useState(false);
-  // Applied rarity filters and the full list shown in the modal dropdown.
-  const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
-  const [availableRarities, setAvailableRarities] = useState<string[]>([]);
-
   // Read the toggle inside async callbacks without making them depend on it.
   const keepWinnerRef = useRef(keepWinner);
   useEffect(() => {
     keepWinnerRef.current = keepWinner;
   }, [keepWinner]);
 
-  // Same pattern for the applied filters, so the async fetch callbacks can read
-  // the current selection without being recreated on every change.
-  const selectedRaritiesRef = useRef(selectedRarities);
-  useEffect(() => {
-    selectedRaritiesRef.current = selectedRarities;
-  }, [selectedRarities]);
-
-  // Lazily load the rarity values the first time the modal opens — users who
-  // never filter never pay for the request.
-  async function openFilter() {
-    if (availableRarities.length === 0) {
-      const res = await fetch("/api/filters/rarity");
-      const { rarities } = (await res.json()) as { rarities: string[] };
-      setAvailableRarities(rarities);
-    }
-    setFilterOpen(true);
-  }
-
-  // Repeatable ?rarity= params for the applied filters; "" when none are set.
-  // Reads the ref so it stays stable and can be a dependency of loadNextPair.
-  const rarityQuery = useCallback(
-    () =>
-      selectedRaritiesRef.current
-        .map((rarity) => `&rarity=${encodeURIComponent(rarity)}`)
-        .join(""),
-    [],
-  );
-
   const loadNextPair = useCallback(async () => {
     const playerId = getPlayerId();
-    const res = await fetch(
-      `/api/comparison/next?playerId=${playerId}${rarityQuery()}`,
-    );
+    const res = await fetch(`/api/comparison/next?playerId=${playerId}`);
     const { cards: next } = (await res.json()) as { cards: Card[] };
 
     // Clear the outgoing cards first so the new pair mounts below the screen
@@ -96,7 +59,7 @@ export default function ComparisonScreen() {
         }),
       );
     });
-  }, [rarityQuery]);
+  }, []);
 
   useEffect(() => {
     loadNextPair();
@@ -106,7 +69,7 @@ export default function ComparisonScreen() {
   // freshly chosen challenger up into the loser's now-empty slot.
   async function swapLoserForFresh(winner: Card, loser: Card, playerId: string) {
     const res = await fetch(
-      `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}${rarityQuery()}`,
+      `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}`,
     );
     const { cards: next } = (await res.json()) as { cards: Card[] };
     const fresh = next.find((card) => card.card_id !== winner.card_id)!;
@@ -200,8 +163,9 @@ export default function ComparisonScreen() {
 
   return (
     <div className="flex flex-1 flex-col bg-white relative overflow-hidden">
-      <div className="flex justify-between px-6 py-4">
-        <FilterButton onClick={openFilter} />
+      {/* Filter button removed for now (see TODO: rarity-restricted comparison
+          pool). Keep Winner stays right-aligned on its own. */}
+      <div className="flex justify-end px-6 py-4">
         <label className="flex cursor-pointer select-none items-center gap-3">
           <span className="font-semibold text-neutral-800">Keep Winner</span>
           <button
@@ -226,7 +190,7 @@ export default function ComparisonScreen() {
 
       {/* gap-8 is the mobile spacing (looks right on iPhone); lg:gap-24 triples it
           (2rem -> 6rem) on laptop/desktop widths only, leaving phones unchanged. */}
-      <div className="flex flex-1 items-center justify-center gap-8 lg:gap-24 pb-40 relative z-10">
+      <div className="flex flex-1 items-center justify-center gap-8 lg:gap-16 pb-40 relative z-10">
         {cards?.map((card) => {
           const isPicked = pickedId === card.card_id;
           const isHovered = hoveredId === card.card_id && ready;
@@ -263,22 +227,6 @@ export default function ComparisonScreen() {
           Too Hard / Skip
         </PillButton>
       </div>
-
-      {filterOpen && (
-        <RarityFilterModal
-          rarities={availableRarities}
-          initialSelected={selectedRarities}
-          onClose={() => setFilterOpen(false)}
-          onApply={(rarities) => {
-            setSelectedRarities(rarities);
-            setFilterOpen(false);
-            // Ref updates on the next render, so serve the new pool from the fresh
-            // selection directly rather than from the stale ref.
-            selectedRaritiesRef.current = rarities;
-            loadNextPair();
-          }}
-        />
-      )}
     </div>
   );
 }

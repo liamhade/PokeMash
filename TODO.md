@@ -6,6 +6,13 @@
 	- *PROBLEM*: Card selection takes too long.
 	- *SOLUTION*: Quicken card selection process by preloading the possible future cards so that when the player makes a comparison, the next card(s) to load-in is already present in memory. This function must work for both selections of the `Keep Winner` toggle.
 
+- [ ] (**rarity-restricted comparison pool**)
+	- *PROBLEM*: Comparing common/uncommon cards is boring, so the comparison pool should exclude them — but "interesting" means different things per era.
+	- *SOLUTION*:
+		- **Vintage sets**: only load `rare` and `promo` cards.
+		- **Modern sets**: many more rarity tiers exist and modern `rare` cards aren't full arts, so only load **full-art** cards.
+	- *NOTE*: This supersedes the old manual rarity `Filter` button, which was **removed** from `ComparisonScreen.tsx` (the `FilterButton`/`RarityFilterModal` components and `/api/filters/rarity` route are left in the repo + git history so the filter UI can be reintroduced alongside this rule if we want manual override later).
+
 - [ ] (**increase new card novetly**) 
 	- *PROBLEM*: Card comparisons don't feel new enough. Currently, the comparison function often compares the same cards over and over again, rather than pulling new cards from the database. 
 	- *SOLUTION*: There should be a toggle called `Prioritize New Cards` that makes sure that whatever card we fetch is a card that we haven't already seen. If we've already seen every card, then we choose the maximally information rich pairing, just as we do now.
