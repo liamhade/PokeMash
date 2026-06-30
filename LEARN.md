@@ -336,3 +336,27 @@
   CSS custom property set on `.flame` *does* cascade to a descendant `<stop>`, why is the
   three-fixed-gradients approach still the better call here — think about duplicate
   gradient `id`s across 19 tongues and what `fill="url(#id)"` resolves to.
+
+- [ ] After every flame-tongue design was rejected we deleted all of it for a `z-0`
+  `.flame` layer behind the card: a solid `background` fill + a two-layer `box-shadow` halo,
+  with only `opacity` pulsing (`flame-pulse`). The streak state (`streak`/`streakCardId`)
+  and `flameColor()` survived every rewrite while the entire render/CSS layer was thrown
+  away each time. What does that stability of the *logic* vs. churn of the *presentation*
+  suggest about where to draw the seam between them, and why was each visual rewrite cheap
+  because of it?
+
+- [ ] The glow is a `.flame` span at `inset: -3px` (a hair larger than the card) sitting
+  behind it (`z-0`), not a `box-shadow` on the `<button>`/`<Image>` itself. Given the button
+  already toggles its own `shadow-[...]` for hover/picked states, what conflict does the
+  separate layer avoid, and why does the `-3px` overhang plus the solid `background` fill
+  read as a glowing border *around* the opaque card stacked on top of it?
+
+- [ ] The streak legend `<ul>` uses `top-1/4` paired with `-translate-y-1/2` to land 75% up
+  the card area. Why does "75% up" map to `top: 25%`, and what role does `-translate-y-1/2`
+  play that `top-1/4` alone wouldn't — i.e. what point of the list is actually being pinned
+  to that line?
+
+- [ ] The legend is positioned `absolute` inside the `ComparisonScreen` root div rather than
+  relative to the viewport or the whole page. Why does that make "75% up the card area,
+  excluding the nav banner" fall out automatically, and what would break if the legend were
+  positioned `fixed` instead?

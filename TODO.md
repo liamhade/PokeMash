@@ -2,7 +2,7 @@
 
 ## FUNCTIONAL
 
-- [x] (**streak flame — make it look like real fire**) — DONE (see DONE.md). Reimplemented as hand-built SVG flame tongues (layered outer/inner teardrop paths, wide base → wavy point) that rise + sway via CSS `scale`/`rotate`, with a tip-fade mask and colored glow. Dropped the `#flame-distort` turbulence filter and box-shadow tricks. Streak logic + per-tier colors unchanged.
+- [x] (**streak flame — make it a glow**) — DONE (see DONE.md). Scrapped every flame-tongue attempt for a colored glow behind the held winner's card: a `.flame` layer (solid backing + two-layer `box-shadow`, only `opacity` pulses). Four tiers in `STREAK_TIERS` (5 red / 10 orange / 20 blue / 40 violet) drive both the glow and a left-edge legend pinned 75% up the card area.
 
 - [ ] (**pre-loaded future comparisons**)
 	- *PROBLEM*: Card selection takes too long.

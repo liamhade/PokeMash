@@ -28,59 +28,23 @@ type FloatDelta = { delta: number; dx: number; dy: number; key: number };
 // Land the number in the white margin on the card's OUTER side (away from the other
 // card) so it's readable off the card art, with a random vertical spread. dx clears
 // the card's ~130px half-width; dy stays within its height so it reads alongside it.
-// Winning-streak flame tier. `rgb` (an "R G B" triple) colors the surrounding glow;
-// `gradId` selects one of the three pre-defined vertical gradients (FLAME_GRADIENTS)
-// that fill the flame tongues — escalating with the streak, null below the first tier.
-type FlameTier = { rgb: string; gradId: string };
-function flameTier(streak: number): FlameTier | null {
-  if (streak >= 20) return { rgb: "147 51 234", gradId: "flame-grad-purple" };
-  if (streak >= 10) return { rgb: "37 99 235", gradId: "flame-grad-blue" };
-  if (streak >= 5) return { rgb: "153 27 27", gradId: "flame-grad-red" };
-  return null;
+// Winning-streak glow tiers, ascending. Each maps a streak threshold to its glow color
+// (an "R G B" triple). Single source of truth for both the card glow and the legend.
+const STREAK_TIERS = [
+  { streak: 5, color: "220 38 38" }, // red
+  { streak: 10, color: "249 115 22" }, // orange
+  { streak: 20, color: "37 99 235" }, // blue
+  { streak: 40, color: "139 92 246" }, // violet
+];
+
+// Highest tier the streak has reached → its glow color; null below the first tier.
+function flameColor(streak: number): string | null {
+  let color: string | null = null;
+  for (const tier of STREAK_TIERS) {
+    if (streak >= tier.streak) color = tier.color;
+  }
+  return color;
 }
-
-// The three tier gradients, rendered once into a hidden <svg defs>. Each fades a bright
-// hot base → the tier color → transparent tip (y1=1 bottom, y2=0 top), so a flat-filled
-// path reads as a glowing flame without any per-element/per-frame filter work.
-const FLAME_GRADIENTS = [
-  { id: "flame-grad-red", base: "234 88 88", mid: "153 27 27" },
-  { id: "flame-grad-blue", base: "96 165 250", mid: "37 99 235" },
-  { id: "flame-grad-purple", base: "192 132 252", mid: "147 51 234" },
-];
-
-// Flame tongues, all pointing UP, ringing the whole card. `left`/`top` anchor the base
-// (%); top-edge tongues rise above the card, side tongues climb the edges, bottom
-// tongues (top > 100%) rise from beneath. `scale` varies each tongue's size for an
-// uneven, organic ring. The flame layer sits behind the card, so the inner halves tuck
-// out of sight and only the outward-licking flames show.
-type Tongue = { left: string; top: string; scale: number };
-const FLAME_TONGUES: Tongue[] = [
-  { left: "8%", top: "0%", scale: 1.05 }, // top edge (tallest — the crown)
-  { left: "22%", top: "0%", scale: 1.2 },
-  { left: "36%", top: "0%", scale: 1.0 },
-  { left: "50%", top: "0%", scale: 1.25 },
-  { left: "64%", top: "0%", scale: 1.0 },
-  { left: "78%", top: "0%", scale: 1.2 },
-  { left: "92%", top: "0%", scale: 1.05 },
-  { left: "0%", top: "20%", scale: 0.85 }, // left edge (climbing)
-  { left: "0%", top: "42%", scale: 0.95 },
-  { left: "0%", top: "64%", scale: 0.9 },
-  { left: "0%", top: "85%", scale: 0.85 },
-  { left: "100%", top: "20%", scale: 0.85 }, // right edge (climbing)
-  { left: "100%", top: "42%", scale: 0.95 },
-  { left: "100%", top: "64%", scale: 0.9 },
-  { left: "100%", top: "85%", scale: 0.85 },
-  { left: "18%", top: "108%", scale: 0.95 }, // bottom edge (rising from beneath)
-  { left: "41%", top: "110%", scale: 1.0 },
-  { left: "59%", top: "110%", scale: 1.0 },
-  { left: "82%", top: "108%", scale: 0.95 },
-];
-
-// One flame-tongue path in a 30×70 viewBox: a wide rooted base (x≈6–24 at y=70) tapering
-// through a wavy S-curve to a single point at the top (y=0). The gradient fill gives it
-// depth, so a single path per tongue (no stacked layers) keeps the node count low.
-const FLAME_PATH =
-  "M6 70 C3 52 6 30 12 14 C14 8 12 4 15 0 C18 4 16 8 18 14 C24 30 27 52 24 70 Z";
 
 function randomFloat(delta: number, side: "left" | "right"): FloatDelta {
   const outward = side === "left" ? -1 : 1;
@@ -256,19 +220,23 @@ export default function ComparisonScreen() {
 
   return (
     <div className="flex flex-1 flex-col bg-white relative overflow-hidden">
-      {/* Streak-flame tier gradients, defined once. Fixed colors (not CSS vars) let one
-          shared <defs> fill every tongue without per-element gradients. */}
-      <svg aria-hidden width="0" height="0" className="absolute">
-        <defs>
-          {FLAME_GRADIENTS.map((g) => (
-            <linearGradient key={g.id} id={g.id} x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0" stopColor={`rgb(${g.base})`} stopOpacity="1" />
-              <stop offset="0.5" stopColor={`rgb(${g.mid})`} stopOpacity="0.85" />
-              <stop offset="1" stopColor={`rgb(${g.mid})`} stopOpacity="0" />
-            </linearGradient>
-          ))}
-        </defs>
-      </svg>
+      {/* Minimal streak legend: which glow color maps to which win streak. Pinned to the
+          left edge, centered on the 25%-from-top line (i.e. 75% up this card area, which
+          excludes the nav banner above it). Colors come from STREAK_TIERS (single source). */}
+      <ul className="absolute left-4 top-1/4 z-20 flex -translate-y-1/2 flex-col gap-2 select-none">
+        {STREAK_TIERS.map((tier) => (
+          <li key={tier.streak} className="flex items-center gap-2 text-xs text-neutral-500">
+            <span
+              className="h-3 w-3 rounded-full"
+              style={{
+                backgroundColor: `rgb(${tier.color})`,
+                boxShadow: `0 0 6px 1px rgb(${tier.color} / 0.7)`,
+              }}
+            />
+            <span className="tabular-nums">{tier.streak}+</span>
+          </li>
+        ))}
+      </ul>
 
       {/* Filter button removed for now (see TODO: rarity-restricted comparison
           pool). Keep Winner stays right-aligned on its own. */}
@@ -302,8 +270,8 @@ export default function ComparisonScreen() {
           const isPicked = pickedId === card.card_id;
           const isHovered = hoveredId === card.card_id && ready;
           const float = floats[card.card_id];
-          // Streak flame only on the card the streak belongs to (the held winner).
-          const flame = card.card_id === streakCardId ? flameTier(streak) : null;
+          // Streak glow only on the card the streak belongs to (the held winner).
+          const flame = card.card_id === streakCardId ? flameColor(streak) : null;
 
           return (
             // Wrapper stays put (the button's slide is a transform, which doesn't
@@ -322,44 +290,15 @@ export default function ComparisonScreen() {
                   isPicked ? "shadow-[0_0_40px_12px_rgba(34,197,94,0.9)]" : "",
                 ].join(" ")}
               >
-                {/* Streak flame: a colored glow wrapping the whole card edge plus a ring
-                    of upward-licking SVG flame tongues around the card. Sits behind the
-                    card (z-0) so each tongue's inner half tucks out of sight. Color/tier
-                    escalates with the streak via --flame-color + the gradient id. Only
-                    transform/opacity animate (see globals.css) to stay GPU-cheap. */}
+                {/* Streak glow: a colored backing + halo behind the card (z-0). The
+                    fill colors the immediate backdrop right up to the border, and the
+                    box-shadow glows outward; the tier color escalates with the streak. */}
                 {flame && (
                   <span
                     aria-hidden
-                    className="flame pointer-events-none absolute inset-0 z-0"
-                    style={{ "--flame-color": flame.rgb } as React.CSSProperties}
-                  >
-                    <span className="flame-glow" />
-                    {FLAME_TONGUES.map((tongue, i) => (
-                      <span
-                        key={i}
-                        className="flame-tongue"
-                        style={
-                          {
-                            left: tongue.left,
-                            top: tongue.top,
-                            "--s": tongue.scale,
-                          } as React.CSSProperties
-                        }
-                      >
-                        <svg
-                          viewBox="0 0 30 70"
-                          className="flame-tongue-svg"
-                          // Desync + vary each tongue so the ring flickers organically.
-                          style={{
-                            animationDelay: `${-(i * 0.13)}s`,
-                            animationDuration: `${1.15 + (i % 4) * 0.22}s`,
-                          }}
-                        >
-                          <path d={FLAME_PATH} fill={`url(#${flame.gradId})`} />
-                        </svg>
-                      </span>
-                    ))}
-                  </span>
+                    className="flame pointer-events-none absolute z-0"
+                    style={{ "--flame-color": flame } as React.CSSProperties}
+                  />
                 )}
                 <Image
                   src={card.image_url}

@@ -47,59 +47,28 @@ body {
   will-change: transform, opacity;
 }
 
-/* Winning-streak flame. `.flame` rings the card with upward-licking SVG tongues
-   (`.flame-tongue`) plus a `.flame-glow` halo wrapping the whole edge. Performance is
-   the priority: every animation drives ONLY `transform`/`opacity` (compositor-only, no
-   layout or repaint), the flame's soft edge comes from a STATIC blur rasterized once,
-   and the per-tier color is a baked SVG gradient — so no filter or mask runs per frame.
-   --flame-color (an "R G B" triple) tints the glow. */
-@keyframes flame-lick {
+/* Winning-streak glow. `.flame` sits just behind the card as a solid colored backing
+   (its fill colors the backdrop right up to the border, so there's no visible inner edge
+   line) with a box-shadow halo glowing outward, breathing via `flame-pulse`. Only opacity
+   animates (compositor-cheap, and keeps the edge from shifting); the fill/shadow are
+   static. --flame-color (an "R G B" triple) sets the tier color. */
+@keyframes flame-pulse {
   0%,
   100% {
-    transform: translateY(0) scaleY(0.92) scaleX(1.03);
-    opacity: 0.8;
+    opacity: 0.72;
   }
   50% {
-    transform: translateY(-7px) scaleY(1.2) scaleX(0.9);
     opacity: 1;
   }
 }
-@keyframes flame-glow-pulse {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 0.9;
-  }
-}
 
-.flame-glow {
-  position: absolute;
-  inset: 0;
-  border-radius: 0.75rem; /* match the card's rounded-xl so the halo hugs its shape */
+.flame {
+  inset: -3px; /* a hair larger than the card so a colored backing shows at the border */
+  border-radius: 0.9rem;
+  background: rgb(var(--flame-color));
   box-shadow:
-    0 0 22px 6px rgb(var(--flame-color) / 0.75),
-    0 0 48px 18px rgb(var(--flame-color) / 0.45);
-  animation: flame-glow-pulse 2s ease-in-out infinite;
+    0 0 18px 6px rgb(var(--flame-color) / 0.9),
+    0 0 46px 18px rgb(var(--flame-color) / 0.5);
+  animation: flame-pulse 1.8s ease-in-out infinite;
   will-change: opacity;
-}
-
-.flame-tongue {
-  position: absolute;
-  width: 30px;
-  height: 70px;
-  /* Plant the base (bottom-center) on the anchor; --s varies each tongue's size. */
-  transform-origin: 50% 100%;
-  transform: translate(-50%, -100%) scale(var(--s, 1));
-}
-
-.flame-tongue-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  transform-origin: 50% 100%; /* base — the flame grows/leans from where it's rooted */
-  filter: blur(1.4px); /* static: rasterized once, NOT re-run by the transform anim */
-  will-change: transform, opacity;
-  animation: flame-lick 1.4s ease-in-out infinite;
 }
