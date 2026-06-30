@@ -380,3 +380,12 @@
   than the last. Since the rows come from a `.range()` window over the `cards` table, why is
   "first vs last wins" a safe thing not to worry about here — and when would that choice
   start to matter?
+
+- [ ] The logo's darker outline is four stacked `drop-shadow(...)` filters (N/S/E/W) rather
+  than `box-shadow` or an SVG `stroke`. Why does `drop-shadow` produce an outline that hugs
+  the logo's shape while `box-shadow` would only draw a rectangle around the `<img>` box?
+
+- [ ] We faked the bolder outline with a CSS filter instead of redrawing the PNG (still
+  tracked under TODO: make logo dark). What are the tradeoffs of the filter approach — think
+  about scaling/retina sharpness, the 1px offsets at different DPRs, and why this is a
+  stopgap rather than the real fix.
