@@ -328,7 +328,7 @@ export default function ComparisonScreen() {
           it). Horizontally it keeps the original left-4 (1rem) edge offset and shifts 15%
           further in from there — relative to where it started, not an absolute 15%-from-edge.
           Colors come from STREAK_TIERS (single source). */}
-      <ul className="absolute left-8 top-[15%] z-20 flex -translate-y-1/2 flex-col gap-2 select-none">
+      <ul className="absolute left-8 top-[20%] z-20 flex -translate-y-1/2 flex-col gap-2 select-none">
         {STREAK_TIERS.map((tier) => (
           <li key={tier.streak} className="flex items-center gap-2 text-xs text-neutral-500">
             <span
