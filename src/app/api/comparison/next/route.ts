@@ -36,6 +36,13 @@ const POOL_SAMPLE_SIZE = 1000;
 // pool (no effect when the pool already fits in one window).
 const SAMPLE_RETRIES = 4;
 
+// The price filter ranges over `highest_price` (the highest listed value). All three
+// price columns share identical non-null coverage, but highest_price surfaces the most
+// cards above a threshold and best matches a card's known top value. PRICE_JUNK is a
+// sentinel/placeholder (e.g. Base Set Blastoise's 9999) treated as "no price".
+const PRICE_COLUMN = "highest_price";
+const PRICE_JUNK = 9999;
+
 // A non-buzzword "Rare" is only worth comparing if it's genuinely vintage: HeartGold
 // & SoulSilver (ends Feb 2011) and earlier. The modern era begins with Black & White
 // (starts Mar 2011). The boundary falls inside 2011, so we compare full release dates
@@ -277,8 +284,11 @@ export async function GET(request: NextRequest) {
     .not("rarity", "in", excludeList);
   if (seriesWindowSets.length) countQuery = countQuery.in("set", seriesWindowSets);
   if (eraSets.length) countQuery = countQuery.in("set", eraSets);
-  if (hasMin) countQuery = countQuery.not("market_price", "is", null).gte("market_price", minPrice);
-  if (hasMax) countQuery = countQuery.not("market_price", "is", null).lte("market_price", maxPrice);
+  if (hasMin || hasMax) {
+    countQuery = countQuery.not(PRICE_COLUMN, "is", null).neq(PRICE_COLUMN, PRICE_JUNK);
+    if (hasMin) countQuery = countQuery.gte(PRICE_COLUMN, minPrice);
+    if (hasMax) countQuery = countQuery.lte(PRICE_COLUMN, maxPrice);
+  }
   const { count, error: countError } = await countQuery;
   if (countError) {
     return NextResponse.json({ error: countError.message }, { status: 500 });
@@ -292,8 +302,11 @@ export async function GET(request: NextRequest) {
       .not("rarity", "in", excludeList);
     if (seriesWindowSets.length) rowsQuery = rowsQuery.in("set", seriesWindowSets);
     if (eraSets.length) rowsQuery = rowsQuery.in("set", eraSets);
-    if (hasMin) rowsQuery = rowsQuery.not("market_price", "is", null).gte("market_price", minPrice);
-    if (hasMax) rowsQuery = rowsQuery.not("market_price", "is", null).lte("market_price", maxPrice);
+    if (hasMin || hasMax) {
+      rowsQuery = rowsQuery.not(PRICE_COLUMN, "is", null).neq(PRICE_COLUMN, PRICE_JUNK);
+      if (hasMin) rowsQuery = rowsQuery.gte(PRICE_COLUMN, minPrice);
+      if (hasMax) rowsQuery = rowsQuery.lte(PRICE_COLUMN, maxPrice);
+    }
     const { data: rows, error } = await rowsQuery.range(offset, offset + POOL_SAMPLE_SIZE - 1);
     if (error) throw new Error(error.message);
     // De-duplicate by card_id so a card can never be matched against itself: even if the
