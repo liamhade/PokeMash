@@ -2,16 +2,13 @@
 
 ## FUNCTIONAL
 
-- [x] (**streak flame — make it a glow**) — DONE (see DONE.md). Scrapped every flame-tongue attempt for a colored glow behind the held winner's card: a `.flame` layer (solid backing + two-layer `box-shadow`, only `opacity` pulses). Four tiers in `STREAK_TIERS` (5 red / 10 orange / 20 blue / 40 violet) drive both the glow and a left-edge legend pinned 75% up the card area.
+- [ ] (**flip card over in `See Rankings`**) Clicking on a card in `See Rankings` reveals the `year`, `set`, `pack`, and `market price`, in a simple two column table, with labels on the left and values on the right.
+
+- [ ] (**move `Play` information to sidebar**) `Filter`, `Color codes` for streaking, and `Keep Winer` toggle should be moved a side bar component (`playInfoPanel`), leaving the two cards for comparison in `comparisonArea` (new name for the component).
 
 - [ ] (**pre-loaded future comparisons**)
 	- *PROBLEM*: Card selection takes too long.
 	- *SOLUTION*: Quicken card selection process by preloading the possible future cards so that when the player makes a comparison, the next card(s) to load-in is already present in memory. This function must work for both selections of the `Keep Winner` toggle.
-
-- [x] (**rarity-restricted comparison pool**) — DONE (in app code; see DONE.md). Follow-up below to move it into the DB.
-	- *PROBLEM*: Comparing common/uncommon cards is boring, so the comparison pool should exclude them — but "interesting" means different things per era.
-	- *SOLUTION (as built)*: `/api/comparison/next` now drops `Common`/`Uncommon`/`No Rarity`/`Double Rare` (the modern ex, not full art), keeps plain `Rare` only for vintage sets (release year < `VINTAGE_CUTOFF_YEAR` = 2023), and keeps everything else (all holo/ex/GX/V/Illustration/Ultra/Secret/Promo/Trainer Gallery/Mega rarities). Net effect: vintage = rares + promo; modern = full-arts only.
-	- *NOTE*: This superseded the old manual rarity `Filter` button (removed earlier; `FilterButton`/`RarityFilterModal`/`api/filters/rarity` kept in repo + git history for possible reintroduction).
 
 - [ ] (**move comparison pool rule into the database**)
 	- *PROBLEM*: The rarity rule above lives in TypeScript because the app's read-only key can't create DB objects. That means an extra `cards` read per request and logic split from the data.
@@ -34,11 +31,6 @@
 <!-- Flesh this out more -->
 - [ ] (**compare from `See Rankings`**) Add abilitity to click on card from `See Rankings` to compare that card on `Play` to another card.
 
-<!-- Flesh this out more -->
-- [ ] (**flip card over in `See Rankings`**) Ability to flip over a card and see the details there.
-
-<!-- Flesh this out more -->
-- [x] (**consistent card comparison**) Once a pair for comparison loads onto the page, it shouldn't disappear if the user leaves the page and comes back. DONE: the settled pair (+ its streak) is saved to `sessionStorage` (`pokemash:comparison`) whenever `ready`, and restored on mount in `ComparisonScreen`, so navigating to Rankings and back keeps the same matchup.
 
 <!-- Flesh out -->
 - [ ] (**price reveal after selection**) After a user selects a card, before the two cards disappear, display their prices below them.
@@ -47,7 +39,14 @@
 	- *ARCH*:
 		- Add `average_pixel_color(Card) -> RGB` function
 
-- [ ] (**make logo dark**) Background of `PokeMash` logo is light, but it shoul de dark. We'll need to upgrade the `.png` to fix this.
-
 <!-- Flesh out -->
 - [ ] (**add `dark mode` toggle**) Pokemon themed `Moon` and `Sun` toggle?
+
+- [ ] (**fix card spacing**)
+	*ISSUES*:
+		- Cards are touching the bottom of the screen
+		- Cards too far from the top of the screen
+
+## BUGS
+
+- [ ] If the user selects a 
