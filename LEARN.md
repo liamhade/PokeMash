@@ -232,3 +232,12 @@
   than adding a `subtype` column to Supabase. What does the static-list approach trade
   away (think new sets, accuracy, who can edit it) versus a real subtype column, and
   why was it still the right call given the read-only key and no DB access right now?
+
+- [ ] Swapping Bitcount Ink for Pixelify Sans only meant changing the `next/font/google`
+  import + call in `layout.tsx`, with no edit to `ComparisonScreen`. What indirection
+  made the float component immune to the font change, and how does `--font-elo` enable
+  that?
+
+- [ ] The site uses two fonts (Source Code Pro globally, Pixelify Sans for ELO floats),
+  each its own `next/font` call. What's the cost of adding a third font this way, and
+  when does "one variable per font, applied where needed" beat a single global font?
