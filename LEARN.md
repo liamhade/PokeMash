@@ -360,3 +360,13 @@
   relative to the viewport or the whole page. Why does that make "75% up the card area,
   excluding the nav banner" fall out automatically, and what would break if the legend were
   positioned `fixed` instead?
+
+- [ ] Restoring the saved pair is done in a mount `useEffect` rather than a `useState` lazy
+  initializer that reads `sessionStorage` during render. Given `ComparisonScreen` is a
+  client component that Next.js still server-renders for the initial HTML, what hydration
+  problem does the effect avoid that the lazy initializer would introduce?
+
+- [ ] The save effect guards on `cards && ready` before calling `writeSavedComparison`.
+  Trace what would get persisted (and then restored on the next visit) if it saved on every
+  `cards` change instead — think about the `null`/`"below"` states `loadNextPair` and
+  `swapLoserForFresh` pass through mid-animation.

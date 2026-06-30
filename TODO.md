@@ -33,7 +33,7 @@
 - [ ] (**flip card over in `See Rankings`**) Ability to flip over a card and see the details there.
 
 <!-- Flesh this out more -->
-- [ ] (**consistent card comparison**) Once a pair for comparison loads onto the page, it shouldn't disappear if the user leaves the page and comes back.
+- [x] (**consistent card comparison**) Once a pair for comparison loads onto the page, it shouldn't disappear if the user leaves the page and comes back. DONE: the settled pair (+ its streak) is saved to `sessionStorage` (`pokemash:comparison`) whenever `ready`, and restored on mount in `ComparisonScreen`, so navigating to Rankings and back keeps the same matchup.
 
 <!-- Flesh out -->
 - [ ] (**price reveal after selection**) After a user selects a card, before the two cards disappear, display their prices below them.

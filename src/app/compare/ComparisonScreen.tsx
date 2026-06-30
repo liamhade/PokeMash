@@ -56,6 +56,35 @@ function randomFloat(delta: number, side: "left" | "right"): FloatDelta {
   };
 }
 
+// Persisted on-screen pair, so leaving Play (e.g. for Rankings) and coming back restores
+// the same matchup instead of reshuffling the board. We keep it in sessionStorage, not
+// localStorage: this is a transient, this-tab concern, not long-lived player progress.
+const COMPARISON_STORAGE_KEY = "pokemash:comparison";
+
+type SavedComparison = { cards: Card[]; streak: number; streakCardId: string | null };
+
+function readSavedComparison(): SavedComparison | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(COMPARISON_STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as SavedComparison;
+    // Only restore a complete pair; ignore malformed/partial data.
+    return saved.cards?.length === 2 ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedComparison(saved: SavedComparison) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(COMPARISON_STORAGE_KEY, JSON.stringify(saved));
+  } catch {
+    // Storage can throw (private mode, quota exceeded); persistence is best-effort.
+  }
+}
+
 export default function ComparisonScreen() {
   const [cards, setCards] = useState<Card[] | null>(null);
   const [pos, setPos] = useState<Record<string, Position>>({});
@@ -117,13 +146,33 @@ export default function ComparisonScreen() {
     });
   }, []);
 
-  // Load the first pair on mount. loadNextPair is async and only calls setState
-  // *after* `await fetch`, so there is no synchronous render cascade here — but the
-  // lint rule can't see through the async boundary, hence the targeted disable.
+  // On mount, restore the previously-saved pair (settled at center, immediately
+  // pickable) so navigating away and back doesn't reshuffle the board. With nothing
+  // saved, fetch the first pair instead. Both paths set state on mount, which the lint
+  // rule flags but is the intent here (the fetch path is async, so no sync cascade).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const saved = readSavedComparison();
+    if (saved) {
+      setCards(saved.cards);
+      setPos(positionsFor(saved.cards, "center"));
+      setStreak(saved.streak);
+      setStreakCardId(saved.streakCardId);
+      setReady(true);
+      return;
+    }
     loadNextPair();
   }, [loadNextPair]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Persist the current settled pair (and its streak) whenever it changes. We only save
+  // when `ready` — both cards are at center — so transient null/mid-animation states
+  // aren't stored and later restored as a half-rendered board.
+  useEffect(() => {
+    if (cards && ready) {
+      writeSavedComparison({ cards, streak, streakCardId });
+    }
+  }, [cards, ready, streak, streakCardId]);
 
   // Keep Winner mode: hold the winner at center, slide the loser out, and slide a
   // freshly chosen challenger up into the loser's now-empty slot.
