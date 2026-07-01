@@ -1,7 +1,17 @@
 import Image from "next/image";
 import { flameColor } from "@/lib/streak";
 
-export type Card = { card_id: string; name: string; image_url: string };
+// r/rd/mu are the card's Glicko-2 rating (this player's), sent by /api/comparison/next so
+// the client can compute a pick's +X/-Y instantly. Optional: a pair restored from an older
+// sessionStorage save may predate them, in which case we fall back to the default rating.
+export type Card = {
+  card_id: string;
+  name: string;
+  image_url: string;
+  r?: number;
+  rd?: number;
+  mu?: number;
+};
 
 // Each card tracks its own vertical position so that in "Keep Winner" mode we can
 // hold the winner at center while only the loser slides out and is replaced.

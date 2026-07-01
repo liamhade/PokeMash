@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getPlayerId } from "@/lib/playerId";
+import { updateRating, DEFAULT_RATING, type GlickoRating } from "@/lib/glicko2";
 import FilterModal, { EMPTY_FILTERS, type Filters } from "@/components/FilterModal";
 import PanelLeft from "@/components/PanelLeft";
 import PanelRight from "@/components/PanelRight";
@@ -20,13 +21,12 @@ function positionsFor(cards: Card[], position: Position): Record<string, Positio
 // Tune both together to make the board feel snappier or calmer.
 const SLIDE_MS = 350;
 
-// After a pick, the losing card is held on the board at least this long once its -Y number
-// appears, so the number is actually seen even if the (background) result POST is slow.
-const FLOAT_MIN_MS = 250;
-
-// A promise that resolves after `ms` — lets async flows await an animation/visibility beat.
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+// A card's Glicko-2 rating for the client-side delta calc, falling back to the default when
+// a restored card predates the r/rd/mu fields.
+function ratingOf(card: Card): GlickoRating {
+  return card.r != null && card.rd != null && card.mu != null
+    ? { r: card.r, rd: card.rd, mu: card.mu }
+    : DEFAULT_RATING;
 }
 
 // Land the number in the white margin on the card's OUTER side (away from the other
@@ -288,18 +288,16 @@ export default function ComparisonScreen() {
   }, [cards, ready, keepWinner, preloadNext]);
 
   // Keep Winner mode: the loser is already sliding out (started in handlePick); pick a
-  // fresh challenger and slide it up into the loser's slot. `pickedAt`/`postDone` gate the
-  // swap so the loser stays until its -Y number has shown and the slide has finished.
+  // fresh challenger and slide it up into the loser's slot after the slide finishes. The
+  // deltas already floated instantly (client-computed), so nothing waits on the POST.
   async function swapLoserForFresh(
     winner: Card,
     loser: Card,
     playerId: string,
-    pickedAt: number,
-    postDone: Promise<void>,
+    newWinnerRating: GlickoRating,
   ) {
     // Use the preloaded challenger for this winner when it's still valid; otherwise fetch
-    // (excluding the loser, which the just-recorded result would exclude anyway). Consume
-    // the preload either way so it can't be reused.
+    // (excluding the loser so it isn't re-served). Consume the preload so it can't be reused.
     const key = pairKey([winner, loser], true, filtersRef.current);
     const pre = preloadRef.current;
     preloadRef.current = null;
@@ -315,47 +313,48 @@ export default function ComparisonScreen() {
     // No fresh challenger fits the filters (or it collided with the loser); full reload,
     // which surfaces the empty-pool message rather than leaving a stuck board.
     if (!fresh || fresh.card_id === loser.card_id) {
-      await postDone; // let the deltas float on the current pair before it clears
       loadNextPair();
       return;
     }
     const challenger = fresh;
 
-    // Hold the loser until its -Y float has been shown (postDone) and the slide-out has
-    // finished, plus a minimum beat so a slow POST's number is still seen. Only THEN swap
-    // it out — otherwise the number lands after the card is already gone.
-    await postDone;
-    await delay(Math.max(SLIDE_MS - (Date.now() - pickedAt), FLOAT_MIN_MS));
-
-    setPickedId(null);
-    setHoveredId(null);
-    // Drop the leaving loser's float and guard the incoming card against any stale one,
-    // so a recurring card_id never re-plays an old "-Y" as it slides in. (The winner stays
-    // on the board, so its "+X" is left to finish and self-clear.)
-    clearFloat(loser.card_id);
-    clearFloat(challenger.card_id);
-    setCards((prev) =>
-      prev!.map((card) => (card.card_id === loser.card_id ? challenger : card)),
-    );
-    setPos((prev) => {
-      const updated = { ...prev };
-      delete updated[loser.card_id];
-      updated[challenger.card_id] = "below";
-      return updated;
-    });
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        setPos((prev) => ({ ...prev, [challenger.card_id]: "center" }));
-        setTimeout(() => setReady(true), SLIDE_MS);
-      }),
-    );
+    // Swap once the loser has finished sliding out.
+    setTimeout(() => {
+      setPickedId(null);
+      setHoveredId(null);
+      // Drop the leaving loser's float and guard the incoming card against any stale one,
+      // so a recurring card_id never re-plays an old "-Y" as it slides in. (The winner stays
+      // on the board, so its "+X" is left to finish and self-clear.)
+      clearFloat(loser.card_id);
+      clearFloat(challenger.card_id);
+      // Replace the loser with the challenger, and fold this round's rating change into the
+      // held winner so its next pick's delta uses the updated rating (the server did the same).
+      setCards((prev) =>
+        prev!.map((card) => {
+          if (card.card_id === loser.card_id) return challenger;
+          if (card.card_id === winner.card_id) return { ...card, ...newWinnerRating };
+          return card;
+        }),
+      );
+      setPos((prev) => {
+        const updated = { ...prev };
+        delete updated[loser.card_id];
+        updated[challenger.card_id] = "below";
+        return updated;
+      });
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          setPos((prev) => ({ ...prev, [challenger.card_id]: "center" }));
+          setTimeout(() => setReady(true), SLIDE_MS);
+        }),
+      );
+    }, SLIDE_MS);
   }
 
   function handlePick(winner: Card) {
     if (!ready || !cards) return;
     const pair = cards; // capture before the state below changes
     const loser = pair.find((card) => card.card_id !== winner.card_id)!;
-    const pickedAt = Date.now();
     setReady(false);
     setPickedId(winner.card_id);
 
@@ -363,13 +362,25 @@ export default function ComparisonScreen() {
     setStreak((prev) => (winner.card_id === streakCardId ? prev + 1 : 1));
     setStreakCardId(winner.card_id);
 
+    // Compute the Glicko-2 change on the client (same inputs the POST uses) and float the
+    // +X/-Y numbers IMMEDIATELY, instead of waiting on the server round-trip. Both updates
+    // read each other's pre-update rating, matching the server.
+    const winnerRating = ratingOf(winner);
+    const loserRating = ratingOf(loser);
+    const newWinnerRating = updateRating(winnerRating, loserRating, 1);
+    const newLoserRating = updateRating(loserRating, winnerRating, 0);
+    const winnerSide = pair[0].card_id === winner.card_id ? "left" : "right"; // pair[0] = left
+    showFloat(winner.card_id, Math.round(newWinnerRating.r - winnerRating.r), winnerSide);
+    showFloat(
+      loser.card_id,
+      Math.round(newLoserRating.r - loserRating.r),
+      winnerSide === "left" ? "right" : "left",
+    );
+
+    // Persist in the background (fire-and-forget). The server recomputes from the same
+    // ratings, so its result matches ours — we don't need to wait for or read it.
     const playerId = getPlayerId();
-    // Record the comparison in the BACKGROUND so the board can start moving immediately;
-    // float the +/- deltas when it returns. The advance below waits on this before removing
-    // the loser, so its -Y number always shows before the card leaves. Correctness holds
-    // without blocking on it: the preloaded/fallback challenger already excludes the loser
-    // via excludeId, so it can't be re-served this round.
-    const postDone = fetch("/api/comparison", {
+    fetch("/api/comparison", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -377,21 +388,13 @@ export default function ComparisonScreen() {
         winnerCardId: winner.card_id,
         loserCardId: loser.card_id,
       }),
-    })
-      .then((res) => res.json())
-      .then(({ winnerDelta, loserDelta }: { winnerDelta: number; loserDelta: number }) => {
-        // pair[0] renders on the left, pair[1] right.
-        const winnerSide = pair[0].card_id === winner.card_id ? "left" : "right";
-        showFloat(winner.card_id, winnerDelta, winnerSide);
-        showFloat(loser.card_id, loserDelta, winnerSide === "left" ? "right" : "left");
-      })
-      .catch(() => {});
+    }).catch(() => {});
 
     if (keepWinnerRef.current) {
       // React instantly: start the loser sliding out now, before resolving the challenger
       // (so there's no pause even when the preload missed and we have to fetch).
       setPos((prev) => ({ ...prev, [loser.card_id]: "above" }));
-      swapLoserForFresh(winner, loser, playerId, pickedAt, postDone);
+      swapLoserForFresh(winner, loser, playerId, newWinnerRating);
     } else {
       setPos(positionsFor(pair, "above"));
       // Use the preloaded fresh pair if it's still valid; otherwise fetch after the slide.
@@ -399,13 +402,7 @@ export default function ComparisonScreen() {
       const pre = preloadRef.current;
       preloadRef.current = null;
       const preloadedPair = pre?.mode === "fresh" && pre.key === key ? pre.pair : null;
-      // Wait for the deltas to float on the outgoing pair (and the slide) before swapping.
-      postDone.then(() =>
-        setTimeout(
-          () => (preloadedPair ? mountPair(preloadedPair) : loadNextPair()),
-          Math.max(SLIDE_MS - (Date.now() - pickedAt), FLOAT_MIN_MS),
-        ),
-      );
+      setTimeout(() => (preloadedPair ? mountPair(preloadedPair) : loadNextPair()), SLIDE_MS);
     }
   }
 

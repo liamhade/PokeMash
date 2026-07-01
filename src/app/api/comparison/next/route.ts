@@ -405,10 +405,15 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
+    // r/rd/mu are included so the client can compute the Glicko-2 +X/-Y for a pick
+    // instantly (same inputs the POST uses), instead of waiting on the write to return them.
     cards: pair.map((card) => ({
       card_id: card.card_id,
       name: card.name,
       image_url: card.image_url,
+      r: card.r,
+      rd: card.rd,
+      mu: card.mu,
     })),
   });
 }

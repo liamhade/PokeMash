@@ -502,3 +502,17 @@
 - [ ] The loser now starts sliding in `handlePick` (before `swapLoserForFresh` resolves the
   challenger) rather than after the fetch. Trace why that one move removes the "cards paused
   for a moment" stutter specifically on the preload-miss (fallback fetch) path.
+
+- [ ] The +X/-Y is now computed on the client with `updateRating` (from `/next`'s r/rd/mu)
+  and shown instantly, while the POST just persists. Why is the client number guaranteed to
+  equal the server's — what two things must be identical for that, and where could they drift
+  if `/next` and the POST read the ratings at different moments?
+
+- [ ] For a held winner on a streak, `swapLoserForFresh` folds `newWinnerRating` back into the
+  card via `{ ...card, ...newWinnerRating }`. What goes wrong with the *next* pick's delta if
+  we skip that and keep using the winner's original fetched rating across a 10-win streak?
+
+- [ ] Making the deltas client-side let us delete the `postDone`/`FLOAT_MIN_MS` gating and
+  advance the board on pure animation timing. Why did moving the number's *source* off the
+  network also fix the "new card enters too late" delay — i.e. what was the entrance actually
+  waiting on before?
