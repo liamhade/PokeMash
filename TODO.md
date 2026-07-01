@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## kill the blank beat on preload misses
+
+- [ ] `swapLoserForFresh` now waits `Math.max(0, SLIDE_MS - (performance.now() - slideStart))` instead of a fixed `SLIDE_MS` after the fetch. Draw the two timelines (fetch faster vs. slower than the slide) — in each, when does the challenger start rising, and why was the old code's blank always `fetch + SLIDE_MS`?
+
+- [ ] The preload effect dropped `ready` from its condition, firing at swap START. Why does this NOT re-preload for the outgoing pair at pick time (think: which dependency actually changes and when), and what does this trade against showing the user a slightly staler challenger choice?
+
 ## parallelize the comparison API's Supabase round trips
 
 - [ ] In `/api/comparison/next`, the count, `fetchAllRanks`, and the history query now share one `Promise.all`, but `sampleEligible` still waits for the count. Supabase query builders are lazy thenables — what actually starts each request, and why does `fetchAllRanks` paginating with `.order("card_id")` matter for pages not overlapping?

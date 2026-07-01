@@ -256,17 +256,24 @@ export default function ComparisonScreen() {
     }
   }, [cards, ready, streak, streakCardId]);
 
-  // Prefetch the next comparison once the current pair is settled and pickable. Re-runs
-  // when the pair, readiness, or Keep Winner mode changes. preloadNext only touches refs
-  // and the image cache (no setState), so it neither re-renders nor trips the lint rule.
+  // Prefetch the next comparison as soon as the pair is KNOWN — at swap start, not once
+  // it settles (`ready`). That gives the preload a ~SLIDE_MS head start, so rapid picks
+  // are far more likely to hit the overlap fast path instead of a blank-slot fetch.
+  // preloadNext only touches refs and the image cache (no setState), so it neither
+  // re-renders nor trips the lint rule.
   useEffect(() => {
-    if (cards && ready) preloadNext();
-  }, [cards, ready, keepWinner, preloadNext]);
+    if (cards && cards.length === 2) preloadNext();
+  }, [cards, keepWinner, preloadNext]);
 
-  // Keep Winner mode: the loser is already sliding out (started in handlePick); pick a
-  // fresh challenger and slide it up into the loser's slot after the slide finishes. The
+  // Keep Winner mode: the loser is already sliding out (started in handlePick, at
+  // `slideStart`); pick a fresh challenger and slide it up into the loser's slot. The
   // dials already spun instantly (client-computed), so nothing waits on the POST.
-  async function swapLoserForFresh(winner: Card, loser: Card, playerId: string) {
+  async function swapLoserForFresh(
+    winner: Card,
+    loser: Card,
+    playerId: string,
+    slideStart: number,
+  ) {
     // Use the preloaded challenger for this winner when it's still valid; otherwise fetch
     // (excluding the loser so it isn't re-served). Consume the preload so it can't be reused.
     const key = pairKey([winner, loser], true, filtersRef.current);
@@ -289,8 +296,12 @@ export default function ComparisonScreen() {
     }
     const challenger = fresh;
 
-    // Swap once the loser has finished sliding out. (Both cards' new ratings were already
-    // folded into state at pick time, so only the loser→challenger replacement remains.)
+    // Swap once the loser's slide is done — measured from when the slide STARTED (pick
+    // time), not from when the fetch resolved. A fixed SLIDE_MS wait here would stack a
+    // whole extra slide on top of the fetch, leaving the slot blank ~350ms longer on
+    // every preload miss. (Both cards' new ratings were already folded into state at
+    // pick time, so only the loser→challenger replacement remains.)
+    const remaining = Math.max(0, SLIDE_MS - (performance.now() - slideStart));
     setTimeout(() => {
       setPickedId(null);
       setHoveredId(null);
@@ -309,7 +320,7 @@ export default function ComparisonScreen() {
           setTimeout(() => setReady(true), SLIDE_MS);
         }),
       );
-    }, SLIDE_MS);
+    }, remaining);
   }
 
   // Preload-hit fast path: slide the loser OUT and the challenger IN at the same time. The
@@ -432,9 +443,9 @@ export default function ComparisonScreen() {
         overlapSwap(loser, preChallenger, loserDial);
       } else {
         // Preload missed: start the loser sliding out now (instant reaction), then fetch the
-        // challenger and slide it in after (sequential).
+        // challenger and slide it in as soon as both the fetch and the slide are done.
         setPos((prev) => ({ ...prev, [loser.card_id]: "above" }));
-        swapLoserForFresh(winner, loser, playerId);
+        swapLoserForFresh(winner, loser, playerId, performance.now());
       }
     } else {
       // Use the preloaded fresh pair if it's still valid; otherwise fetch after the slide.
