@@ -26,9 +26,10 @@ type RankingsResponse = {
 };
 
 // The card image dimensions; the flip container is locked to this so flipping to the
-// detail table doesn't reflow the list.
-const CARD_WIDTH = 220;
-const CARD_HEIGHT = 305;
+// detail table doesn't reflow the list. Sized a touch larger than the raw 220×305 (same
+// ~0.72 aspect ratio, so the art isn't distorted) to fit the back's button + disclosure.
+const CARD_WIDTH = 238;
+const CARD_HEIGHT = 330;
 
 // Hover this long before the wiggle hint fires (ms). One-shot per hover.
 const WIGGLE_DELAY_MS = 6000;
@@ -136,7 +137,7 @@ function RankingCard({ card }: { card: RankedCard }) {
 
           {/* Back: detail table + a placeholder TCGplayer referral button. Rows use tight
               padding so the table and button both fit without enlarging the card. */}
-          <div className="absolute inset-0 flex flex-col justify-center gap-3 rounded-xl bg-white p-4 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
+          <div className="absolute inset-0 flex flex-col justify-center gap-2 rounded-xl bg-white p-4 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
             <table className="w-full text-sm">
               <tbody>
                 {details.map(([label, value]) => (
@@ -168,7 +169,7 @@ function RankingCard({ card }: { card: RankedCard }) {
             </a>
 
             {/* FTC affiliate disclosure — required wherever a referral link appears. */}
-            <span className="text-center text-[10px] leading-tight text-neutral-400">
+            <span className="text-center text-[9px] leading-tight text-neutral-400">
               As a TCGplayer affiliate, PokeMash earns from qualifying purchases.
             </span>
           </div>
