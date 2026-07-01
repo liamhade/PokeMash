@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## Clefairy wanderer
+
+- [ ] `Clefairy` stacks five nested divs (positioner → facing flip → pick hop → wander emote → waddle/bob), each owning one transform. Which pairs would visibly break if merged onto one element, and why does the pick hop need a layer separate from the wander emote specifically?
+
+- [ ] The wander brain is one self-rescheduling `setTimeout` chain with `xRef` mirroring the `x` state. Why can't the loop read `x` directly (what would the `[]`-deps closure see), and what alternative designs (setInterval tick, useReducer machine, rAF loop) were rejected and at what cost/benefit?
+
 ## kill the blank beat on preload misses
 
 - [ ] `swapLoserForFresh` now waits `Math.max(0, SLIDE_MS - (performance.now() - slideStart))` instead of a fixed `SLIDE_MS` after the fetch. Draw the two timelines (fetch faster vs. slower than the slide) — in each, when does the challenger start rising, and why was the old code's blank always `fetch + SLIDE_MS`?

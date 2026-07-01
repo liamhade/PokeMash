@@ -63,9 +63,10 @@ body {
   will-change: opacity;
 }
 
-/* The Critter's motion, split across two nested elements so the transforms don't
-   collide: the outer one plays the one-shot hop (crouch → jump → land-squash) each
-   time it's remounted by a pick, while the inner one bobs forever while idle. */
+/* The Clefairy mascot's motion, split across nested elements so the transforms don't
+   collide: critter-hop is the one-shot hop (crouch → jump → land-squash) replayed by
+   remount (pick celebration or wander emote), critter-idle is the endless standing
+   bob, and clefairy-waddle is the side-to-side rock while walking. */
 @keyframes critter-hop {
   0% {
     transform: translateY(0) scale(1, 1);
@@ -100,6 +101,22 @@ body {
 
 .critter-idle {
   animation: critter-bob 2.6s ease-in-out infinite;
+}
+
+@keyframes clefairy-waddle {
+  0%,
+  100% {
+    transform: rotate(-4deg) translateY(0);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-2px);
+  }
+}
+
+.clefairy-waddle {
+  animation: clefairy-waddle 0.5s ease-in-out infinite;
+  /* rock about the feet, not the center, so it reads as steps rather than a sway */
+  transform-origin: 50% 85%;
 }
 
 /* One-shot hover hint on ranked cards: a brief clockwise/counter-clockwise wiggle to
