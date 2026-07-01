@@ -97,10 +97,10 @@ export default function ComparisonScreen() {
   const [pos, setPos] = useState<Record<string, Position>>({});
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  // A card sliding OUT rendered as an absolute overlay in the incoming card's slot, so the
-  // loser can leave while the challenger arrives (one motion). `overId` is the challenger
-  // whose slot hosts the overlay; the loser's own position drives its slide (via `pos`).
-  const [exiting, setExiting] = useState<Exit | null>(null);
+  // Cards sliding OUT rendered as absolute overlays in the incoming cards' slots, so they
+  // can leave while their replacements arrive (one motion). `overId` is the incoming card
+  // whose slot hosts the overlay; each departing card's own position drives its slide.
+  const [exiting, setExiting] = useState<Exit[]>([]);
   const [keepWinner, setKeepWinner] = useState(true);
   // True only when both cards are settled at center and a pick is allowed. Guards
   // against picking mid-animation or double-submitting a comparison.
@@ -317,7 +317,7 @@ export default function ComparisonScreen() {
   function overlapSwap(loser: Card, challenger: Card, loserDial: Exit["dial"]) {
     setPickedId(null);
     setHoveredId(null);
-    setExiting({ card: loser, overId: challenger.card_id, dial: loserDial });
+    setExiting([{ card: loser, overId: challenger.card_id, dial: loserDial }]);
     setCards((prev) =>
       prev!.map((card) => (card.card_id === loser.card_id ? challenger : card)),
     );
@@ -328,10 +328,44 @@ export default function ComparisonScreen() {
         // Both slide up together: loser out the top, challenger up into the slot.
         setPos((prev) => ({ ...prev, [challenger.card_id]: "center", [loser.card_id]: "above" }));
         setTimeout(() => {
-          setExiting(null);
+          setExiting([]);
           setPos((prev) => {
             const updated = { ...prev };
             delete updated[loser.card_id];
+            return updated;
+          });
+          setReady(true);
+        }, SLIDE_MS);
+      }),
+    );
+  }
+
+  // Preload-hit fast path with Keep Winner off: the whole old pair slides out the top
+  // while the new pair rises from below — one motion instead of out-then-blank-then-in.
+  // Each departing card overlays the slot of the incoming card on its side (left stays
+  // left), with its dial tween riding along.
+  function overlapFresh(oldPair: Card[], next: Card[], exits: Exit[]) {
+    setPickedId(null);
+    setHoveredId(null);
+    setExiting(exits);
+    setCards(next);
+    // New pair mounts below; the old pair's overlays keep their center position.
+    setPos((prev) => ({ ...prev, [next[0].card_id]: "below", [next[1].card_id]: "below" }));
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        setPos((prev) => ({
+          ...prev,
+          [next[0].card_id]: "center",
+          [next[1].card_id]: "center",
+          [oldPair[0].card_id]: "above",
+          [oldPair[1].card_id]: "above",
+        }));
+        setTimeout(() => {
+          setExiting([]);
+          setPos((prev) => {
+            const updated = { ...prev };
+            delete updated[oldPair[0].card_id];
+            delete updated[oldPair[1].card_id];
             return updated;
           });
           setReady(true);
@@ -400,13 +434,34 @@ export default function ComparisonScreen() {
         swapLoserForFresh(winner, loser, playerId);
       }
     } else {
-      setPos(positionsFor(pair, "above"));
       // Use the preloaded fresh pair if it's still valid; otherwise fetch after the slide.
       const key = pairKey(pair, false, filtersRef.current);
       const pre = preloadRef.current;
       preloadRef.current = null;
       const preloadedPair = pre?.mode === "fresh" && pre.key === key ? pre.pair : null;
-      setTimeout(() => (preloadedPair ? mountPair(preloadedPair) : loadNextPair()), SLIDE_MS);
+      // Overlapping needs disjoint ids: `pos` and the exit overlays are keyed by card_id,
+      // so a card in both pairs would have to be "above" and "below" at once.
+      const disjoint =
+        preloadedPair &&
+        !preloadedPair.some((card) => pair.some((old) => old.card_id === card.card_id));
+      if (preloadedPair && disjoint) {
+        const winnerDial = {
+          from: Math.round(winnerRating.r),
+          to: Math.round(newWinnerRating.r),
+        };
+        overlapFresh(
+          pair,
+          preloadedPair,
+          pair.map((old, i) => ({
+            card: old,
+            overId: preloadedPair[i].card_id,
+            dial: old.card_id === winner.card_id ? winnerDial : loserDial,
+          })),
+        );
+      } else {
+        setPos(positionsFor(pair, "above"));
+        setTimeout(() => (preloadedPair ? mountPair(preloadedPair) : loadNextPair()), SLIDE_MS);
+      }
     }
   }
 

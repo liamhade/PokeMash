@@ -42,9 +42,10 @@ type ComparisonAreaProps = {
   streak: number;
   streakCardId: string | null;
   poolEmpty: boolean;
-  // A card sliding out as an overlay in another's slot. Its position is driven by
-  // `pos[card.card_id]`, like the resident cards.
-  exiting: Exit | null;
+  // Cards sliding out as overlays in other cards' slots (one in Keep Winner mode, the
+  // whole pair when it's off). Positions are driven by `pos[card.card_id]`, like the
+  // resident cards.
+  exiting: Exit[];
   onPick: (card: Card) => void;
   onHover: (id: string | null) => void;
 };
@@ -78,7 +79,7 @@ export default function ComparisonArea({
         // Streak glow only on the card the streak belongs to (the held winner).
         const flame = card.card_id === streakCardId ? flameColor(streak) : null;
         // A departing card overlays THIS card's slot (it leaves as this one arrives).
-        const exit = exiting && exiting.overId === card.card_id ? exiting : null;
+        const exit = exiting.find((e) => e.overId === card.card_id) ?? null;
 
         return (
           // Wrapper stays put (the button's slide is a transform, which doesn't

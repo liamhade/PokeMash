@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## overlap the pair swap with Keep Winner off
+
+- [ ] `overlapFresh` only runs when the preloaded pair shares no `card_id` with the outgoing pair (`disjoint`), falling back to the sequential slide otherwise. Walk through what `pos` (a `Record<card_id, Position>`) would have to hold if one card appeared in both pairs — which of the two motions wins, and what would the user see?
+
+- [ ] `exiting` went from `Exit | null` to `Exit[]` so one mechanism covers both the single-loser overlay and the whole-pair overlay. When is generalizing a state shape like this justified versus adding a parallel second state (`exitingPair`), and how does YAGNI cut in this specific case?
+
 ## replace ELO floats with Rating dials
 
 - [ ] `RatingDial` reads its animation start from `shownRef` instead of the `shown` state inside the `useEffect`. Why would depending on `shown` directly break the tween loop, and what does mounting the exit overlay's dial with `from` solve that keying by `card_id` alone can't?
