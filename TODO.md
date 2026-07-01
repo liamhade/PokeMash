@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## add the Critter mascot
+
+- [ ] `Critter` replays its hop by putting `key={picks}` on the hop wrapper rather than toggling the `critter-hop` class on and off. Why doesn't removing-then-re-adding a class restart a finished CSS animation within the same frame, and what does the remount give you that `animation-iteration-count` can't?
+
+- [ ] The hop and the idle bob animate `transform` on two nested divs instead of one. Relate this to the existing `RankingCard` wiggle/flip question in this file: what is the general rule for when two CSS animations need separate elements?
+
 ## overlap the pair swap with Keep Winner off
 
 - [ ] `overlapFresh` only runs when the preloaded pair shares no `card_id` with the outgoing pair (`disjoint`), falling back to the sequential slide otherwise. Walk through what `pos` (a `Record<card_id, Position>`) would have to hold if one card appeared in both pairs — which of the two motions wins, and what would the user see?

@@ -110,6 +110,8 @@ export default function ComparisonScreen() {
   // is which card the streak belongs to; it resets when a different card wins.
   const [streak, setStreak] = useState(0);
   const [streakCardId, setStreakCardId] = useState<string | null>(null);
+  // Total picks this mount, for the Critter's per-pick hop (not persisted anywhere).
+  const [picks, setPicks] = useState(0);
 
   // Active pool filters (price/era/series) and whether the Filter modal is open. True
   // poolEmpty means the current filters matched fewer than two cards.
@@ -384,6 +386,7 @@ export default function ComparisonScreen() {
     // Extend the streak if the same card won again, otherwise start a new one.
     setStreak((prev) => (winner.card_id === streakCardId ? prev + 1 : 1));
     setStreakCardId(winner.card_id);
+    setPicks((prev) => prev + 1);
 
     // Compute the Glicko-2 change on the client (same inputs the POST uses) and fold both
     // new ratings into the on-board cards IMMEDIATELY, instead of waiting on the server
@@ -504,6 +507,7 @@ export default function ComparisonScreen() {
         streak={streak}
         streakCardId={streakCardId}
         poolEmpty={poolEmpty}
+        picks={picks}
         exiting={exiting}
         onPick={handlePick}
         onHover={setHoveredId}

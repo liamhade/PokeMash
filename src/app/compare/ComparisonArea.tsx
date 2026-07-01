@@ -2,6 +2,7 @@ import Image from "next/image";
 import { flameColor } from "@/lib/streak";
 import { DEFAULT_RATING } from "@/lib/glicko2";
 import RatingDial from "./RatingDial";
+import Critter from "./Critter";
 
 // r/rd/mu are the card's Glicko-2 rating (this player's), sent by /api/comparison/next so
 // the client can compute a pick's rating change instantly. Optional: a pair restored from
@@ -42,6 +43,8 @@ type ComparisonAreaProps = {
   streak: number;
   streakCardId: string | null;
   poolEmpty: boolean;
+  // Total picks this mount; drives the Critter's per-pick hop.
+  picks: number;
   // Cards sliding out as overlays in other cards' slots (one in Keep Winner mode, the
   // whole pair when it's off). Positions are driven by `pos[card.card_id]`, like the
   // resident cards.
@@ -59,6 +62,7 @@ export default function ComparisonArea({
   streak,
   streakCardId,
   poolEmpty,
+  picks,
   exiting,
   onPick,
   onHover,
@@ -161,6 +165,8 @@ export default function ComparisonArea({
           </div>
         );
       })}
+
+      <Critter picks={picks} />
     </div>
   );
 }

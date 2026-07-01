@@ -63,6 +63,45 @@ body {
   will-change: opacity;
 }
 
+/* The Critter's motion, split across two nested elements so the transforms don't
+   collide: the outer one plays the one-shot hop (crouch → jump → land-squash) each
+   time it's remounted by a pick, while the inner one bobs forever while idle. */
+@keyframes critter-hop {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  15% {
+    transform: translateY(2px) scale(1.1, 0.85);
+  }
+  45% {
+    transform: translateY(-16px) scale(0.95, 1.05);
+  }
+  75% {
+    transform: translateY(0) scale(1.05, 0.9);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+.critter-hop {
+  animation: critter-hop 550ms ease-out;
+}
+
+@keyframes critter-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.critter-idle {
+  animation: critter-bob 2.6s ease-in-out infinite;
+}
+
 /* One-shot hover hint on ranked cards: a brief clockwise/counter-clockwise wiggle to
    suggest the card is interactive (click to flip). Runs once (no `infinite`), so it plays
    a single time each time the class is applied; the caller re-applies it per hover. */
