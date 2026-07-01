@@ -136,12 +136,15 @@ export default function Clefairy({ picks }: { picks: number }) {
   const [emote, setEmote] = useState<Emote>("none");
   const [emoteKey, setEmoteKey] = useState(0);
   const [blink, setBlink] = useState(false);
-  // Current wander target, readable inside the timer loop without re-running the effect.
+  // Current wander target and facing, readable inside the timer loop without
+  // re-running the effect (the loop's closure would only ever see the initial state).
   const xRef = useRef(0);
+  const facingRef = useRef<1 | -1>(1);
 
   // The wander brain. Rough action weights: walk 45%, emote 25%, glance 10%, stand 20%.
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
+    let depart: ReturnType<typeof setTimeout>;
     let arrival: ReturnType<typeof setTimeout>;
     function schedule(delay: number) {
       timer = setTimeout(act, delay);
@@ -151,19 +154,28 @@ export default function Clefairy({ picks }: { picks: number }) {
       if (roll < 0.45) {
         const target = (Math.random() * 2 - 1) * roamRange();
         const ms = Math.max(500, (Math.abs(target - xRef.current) / WALK_SPEED) * 1000);
-        setFacing(target >= xRef.current ? 1 : -1);
-        xRef.current = target;
-        setX(target);
-        setWalkMs(ms);
-        setWalking(true);
-        arrival = setTimeout(() => setWalking(false), ms);
-        schedule(ms + 400 + Math.random() * 1600); // arrive, then take a breath
+        // Look where you're going before moving: face the target, hold a beat (longer
+        // when it means turning around, a quick check when already facing that way),
+        // and only then step off.
+        const dir: 1 | -1 = target >= xRef.current ? 1 : -1;
+        const lookMs = dir === facingRef.current ? 150 : 300 + Math.random() * 350;
+        facingRef.current = dir;
+        setFacing(dir);
+        depart = setTimeout(() => {
+          xRef.current = target;
+          setX(target);
+          setWalkMs(ms);
+          setWalking(true);
+          arrival = setTimeout(() => setWalking(false), ms);
+        }, lookMs);
+        schedule(lookMs + ms + 400 + Math.random() * 1600); // look, walk, then breathe
       } else if (roll < 0.7) {
         setEmote(roll < 0.575 ? "hop" : "wiggle");
         setEmoteKey((k) => k + 1);
         schedule(900 + Math.random() * 1100);
       } else if (roll < 0.8) {
-        setFacing((f) => (f === 1 ? -1 : 1)); // glance the other way
+        facingRef.current = facingRef.current === 1 ? -1 : 1; // glance the other way
+        setFacing(facingRef.current);
         schedule(700 + Math.random() * 1000);
       } else {
         schedule(1600 + Math.random() * 2600); // just stand there, being round
@@ -172,6 +184,7 @@ export default function Clefairy({ picks }: { picks: number }) {
     schedule(1500);
     return () => {
       clearTimeout(timer);
+      clearTimeout(depart);
       clearTimeout(arrival);
     };
   }, []);

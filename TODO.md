@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## Clefairy looks before she walks
+
+- [ ] The look-then-move needed a `facingRef` mirror even though `facing` state already existed. Why does the wander loop's closure (an effect with `[]` deps) always see `facing`'s initial value, and why is a ref the fix rather than adding `facing` to the deps array?
+
+- [ ] The look pause is 150ms when already facing the target but 300-650ms for a turn-around. What principle of believable character motion does scaling anticipation time to the size of the direction change reflect, and where else in this app's animations does an "anticipation beat" already exist?
+
 ## glow-only winner flash + Clefairy shrink
 
 - [ ] The flash keyframes changed from a 12% opacity ramp-in to starting at `opacity: 1` at 0%. Given the click also kicks off card slides and a dial spin in the same instant, why does even a ~50ms ramp make a feedback cue feel like it "didn't happen", and what does this say about ordering feedback vs. consequence animations?
