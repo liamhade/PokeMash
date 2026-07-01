@@ -137,7 +137,7 @@ function RankingCard({ card }: { card: RankedCard }) {
 
           {/* Back: detail table + a placeholder TCGplayer referral button. Rows use tight
               padding so the table and button both fit without enlarging the card. */}
-          <div className="absolute inset-0 flex flex-col justify-center gap-3 rounded-xl bg-white p-4 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
+          <div className="absolute inset-0 flex flex-col justify-center gap-2 rounded-xl bg-white p-3 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
             <table className="w-full text-sm">
               <tbody>
                 {details.map(([label, value]) => (
@@ -167,6 +167,11 @@ function RankingCard({ card }: { card: RankedCard }) {
             >
               Buy on TCGplayer
             </a>
+
+            {/* FTC affiliate disclosure — required wherever a referral link appears. */}
+            <span className="text-center text-[10px] leading-tight text-neutral-400">
+              As a TCGplayer affiliate, PokeMash earns from qualifying purchases.
+            </span>
           </div>
         </div>
       </div>
