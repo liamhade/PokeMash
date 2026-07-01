@@ -87,15 +87,20 @@ const BLINK_SPRITE = SPRITE.map((row, y) => {
   return chars.join("");
 });
 
-// On-screen size of one sprite pixel — big enough that the pixels read as pixels.
+// Drawing size of one sprite pixel; the svg is displayed at DISPLAY_SCALE of that
+// (rects stay on integer coordinates, the browser scales the whole vector down).
 const PX = 2;
+const DISPLAY_SCALE = 0.75;
 
 function ClefairySprite({ blink }: { blink: boolean }) {
   const rows = blink ? BLINK_SPRITE : SPRITE;
+  const w = rows[0].length * PX;
+  const h = rows.length * PX;
   return (
     <svg
-      width={rows[0].length * PX}
-      height={rows.length * PX}
+      width={w * DISPLAY_SCALE}
+      height={h * DISPLAY_SCALE}
+      viewBox={`0 0 ${w} ${h}`}
       shapeRendering="crispEdges"
     >
       {rows.flatMap((row, y) =>
