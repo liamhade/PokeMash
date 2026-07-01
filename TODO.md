@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## fix Clefairy's flipped facing
+
+- [ ] The fix negates `facing` at the render (`scaleX(${-facing})`) instead of swapping the `dir` assignment in the wander brain. Why is "state keeps movement semantics, the view layer absorbs the art's native orientation" the more maintainable split — what would a future emote that depends on movement direction look like under each choice?
+
+- [ ] The old hand-drawn sprite was symmetric, so this bug was invisible until the asymmetric extracted sprite landed. What does that say about how orientation conventions should be pinned down (or tested) when an asset is a black box swapped in later?
+
 ## Clefairy looks before she walks
 
 - [ ] The look-then-move needed a `facingRef` mirror even though `facing` state already existed. Why does the wander loop's closure (an effect with `[]` deps) always see `facing`'s initial value, and why is a ref the fix rather than adding `facing` to the deps array?

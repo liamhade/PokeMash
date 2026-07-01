@@ -218,8 +218,9 @@ export default function Clefairy({ picks }: { picks: number }) {
           transition: `transform ${walkMs}ms ease-in-out`,
         }}
       >
-        {/* facing flip (instant), separate from the glide so the transforms don't fight */}
-        <div style={{ transform: `scaleX(${facing})` }}>
+        {/* facing flip (instant), separate from the glide so the transforms don't fight.
+            The sprite art natively faces LEFT, so facing=1 (moving right) mirrors it. */}
+        <div style={{ transform: `scaleX(${-facing})` }}>
           {/* pick celebration: remounts (and so replays) on every pick */}
           <div key={picks} className={picks > 0 ? "critter-hop" : ""}>
             {/* wander emote: its own one-shot layer, restarted by remount */}
