@@ -295,9 +295,55 @@ export async function GET(request: NextRequest) {
     if (hasMin) countQuery = countQuery.gte(PRICE_COLUMN, minPrice);
     if (hasMax) countQuery = countQuery.lte(PRICE_COLUMN, maxPrice);
   }
-  const { count, error: countError } = await countQuery;
-  if (countError) {
-    return NextResponse.json({ error: countError.message }, { status: 500 });
+  // This player's ratings, in pages: PostgREST caps a single select at ~1000 rows, and a
+  // long-time player can hold more ratings than that. Truncating here would silently treat
+  // rated cards as unrated (DEFAULT_RATING), skewing pairing and disagreeing with the
+  // client's dial math. Ordered so consecutive pages can't overlap or skip rows.
+  const RANKS_PAGE_SIZE = 1000;
+  async function fetchAllRanks() {
+    const all: { card_id: string; r: number; rd: number; mu: number }[] = [];
+    for (let from = 0; ; from += RANKS_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from("card_ranks")
+        .select("card_id, r, rd, mu")
+        .eq("player_id", playerId)
+        .order("card_id")
+        .range(from, from + RANKS_PAGE_SIZE - 1);
+      if (error) throw new Error(error.message);
+      all.push(...(data ?? []));
+      if (!data || data.length < RANKS_PAGE_SIZE) return all;
+    }
+  }
+
+  // In Keep Winner mode: which cards has the winner already been compared against (as
+  // either side)? Only needs playerId/winnerId, so it can run before sampling.
+  const historyQuery = winnerId
+    ? supabase
+        .from("comparisons")
+        .select("winner_card, loser_card")
+        .eq("player_id", playerId)
+        .or(`winner_card.eq.${winnerId},loser_card.eq.${winnerId}`)
+    : null;
+
+  // The count, the player's ratings, and the winner's history are independent reads, so
+  // they go out together. Only the window sample (needs the count) waits — the pick
+  // path's sequential round trips drop from four to two.
+  let count: number | null;
+  let ranks: Awaited<ReturnType<typeof fetchAllRanks>>;
+  let history: { winner_card: string; loser_card: string }[] | null;
+  try {
+    const [countResult, ranksResult, historyResult] = await Promise.all([
+      countQuery,
+      fetchAllRanks(),
+      historyQuery,
+    ]);
+    if (countResult.error) throw new Error(countResult.error.message);
+    if (historyResult?.error) throw new Error(historyResult.error.message);
+    count = countResult.count;
+    ranks = ranksResult;
+    history = historyResult?.data ?? null;
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
   // Fetch a random window and reduce it to eligible cards. Repeats the same filter chain
   // as the count query (the file already duplicates filters across count/rows).
@@ -350,15 +396,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Not enough cards to compare" }, { status: 409 });
   }
 
-  const { data: ranks, error: ranksError } = await supabase
-    .from("card_ranks")
-    .select("card_id, r, rd, mu")
-    .eq("player_id", playerId);
-  if (ranksError) {
-    return NextResponse.json({ error: ranksError.message }, { status: 500 });
-  }
-
-  const rankByCardId = new Map(ranks?.map((rank) => [rank.card_id, rank]));
+  const rankByCardId = new Map(ranks.map((rank) => [rank.card_id, rank]));
   const ratedCards: RatedCard[] = shuffle(
     cards.map((card) => ({
       ...card,
@@ -385,14 +423,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Which cards has the winner already been compared against (as either side)?
-    const { data: history, error: historyError } = await supabase
-      .from("comparisons")
-      .select("winner_card, loser_card")
-      .eq("player_id", playerId)
-      .or(`winner_card.eq.${winnerId},loser_card.eq.${winnerId}`);
-    if (historyError) {
-      return NextResponse.json({ error: historyError.message }, { status: 500 });
-    }
+    // (Fetched up top, in parallel with the count and ratings.)
     const comparedOpponentIds = new Set(
       history?.map((row) => (row.winner_card === winnerId ? row.loser_card : row.winner_card)),
     );

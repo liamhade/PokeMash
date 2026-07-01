@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## parallelize the comparison API's Supabase round trips
+
+- [ ] In `/api/comparison/next`, the count, `fetchAllRanks`, and the history query now share one `Promise.all`, but `sampleEligible` still waits for the count. Supabase query builders are lazy thenables — what actually starts each request, and why does `fetchAllRanks` paginating with `.order("card_id")` matter for pages not overlapping?
+
+- [ ] The POST's upsert+insert were serialized, implying an ordering guarantee that never existed (PostgREST has no cross-table transaction). What failure states were possible before vs. after parallelizing, and what's the general lesson about sequential `await`s implying dependencies to readers?
+
 ## add the Critter mascot
 
 - [ ] `Critter` replays its hop by putting `key={picks}` on the hop wrapper rather than toggling the `critter-hop` class on and off. Why doesn't removing-then-re-adding a class restart a finished CSS animation within the same frame, and what does the remount give you that `animation-iteration-count` can't?
