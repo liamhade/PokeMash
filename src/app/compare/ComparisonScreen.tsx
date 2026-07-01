@@ -15,6 +15,11 @@ function positionsFor(cards: Card[], position: Position): Record<string, Positio
   return Object.fromEntries(cards.map((card) => [card.card_id, position]));
 }
 
+// How long a card takes to slide in/out. The setTimeouts below wait this long for the CSS
+// transition to finish, so this MUST match `duration-[…]` on the card in ComparisonArea.
+// Tune both together to make the board feel snappier or calmer.
+const SLIDE_MS = 350;
+
 // Land the number in the white margin on the card's OUTER side (away from the other
 // card) so it's readable off the card art, with a random vertical spread. dx clears
 // the card's ~130px half-width; dy stays within its height so it reads alongside it.
@@ -164,7 +169,7 @@ export default function ComparisonScreen() {
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
           setPos(positionsFor(next, "center"));
-          setTimeout(() => setReady(true), 500);
+          setTimeout(() => setReady(true), SLIDE_MS);
         }),
       );
     });
@@ -320,15 +325,16 @@ export default function ComparisonScreen() {
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
           setPos((prev) => ({ ...prev, [fresh.card_id]: "center" }));
-          setTimeout(() => setReady(true), 500);
+          setTimeout(() => setReady(true), SLIDE_MS);
         }),
       );
-    }, 500);
+    }, SLIDE_MS);
   }
 
-  async function handlePick(winner: Card) {
+  function handlePick(winner: Card) {
     if (!ready || !cards) return;
-    const loser = cards.find((card) => card.card_id !== winner.card_id)!;
+    const pair = cards; // capture before the state below changes
+    const loser = pair.find((card) => card.card_id !== winner.card_id)!;
     setReady(false);
     setPickedId(winner.card_id);
 
@@ -337,10 +343,11 @@ export default function ComparisonScreen() {
     setStreakCardId(winner.card_id);
 
     const playerId = getPlayerId();
-    // Await the comparison before fetching the next card so the swap's "already
-    // compared" history includes this result (otherwise the just-beaten loser
-    // could be served right back as the fresh challenger).
-    const res = await fetch("/api/comparison", {
+    // Record the comparison in the BACKGROUND so the board advances immediately instead of
+    // waiting on the write. Correctness holds without awaiting it: the preloaded challenger
+    // (and the fallback fetch) already exclude the loser via excludeId, so it can't be
+    // re-served this round. Float the +/- deltas whenever the POST returns.
+    fetch("/api/comparison", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -348,28 +355,26 @@ export default function ComparisonScreen() {
         winnerCardId: winner.card_id,
         loserCardId: loser.card_id,
       }),
-    });
-
-    // Float the rating change beside each card (+X green winner, -Y red loser), each
-    // drifting out toward its own side. cards[0] renders on the left, cards[1] right.
-    const { winnerDelta, loserDelta } = (await res.json()) as {
-      winnerDelta: number;
-      loserDelta: number;
-    };
-    const winnerSide = cards[0].card_id === winner.card_id ? "left" : "right";
-    showFloat(winner.card_id, winnerDelta, winnerSide);
-    showFloat(loser.card_id, loserDelta, winnerSide === "left" ? "right" : "left");
+    })
+      .then((res) => res.json())
+      .then(({ winnerDelta, loserDelta }: { winnerDelta: number; loserDelta: number }) => {
+        // pair[0] renders on the left, pair[1] right.
+        const winnerSide = pair[0].card_id === winner.card_id ? "left" : "right";
+        showFloat(winner.card_id, winnerDelta, winnerSide);
+        showFloat(loser.card_id, loserDelta, winnerSide === "left" ? "right" : "left");
+      })
+      .catch(() => {});
 
     if (keepWinnerRef.current) {
-      await swapLoserForFresh(winner, loser, playerId);
+      swapLoserForFresh(winner, loser, playerId);
     } else {
-      setPos(positionsFor(cards, "above"));
+      setPos(positionsFor(pair, "above"));
       // Use the preloaded fresh pair if it's still valid; otherwise fetch after the slide.
-      const key = pairKey(cards, false, filtersRef.current);
+      const key = pairKey(pair, false, filtersRef.current);
       const pre = preloadRef.current;
       preloadRef.current = null;
       const preloadedPair = pre?.mode === "fresh" && pre.key === key ? pre.pair : null;
-      setTimeout(() => (preloadedPair ? mountPair(preloadedPair) : loadNextPair()), 500);
+      setTimeout(() => (preloadedPair ? mountPair(preloadedPair) : loadNextPair()), SLIDE_MS);
     }
   }
 

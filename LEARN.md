@@ -479,3 +479,16 @@
 - [ ] Keep-Winner preload issues *two* speculative `/api/comparison/next` calls per settled
   pair (one per possible winner), of which at most one is used. What's the cost/benefit of
   that, and when would the wasted call be most expensive (think pool size, DB sampling)?
+
+- [ ] Preload alone "didn't feel faster." Break the post-pick timeline into (a) the awaited
+  `POST /api/comparison`, (b) the challenger fetch, (c) the fixed slide animation. Which one
+  did preload remove, and why did the other two mask the win?
+
+- [ ] `handlePick` no longer `await`s the POST — it fires it in the background and floats the
+  deltas from `.then`. The old code awaited it specifically so the just-beaten loser wasn't
+  re-served. Why is that now safe without the await (what do `excludeId` + the preloaded
+  challenger guarantee), and what minor quality regression remains if the POST is very slow?
+
+- [ ] `SLIDE_MS` in `ComparisonScreen` and `duration-[350ms]` in `ComparisonArea` must stay
+  equal. What visual glitch happens if the `setTimeout` fires *shorter* than the CSS
+  transition — and why is that coupling across two files a smell worth a shared source?

@@ -76,7 +76,8 @@ export default function ComparisonArea({
               onMouseEnter={() => onHover(card.card_id)}
               onMouseLeave={() => onHover(null)}
               className={[
-                "relative rounded-xl transition-all duration-500 ease-out",
+                // duration MUST match SLIDE_MS in ComparisonScreen (the slide setTimeouts).
+                "relative rounded-xl transition-all duration-[350ms] ease-out",
                 POSITION_CLASS[pos[card.card_id] ?? "below"],
                 isHovered ? "scale-110" : "scale-100",
                 isHovered ? "shadow-[0_0_40px_12px_rgba(0,0,0,0.25)]" : "",
