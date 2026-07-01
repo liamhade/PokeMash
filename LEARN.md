@@ -463,3 +463,17 @@
   the partner code comes from `NEXT_PUBLIC_TCGPLAYER_PARTNER_CODE`. Why does this design let
   us ship the referral today (before the productId backfill) — and why must the partner code
   be `NEXT_PUBLIC_` rather than a server-only env var?
+
+- [ ] The backfill matches cards to TCGplayer products on `normName(name) + "#" + normNumber(number)`
+  and got 61% with 685 ambiguous keys. Why does a name#number key collide across sets, and
+  how would scoping the match to the card's set/group both raise the match rate AND resolve
+  those collisions?
+
+- [ ] The backfill reads with the anon/publishable key but writes require
+  `SUPABASE_SERVICE_ROLE_KEY`. What Supabase security mechanism makes the anon key unable to
+  `alter`/backfill the table, and why is it right that the migration is a separate step from
+  the script rather than the script creating its own columns?
+
+- [ ] TCGCSV returned 401 to Node's default `fetch` but 200 to `curl`, fixed by sending a
+  `User-Agent`. What does that tell you about how the endpoint gates traffic, and why is a
+  missing default UA a footgun specifically for `undici`/Node's fetch vs. a browser?

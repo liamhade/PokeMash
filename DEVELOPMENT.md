@@ -60,3 +60,30 @@ interfering with my collaborator.
 - `DONE.md` — completed tasks (with their original spec).
 - `LEARN.md` — open questions to self-quiz on; append after each meaningful change.
 - `DEVELOPMENT.md` — this file (setup + workflow).
+
+## TCGplayer referral (Rankings card-flip)
+
+The Rankings card-flip shows a card's TCGplayer Near-Mint price and an affiliate "Buy on
+TCGplayer" link. Two optional env vars in `.env.local`:
+
+```ini
+# Affiliate partner code from the Impact dashboard (once approved). Public — the buy
+# link is built client-side. Without it, links still work but aren't referral-tracked.
+NEXT_PUBLIC_TCGPLAYER_PARTNER_CODE=<impact partner code>
+
+# Service-role key (Supabase → Project Settings → API). Server/CLI only — never expose.
+# Needed ONLY to run the backfill below with --write.
+SUPABASE_SERVICE_ROLE_KEY=<service role key>
+```
+
+**Price + product-id backfill** (`scripts/backfill-tcgplayer.mjs`): matches our cards to
+TCGplayer products via [TCGCSV](https://tcgcsv.com) and fills `tcgplayer_product_id` /
+`tcgplayer_url` and refreshes `market_price`.
+
+```bash
+node scripts/backfill-tcgplayer.mjs           # dry run: prints the match rate, writes nothing
+node scripts/backfill-tcgplayer.mjs --write    # applies (needs the migration + service-role key)
+```
+
+Run `supabase/migrations/20260701_add_tcgplayer_columns.sql` first (needs DB write access).
+Re-run `--write` nightly to keep prices fresh.

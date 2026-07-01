@@ -34,8 +34,14 @@
 <!-- Flesh this out more -->
 - [ ] (**compare from `See Rankings`**) Add abilitity to click on card from `See Rankings` to compare that card on `Play` to another card.
 
-<!-- Flesh this out more -->
-- [ ] (**flip card over in `See Rankings`**) Ability to flip over a card and see the details there.
+- [x] (**flip card over in `See Rankings`**) DONE (see DONE.md) — clicking a ranked card flips it to show the TCGplayer price + affiliate buy link.
+
+- [ ] (**TCGplayer referral — finish tomorrow (needs Supabase DB write access)**)
+	- Apply `supabase/migrations/20260701_add_tcgplayer_columns.sql`.
+	- Run `node scripts/backfill-tcgplayer.mjs --write` (with `SUPABASE_SERVICE_ROLE_KEY`) to fill `tcgplayer_product_id`/`tcgplayer_url` + refresh `market_price`.
+	- Add `tcgplayer_product_id` to the `/api/rankings` select + pass `productId` into `RankingCard` so links become exact product pages.
+	- Set `NEXT_PUBLIC_TCGPLAYER_PARTNER_CODE` once Impact approves; verify a real affiliate link resolves + tracks.
+	- Improve the matcher beyond the 61% dry-run baseline: scope matches by set/group (resolve the 685 ambiguous name#number keys) and handle the newest set's numbering. Schedule the backfill nightly for fresh prices.
 
 <!-- Flesh this out more -->
 - [x] (**consistent card comparison**) Once a pair for comparison loads onto the page, it shouldn't disappear if the user leaves the page and comes back. DONE: the settled pair (+ its streak) is saved to `sessionStorage` (`pokemash:comparison`) whenever `ready`, and restored on mount in `ComparisonScreen`, so navigating to Rankings and back keeps the same matchup.
