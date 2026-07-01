@@ -84,7 +84,6 @@ function RankingCard({ card }: { card: RankedCard }) {
 
   const details: [string, string][] = [
     ["Name", orDash(card.name)],
-    ["Number", orDash(card.collector_number)],
     ["Set", orDash(card.set)],
     ["Pack", packName(card.pack)],
     ["Released", orDash(card.release_date)],
@@ -137,7 +136,7 @@ function RankingCard({ card }: { card: RankedCard }) {
 
           {/* Back: detail table + a placeholder TCGplayer referral button. Rows use tight
               padding so the table and button both fit without enlarging the card. */}
-          <div className="absolute inset-0 flex flex-col justify-center gap-2 rounded-xl bg-white p-3 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
+          <div className="absolute inset-0 flex flex-col justify-center gap-3 rounded-xl bg-white p-4 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
             <table className="w-full text-sm">
               <tbody>
                 {details.map(([label, value]) => (
@@ -145,10 +144,10 @@ function RankingCard({ card }: { card: RankedCard }) {
                     key={label}
                     className="border-b border-neutral-100 last:border-0"
                   >
-                    <td className="py-1.5 pr-2 font-semibold text-neutral-500">
+                    <td className="py-2 pr-2 font-semibold text-neutral-500">
                       {label}
                     </td>
-                    <td className="py-1.5 text-right break-words text-neutral-800">
+                    <td className="py-2 text-right break-words text-neutral-800">
                       {value}
                     </td>
                   </tr>
