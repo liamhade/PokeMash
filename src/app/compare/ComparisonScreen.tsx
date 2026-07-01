@@ -9,7 +9,7 @@ import PanelRight from "@/components/PanelRight";
 import ComparisonArea, {
   type Card,
   type Position,
-  type FloatDelta,
+  type Exit,
 } from "./ComparisonArea";
 
 function positionsFor(cards: Card[], position: Position): Record<string, Position> {
@@ -27,19 +27,6 @@ function ratingOf(card: Card): GlickoRating {
   return card.r != null && card.rd != null && card.mu != null
     ? { r: card.r, rd: card.rd, mu: card.mu }
     : DEFAULT_RATING;
-}
-
-// Land the number in the white margin on the card's OUTER side (away from the other
-// card) so it's readable off the card art, with a random vertical spread. dx clears
-// the card's ~130px half-width; dy stays within its height so it reads alongside it.
-function randomFloat(delta: number, side: "left" | "right"): FloatDelta {
-  const outward = side === "left" ? -1 : 1;
-  return {
-    delta,
-    dx: outward * (188 + Math.random() * 80), // 188–268px to the outer side (min +25%)
-    dy: (Math.random() - 0.5) * 200, // ±100px vertical spread
-    key: Math.random(),
-  };
 }
 
 // Persisted on-screen pair, so leaving Play (e.g. for Rankings) and coming back restores
@@ -113,7 +100,7 @@ export default function ComparisonScreen() {
   // A card sliding OUT rendered as an absolute overlay in the incoming card's slot, so the
   // loser can leave while the challenger arrives (one motion). `overId` is the challenger
   // whose slot hosts the overlay; the loser's own position drives its slide (via `pos`).
-  const [exiting, setExiting] = useState<{ card: Card; overId: string } | null>(null);
+  const [exiting, setExiting] = useState<Exit | null>(null);
   const [keepWinner, setKeepWinner] = useState(true);
   // True only when both cards are settled at center and a pick is allowed. Guards
   // against picking mid-animation or double-submitting a comparison.
@@ -134,21 +121,6 @@ export default function ComparisonScreen() {
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
-
-  // Rating-change numbers currently floating over cards, keyed by card id.
-  const [floats, setFloats] = useState<Record<string, FloatDelta>>({});
-  // Show a "+X / -Y" beside a card. delta 0 isn't worth animating.
-  function showFloat(cardId: string, delta: number, side: "left" | "right") {
-    if (!delta) return;
-    setFloats((prev) => ({ ...prev, [cardId]: randomFloat(delta, side) }));
-  }
-  function clearFloat(cardId: string) {
-    setFloats((prev) => {
-      const next = { ...prev };
-      delete next[cardId];
-      return next;
-    });
-  }
 
   // Read the toggle inside async callbacks without making them depend on it.
   const keepWinnerRef = useRef(keepWinner);
@@ -173,7 +145,6 @@ export default function ComparisonScreen() {
     setHoveredId(null);
     setCards(null);
     setPos({});
-    setFloats({}); // a fresh pair carries no rating floats from the previous round
     setPoolEmpty(false);
     requestAnimationFrame(() => {
       setCards(next);
@@ -201,7 +172,6 @@ export default function ComparisonScreen() {
       setHoveredId(null);
       setCards(null);
       setPos({});
-      setFloats({});
       setPoolEmpty(true);
       return;
     }
@@ -293,13 +263,8 @@ export default function ComparisonScreen() {
 
   // Keep Winner mode: the loser is already sliding out (started in handlePick); pick a
   // fresh challenger and slide it up into the loser's slot after the slide finishes. The
-  // deltas already floated instantly (client-computed), so nothing waits on the POST.
-  async function swapLoserForFresh(
-    winner: Card,
-    loser: Card,
-    playerId: string,
-    newWinnerRating: GlickoRating,
-  ) {
+  // dials already spun instantly (client-computed), so nothing waits on the POST.
+  async function swapLoserForFresh(winner: Card, loser: Card, playerId: string) {
     // Use the preloaded challenger for this winner when it's still valid; otherwise fetch
     // (excluding the loser so it isn't re-served). Consume the preload so it can't be reused.
     const key = pairKey([winner, loser], true, filtersRef.current);
@@ -322,23 +287,13 @@ export default function ComparisonScreen() {
     }
     const challenger = fresh;
 
-    // Swap once the loser has finished sliding out.
+    // Swap once the loser has finished sliding out. (Both cards' new ratings were already
+    // folded into state at pick time, so only the loser→challenger replacement remains.)
     setTimeout(() => {
       setPickedId(null);
       setHoveredId(null);
-      // Drop the leaving loser's float and guard the incoming card against any stale one,
-      // so a recurring card_id never re-plays an old "-Y" as it slides in. (The winner stays
-      // on the board, so its "+X" is left to finish and self-clear.)
-      clearFloat(loser.card_id);
-      clearFloat(challenger.card_id);
-      // Replace the loser with the challenger, and fold this round's rating change into the
-      // held winner so its next pick's delta uses the updated rating (the server did the same).
       setCards((prev) =>
-        prev!.map((card) => {
-          if (card.card_id === loser.card_id) return challenger;
-          if (card.card_id === winner.card_id) return { ...card, ...newWinnerRating };
-          return card;
-        }),
+        prev!.map((card) => (card.card_id === loser.card_id ? challenger : card)),
       );
       setPos((prev) => {
         const updated = { ...prev };
@@ -358,18 +313,13 @@ export default function ComparisonScreen() {
   // Preload-hit fast path: slide the loser OUT and the challenger IN at the same time. The
   // loser becomes an absolute overlay in the challenger's slot (`exiting`) so it leaves the
   // flex flow and the challenger takes the slot — one ~SLIDE_MS motion instead of two. The
-  // loser's -Y float rides along in the overlay.
-  function overlapSwap(winner: Card, loser: Card, challenger: Card, newWinnerRating: GlickoRating) {
+  // loser's dial (`loserDial`) rides along, ticking down under the slot.
+  function overlapSwap(loser: Card, challenger: Card, loserDial: Exit["dial"]) {
     setPickedId(null);
     setHoveredId(null);
-    clearFloat(challenger.card_id); // guard the incoming card against a stale float
-    setExiting({ card: loser, overId: challenger.card_id });
+    setExiting({ card: loser, overId: challenger.card_id, dial: loserDial });
     setCards((prev) =>
-      prev!.map((card) => {
-        if (card.card_id === loser.card_id) return challenger;
-        if (card.card_id === winner.card_id) return { ...card, ...newWinnerRating };
-        return card;
-      }),
+      prev!.map((card) => (card.card_id === loser.card_id ? challenger : card)),
     );
     // Challenger mounts below; the loser overlay stays at center (where it was).
     setPos((prev) => ({ ...prev, [challenger.card_id]: "below", [loser.card_id]: "center" }));
@@ -378,7 +328,6 @@ export default function ComparisonScreen() {
         // Both slide up together: loser out the top, challenger up into the slot.
         setPos((prev) => ({ ...prev, [challenger.card_id]: "center", [loser.card_id]: "above" }));
         setTimeout(() => {
-          clearFloat(loser.card_id);
           setExiting(null);
           setPos((prev) => {
             const updated = { ...prev };
@@ -402,20 +351,24 @@ export default function ComparisonScreen() {
     setStreak((prev) => (winner.card_id === streakCardId ? prev + 1 : 1));
     setStreakCardId(winner.card_id);
 
-    // Compute the Glicko-2 change on the client (same inputs the POST uses) and float the
-    // +X/-Y numbers IMMEDIATELY, instead of waiting on the server round-trip. Both updates
-    // read each other's pre-update rating, matching the server.
+    // Compute the Glicko-2 change on the client (same inputs the POST uses) and fold both
+    // new ratings into the on-board cards IMMEDIATELY, instead of waiting on the server
+    // round-trip: each card's RatingDial sees its value change and spins to the new number.
+    // Both updates read each other's pre-update rating, matching the server.
     const winnerRating = ratingOf(winner);
     const loserRating = ratingOf(loser);
     const newWinnerRating = updateRating(winnerRating, loserRating, 1);
     const newLoserRating = updateRating(loserRating, winnerRating, 0);
-    const winnerSide = pair[0].card_id === winner.card_id ? "left" : "right"; // pair[0] = left
-    showFloat(winner.card_id, Math.round(newWinnerRating.r - winnerRating.r), winnerSide);
-    showFloat(
-      loser.card_id,
-      Math.round(newLoserRating.r - loserRating.r),
-      winnerSide === "left" ? "right" : "left",
+    setCards((prev) =>
+      prev!.map((card) => {
+        if (card.card_id === winner.card_id) return { ...card, ...newWinnerRating };
+        if (card.card_id === loser.card_id) return { ...card, ...newLoserRating };
+        return card;
+      }),
     );
+    // The overlap swap replaces the loser's slot before its dial can spin from card state,
+    // so the exit overlay's dial is told the tween endpoints explicitly.
+    const loserDial = { from: Math.round(loserRating.r), to: Math.round(newLoserRating.r) };
 
     // Persist in the background (fire-and-forget). The server recomputes from the same
     // ratings, so its result matches ours — we don't need to wait for or read it.
@@ -439,12 +392,12 @@ export default function ComparisonScreen() {
         pre?.mode === "keep" && pre.key === key ? pre.challengers[winner.card_id] : undefined;
       if (preChallenger && preChallenger.card_id !== loser.card_id) {
         preloadRef.current = null;
-        overlapSwap(winner, loser, preChallenger, newWinnerRating);
+        overlapSwap(loser, preChallenger, loserDial);
       } else {
         // Preload missed: start the loser sliding out now (instant reaction), then fetch the
         // challenger and slide it in after (sequential).
         setPos((prev) => ({ ...prev, [loser.card_id]: "above" }));
-        swapLoserForFresh(winner, loser, playerId, newWinnerRating);
+        swapLoserForFresh(winner, loser, playerId);
       }
     } else {
       setPos(positionsFor(pair, "above"));
@@ -493,14 +446,12 @@ export default function ComparisonScreen() {
         pickedId={pickedId}
         hoveredId={hoveredId}
         ready={ready}
-        floats={floats}
         streak={streak}
         streakCardId={streakCardId}
         poolEmpty={poolEmpty}
         exiting={exiting}
         onPick={handlePick}
         onHover={setHoveredId}
-        onFloatEnd={clearFloat}
       />
 
       <PanelRight

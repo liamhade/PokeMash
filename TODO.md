@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## replace ELO floats with Rating dials
+
+- [ ] `RatingDial` reads its animation start from `shownRef` instead of the `shown` state inside the `useEffect`. Why would depending on `shown` directly break the tween loop, and what does mounting the exit overlay's dial with `from` solve that keying by `card_id` alone can't?
+
+- [ ] `handlePick` now folds BOTH cards' new ratings into `cards` state at pick time, which let `overlapSwap`/`swapLoserForFresh` drop their winner-fold and every `clearFloat` guard. What general principle about "derive UI from one source of state vs. imperatively triggering effects" does this illustrate, and which stale-float bug class disappeared for free?
+
 ## flip card over in `See Rankings`
 
 - [ ] In `RankingCard`, the flip's `rotateY` is on the inner `[transform-style:preserve-3d]` div while `.wiggle` (a `rotate`) is on the outer button — what visually breaks if you instead put both on the same element, and why does `preserve-3d` make that collision worse than for a 2D-only card?

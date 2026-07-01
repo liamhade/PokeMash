@@ -19,32 +19,22 @@ body {
   font-family: var(--font-sans), monospace;
 }
 
-/* The "+X / -Y" rating change after a pick: it scales in while darting off the card
-   into the white margin (--float-x / --float-y, set inline), HOLDS there fully opaque
-   so it stays readable while the losing card slides away (~500ms), then fades. Used
-   by .elo-float in ComparisonScreen. */
-@keyframes elo-float {
+/* The ▲/▼ delta badge beside a Rating dial: pops in as the dial starts spinning. It
+   leaves by conditional render (RatingDial drops it after the hold), so there's no
+   exit animation. */
+@keyframes dial-pop {
   0% {
     opacity: 0;
-    transform: translate(0, 0) scale(0.6);
-  }
-  25% {
-    opacity: 1;
-    transform: translate(var(--float-x), var(--float-y)) scale(1.1);
-  }
-  60% {
-    opacity: 1;
-    transform: translate(var(--float-x), var(--float-y)) scale(1);
+    transform: translateY(4px) scale(0.7);
   }
   100% {
-    opacity: 0;
-    transform: translate(var(--float-x), var(--float-y)) scale(1);
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
-.elo-float {
-  animation: elo-float 1300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  will-change: transform, opacity;
+.dial-pop {
+  animation: dial-pop 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Winning-streak glow. `.flame` sits just behind the card as a solid colored backing

@@ -12,8 +12,8 @@ const sourceCodePro = Source_Code_Pro({
   subsets: ["latin"],
 });
 
-// Pixel font for the floating ELO change numbers (--font-elo). Monochrome, so the
-// green/red is applied with normal CSS color in ComparisonScreen.
+// Pixel font for the Rating dial numbers (--font-elo). Monochrome, so the
+// green/red is applied with normal CSS color in RatingDial.
 const bitcountPropSingle = Bitcount_Prop_Single({
   variable: "--font-elo",
   subsets: ["latin"],
