@@ -492,3 +492,13 @@
 - [ ] `SLIDE_MS` in `ComparisonScreen` and `duration-[350ms]` in `ComparisonArea` must stay
   equal. What visual glitch happens if the `setTimeout` fires *shorter* than the CSS
   transition — and why is that coupling across two files a smell worth a shared source?
+
+- [ ] Backgrounding the POST broke the loser's `-Y` float: the card was swapped out at
+  `SLIDE_MS` before the delta arrived, so the number landed on a card that no longer
+  existed. The fix `await postDone` (and a `FLOAT_MIN_MS` beat) before removing the loser.
+  Why does the float live or die with whether the loser is still in the `cards` array, and
+  how does the wrapper "stays put" comment relate to the number still showing off-screen?
+
+- [ ] The loser now starts sliding in `handlePick` (before `swapLoserForFresh` resolves the
+  challenger) rather than after the fetch. Trace why that one move removes the "cards paused
+  for a moment" stutter specifically on the preload-miss (fallback fetch) path.
