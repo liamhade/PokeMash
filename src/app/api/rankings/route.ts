@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
   // doesn't match, rather than returning them with a null relation.
   let ranksQuery = supabase
     .from("card_ranks")
-    .select("r, cards!inner(card_id, name, image_url, rarity)")
+    .select(
+      "r, cards!inner(card_id, name, image_url, rarity, set, pack, release_date, market_price)",
+    )
     .eq("player_id", playerId)
     .order("r", { ascending: false });
   if (rarities.length > 0) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { getPlayerId } from "@/lib/playerId";
 import RarityFilterModal from "@/components/RarityFilterModal";
@@ -12,6 +12,10 @@ type RankedCard = {
   name: string;
   image_url: string;
   r: number;
+  set: string | null;
+  pack: string | null;
+  release_date: string | null;
+  market_price: number | null;
 };
 
 type RankingsResponse = {
@@ -19,6 +23,120 @@ type RankingsResponse = {
   comparedCount: number;
   totalCards: number;
 };
+
+// The card image dimensions; the flip container is locked to this so flipping to the
+// detail table doesn't reflow the list.
+const CARD_WIDTH = 220;
+const CARD_HEIGHT = 305;
+
+// Hover this long before the wiggle hint fires (ms). One-shot per hover.
+const WIGGLE_DELAY_MS = 6000;
+
+// A non-empty text value, or an em dash for null/blank so the detail rows read cleanly.
+function orDash(value: string | null): string {
+  return value && value.trim() ? value : "—";
+}
+
+// market_price is 0 when there's no sales data; treat that (and null) as "no price".
+function formatPrice(price: number | null): string {
+  return price ? `$${price.toFixed(2)}` : "—";
+}
+
+// One ranked card: click to flip between the image and a details table, and — as a hint
+// that it's interactive — it wiggles once after the pointer has rested on it a while.
+// Owns its own flip/wiggle state so the list parent doesn't juggle per-card timers.
+function RankingCard({ card }: { card: RankedCard }) {
+  const [flipped, setFlipped] = useState(false);
+  const [wiggling, setWiggling] = useState(false);
+  const wiggleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Arm a single timer on enter (never re-armed while hovering), so the wiggle fires at
+  // most once per hover; leaving clears it, and re-entering arms a fresh one.
+  function handleMouseEnter() {
+    wiggleTimer.current = setTimeout(() => setWiggling(true), WIGGLE_DELAY_MS);
+  }
+  function handleMouseLeave() {
+    if (wiggleTimer.current) clearTimeout(wiggleTimer.current);
+    wiggleTimer.current = null;
+    setWiggling(false);
+  }
+
+  // Clear a pending timer if the card unmounts (e.g. a filter refetch) so it can't fire
+  // against a gone component.
+  useEffect(
+    () => () => {
+      if (wiggleTimer.current) clearTimeout(wiggleTimer.current);
+    },
+    [],
+  );
+
+  const details: [string, string][] = [
+    ["Name", orDash(card.name)],
+    ["Set", orDash(card.set)],
+    ["Pack", orDash(card.pack)],
+    ["Released", orDash(card.release_date)],
+    ["Market Price", formatPrice(card.market_price)],
+  ];
+
+  return (
+    <div className="flex items-center gap-6">
+      <span className="w-12 text-right text-3xl font-bold text-neutral-400">
+        {card.rank}
+      </span>
+      {/* Wiggle lives on this outer button; the flip's rotateY lives on the inner element,
+          so the two transforms don't fight. onAnimationEnd resets so it can hint again. */}
+      <button
+        type="button"
+        aria-pressed={flipped}
+        onClick={() => setFlipped((on) => !on)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onAnimationEnd={() => setWiggling(false)}
+        style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
+        className={["[perspective:1000px]", wiggling ? "wiggle" : ""].join(" ")}
+      >
+        <div
+          className={[
+            "relative h-full w-full transition-transform duration-500 [transform-style:preserve-3d]",
+            flipped ? "[transform:rotateY(180deg)]" : "",
+          ].join(" ")}
+        >
+          {/* Front: the card image. */}
+          <div className="absolute inset-0 [backface-visibility:hidden]">
+            <Image
+              src={card.image_url}
+              alt={card.name}
+              width={CARD_WIDTH}
+              height={CARD_HEIGHT}
+              className="rounded-xl shadow-md"
+            />
+          </div>
+
+          {/* Back: two-column detail table, labels left / values right. */}
+          <div className="absolute inset-0 flex flex-col justify-center rounded-xl bg-white p-4 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
+            <table className="w-full text-sm">
+              <tbody>
+                {details.map(([label, value]) => (
+                  <tr
+                    key={label}
+                    className="border-b border-neutral-100 last:border-0"
+                  >
+                    <td className="py-2 pr-2 font-semibold text-neutral-500">
+                      {label}
+                    </td>
+                    <td className="py-2 text-right break-words text-neutral-800">
+                      {value}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
 
 export default function RankingsPage() {
   const [data, setData] = useState<RankingsResponse | null>(null);
@@ -48,6 +166,9 @@ export default function RankingsPage() {
   );
 
   useEffect(() => {
+    // The mount fetch clears data synchronously (loading state); intentional here, so
+    // silence the set-state-in-effect rule like the compare screen's mount effect does.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRankings(selectedRarities);
     // Only run on mount; filter changes refetch explicitly in onApply.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,18 +203,7 @@ export default function RankingsPage() {
               </p>
             ) : (
               data.rankings.map((card) => (
-                <div key={card.card_id} className="flex items-center gap-6">
-                  <span className="w-12 text-right text-3xl font-bold text-neutral-400">
-                    {card.rank}
-                  </span>
-                  <Image
-                    src={card.image_url}
-                    alt={card.name}
-                    width={220}
-                    height={305}
-                    className="rounded-xl shadow-md"
-                  />
-                </div>
+                <RankingCard key={card.card_id} card={card} />
               ))
             )}
           </div>

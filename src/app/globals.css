@@ -72,3 +72,29 @@ body {
   animation: flame-pulse 1.8s ease-in-out infinite;
   will-change: opacity;
 }
+
+/* One-shot hover hint on ranked cards: a brief clockwise/counter-clockwise wiggle to
+   suggest the card is interactive (click to flip). Runs once (no `infinite`), so it plays
+   a single time each time the class is applied; the caller re-applies it per hover. */
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-6deg);
+  }
+  40% {
+    transform: rotate(6deg);
+  }
+  60% {
+    transform: rotate(-4deg);
+  }
+  80% {
+    transform: rotate(3deg);
+  }
+}
+
+.wiggle {
+  animation: wiggle 0.5s ease-in-out;
+}

@@ -2,9 +2,15 @@
 
 ## FUNCTIONAL
 
-- [ ] (**flip card over in `See Rankings`**) Clicking on a card in `See Rankings` reveals the `year`, `set`, `pack`, and `market price`, in a simple two column table, with labels on the left and values on the right.
+- [x] (**flip card over in `See Rankings`**) Clicking on a card in `See Rankings` reveals the `year`, `set`, `pack`, and `market price`, in a simple two column table, with labels on the left and values on the right.
 
-- [ ] (**move `Play` information to sidebar**) `Filter`, `Color codes` for streaking, and `Keep Winer` toggle should be moved a side bar component (`playInfoPanel`), leaving the two cards for comparison in `comparisonArea` (new name for the component).
+- [x] (**move `Play` information to sidebar**) `Filter`, Color codes for streaking, and `Keep Winer` toggle should be moved to a simple side bar component (`playInfoPanel`), leaving the two cards for comparison in the `comparisonArea` (new name for the component).
+
+- [x] (**fix card spacing**). Cards are touching the bottom of the screen + Cards too far from the top of the screen -> add a margin bottom and top to `comparisonArea`.
+
+- [ ] (**anon->sign-up**) The user gets 20 free comparisons (that number should be easily adjustable in the backend code). After that, the user is prompted with a sign-in modal in the center of the screen (the rest of the screen should be blurred). All sign-in functionalities should leverage `Supabases` built-in sign-in functionalites. The user should be prompted to sign-in with their Google account (OAuth, which Supabase natively supports). After a user signs-in, the comparisons / rankings that they performed while anonymous should automatically transfer over to their current account.
+
+	- [ ] (**account handling**) A red `Sign Up` Pill button will be created in the upper right in the `Nav Bar`. When the user clicks it, the same modal that pops-up in the **anon->sign-up** ticket should appear. The user should be prompted to sign-in with their Google Account (OAuth). Once the user signs in, a person icon appears in the upper-right. If they click on the person icon, it shows a dropdown modal that contains their email address that they are signed in with, as well as a sign-out button.
 
 - [ ] (**pre-loaded future comparisons**)
 	- *PROBLEM*: Card selection takes too long.
@@ -31,7 +37,6 @@
 <!-- Flesh this out more -->
 - [ ] (**compare from `See Rankings`**) Add abilitity to click on card from `See Rankings` to compare that card on `Play` to another card.
 
-
 <!-- Flesh out -->
 - [ ] (**price reveal after selection**) After a user selects a card, before the two cards disappear, display their prices below them.
 
@@ -42,11 +47,32 @@
 <!-- Flesh out -->
 - [ ] (**add `dark mode` toggle**) Pokemon themed `Moon` and `Sun` toggle?
 
-- [ ] (**fix card spacing**)
-	*ISSUES*:
-		- Cards are touching the bottom of the screen
-		- Cards too far from the top of the screen
-
 ## BUGS
 
 - [ ] If the user selects a 
+
+# LEARNING
+
+## flip card over in `See Rankings`
+
+- [ ] In `RankingCard`, the flip's `rotateY` is on the inner `[transform-style:preserve-3d]` div while `.wiggle` (a `rotate`) is on the outer button — what visually breaks if you instead put both on the same element, and why does `preserve-3d` make that collision worse than for a 2D-only card?
+
+- [ ] The back face uses `[transform:rotateY(180deg)]` *and* `[backface-visibility:hidden]`. Why are both needed — what would you see mid-flip (and when fully flipped) if you dropped the `backface-visibility` on the two faces?
+
+## move `Play` information to sidebar
+
+- [ ] `ComparisonArea` receives `flameColor` from `@/lib/streak` rather than a `flame` prop from `ComparisonScreen`. What decided which streak logic became a shared module versus which stayed as passed-down state (`streak`, `streakCardId`)?
+
+- [ ] Now that `ComparisonScreen` passes ~11 props into `ComparisonArea`, what's the tradeoff of this "lift all state, dumb child" split versus letting `ComparisonArea` own some of that state itself — and which future ticket (e.g. arrow-key picks, persistence) would break if the child owned `cards`?
+
+## fix card spacing
+
+- [ ] `ComparisonArea`'s container keeps `pb-40` and adds `my-8`. Why keep `pb-40` (what animation depends on that bottom room) instead of replacing it with symmetric margin, and how does `flex-1` interact with the added `my-8`?
+
+- [ ] The wiggle hint arms its 6s timer only in `onMouseEnter` and never re-arms while hovering. What class of "annoying repeated animation" bug does the *don't re-arm* choice prevent, and why is clearing the timer in `onMouseLeave` (plus the unmount cleanup) required for the "leave and return re-triggers" behavior to work correctly?
+
+## split sidebar into `PanelLeft` / `PanelRight`
+
+- [ ] `PanelLeft` and `PanelRight` are `w-56 shrink-0` siblings of the `flex-1` `ComparisonArea`. Why does making the panels `shrink-0` (and the area `flex-1`) keep the two cards visually centered, and what happens to the centering if `ComparisonArea` had a fixed width instead?
+
+- [ ] We deleted `PlayInfoPanel` and split its contents into two edge columns rather than keeping one panel. Given the goal was "don't affect the comparison area's y-margin," why does flanking the area with side columns satisfy that better than a single top toolbar or one-sided sidebar would?
