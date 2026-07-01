@@ -444,3 +444,20 @@
   (market_price's "no sales data" sentinel) when the column switched. Why is the junk value
   column-specific, and what filter bug appears if a `maxPrice`-only filter forgets to
   exclude it?
+
+- [ ] Adding the referral `<a>` to the card back forced the outer flip element from a
+  `<button>` to a `<div role="button">`. Why is an `<a>` nested inside a `<button>` invalid,
+  and what breaks (semantically or at hydration) if we'd left the native button?
+
+- [ ] The div's `onKeyDown` bails when `event.currentTarget !== event.target`, and the `<a>`
+  calls `stopPropagation()` on click. Trace the keyboard and mouse paths that would otherwise
+  make activating "Buy" *also* flip the card, and why each guard is needed for its own event.
+
+- [ ] The referral button was fit onto the back by tightening the table rows (`py-2` →
+  `py-1.5`) instead of enlarging the card. Why is resizing the front image the *last* resort
+  here — what does changing `CARD_WIDTH`/`CARD_HEIGHT` do to the card's aspect ratio and the
+  list layout that a padding tweak doesn't?
+
+- [ ] The Impact verification `<meta>` is written as raw JSX (with a `@ts-expect-error`)
+  rather than via Next's `metadata` export. What attribute does the metadata API force that
+  Impact rejects, and what React 19 behavior moves a `<meta>` from `<body>` into `<head>`?
