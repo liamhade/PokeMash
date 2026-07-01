@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## extract Clefairy from the reference chart
+
+- [ ] The extractor brute-forces the chart's cell size/offset by minimizing mean brightness along candidate gridline positions, then takes each cell's per-channel MEDIAN over its center region. Why median instead of mean here (what do JPG artifacts and gridline bleed do to each), and why sample only the center 40% of the cell?
+
+- [ ] Background removal flood-fills 'W' cells from the image border instead of mapping all white to transparent. What feature of this specific sprite (look at rows 14, 18, 36-38) would plain white-keying have destroyed, and what's the general name/idea of this inside/outside distinction?
+
 ## pixel-art Clefairy sprite
 
 - [ ] The sprite is a string map rendered as one SVG `<rect>` per pixel with `shapeRendering="crispEdges"`, and `BLINK_SPRITE` is derived by rewriting four columns in the two eye rows. What breaks silently if a future sprite edit shifts the eyes off rows 10–11, and how could the blink transform locate the eyes robustly instead?

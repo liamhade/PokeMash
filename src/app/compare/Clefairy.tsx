@@ -15,55 +15,80 @@ function roamRange(): number {
 
 type Emote = "none" | "hop" | "wiggle";
 
-// The sprite: one character per pixel, retro-handheld style, drawn in-repo (authored via
-// a render-and-eyeball script, no copied asset). Legend: . empty | o outline | t brown
-// ear tip | p pink body | d dark pink (forehead curl) | k eye | w eye glint | r blush.
+// The sprite: one character per pixel, machine-extracted from the classic Clefairy
+// pixel chart (grid-fitted, per-cell median color, quantized to the anchors below).
+// Legend: . empty | k black | e/M dark shading maroons | b/t ear browns | P/p body
+// pinks | d/D pink shades | c cream highlight | r mouth red | W white | g claw grey.
 const SPRITE = [
-  ".....tt.........tt......",
-  "....ttt...oo....ttt.....",
-  "....tttt.oddo..tttt.....",
-  "....ttppooddo.opptt.....",
-  "....opppo.ooo.opppo.....",
-  "....oppppopppoppppo.....",
-  "....opppppppppppppo.....",
-  ".....opppppppppppo......",
-  "....opppppppppppppo.....",
-  "...opppppppppppppppo....",
-  "...opppwkppppppwkppo....",
-  "..oppppkkppppppkkpppo...",
-  ".opprrpppppppppppprrpo..",
-  ".opppppppopppopppppppo..",
-  "..ooppppppoooppppppoo...",
-  "....opppppppppppppo.....",
-  ".....opppppppppppo......",
-  "......opppppppppo.......",
-  ".......opppppppo........",
-  "......opppooopppo.......",
-  "......oooo...oooo.......",
+  "..................MMMM...................",
+  "................DDccccMM.................",
+  ".....bbbbb.....DPPPPPPPPM.......bbbbee...",
+  "....ebttttbDD.McPPPPPPPPPM...eebttttbbe..",
+  "....ebbttePPcDMPPPPcccPPPMDDDPbttttbbek..",
+  "....eebbecPPPMPPPcDMMdPPPPMPcPPbttbbekk..",
+  "....eebbecPPPMPPPDPPcMdPPPDPPPPPbbbekke..",
+  "....eeeedPPPcMPPPDPPPPMdPPPPPPPdbbekkke..",
+  ".....eeeddPPPPMPPcPPPckdPPPPPddddekkkke..",
+  ".....eeeddDPPPMPPPPPPpkdPPPPddDdMkkkkk...",
+  ".....eeddDPPPPPMMccPckddPPPPPddDkkkkke...",
+  "......MdMPPPPPPPdkkkkddPPPPPPdddMkkkkeMM.",
+  "......MMdPPPPPPPPddddpPPPPPPPcdgdMkkkMDDM",
+  "..g....MPPPPPDcPPPPPPcDPPPPPPcgWgdkkkDDDk",
+  ".gWg..MdPPPPDPWPPPPPWPPDPPPPcMgWgdMkkDDk.",
+  ".MWDMMMPPPPPMckPPPPPkPPMPPPPMPdPPgdkMDk..",
+  "McccDPMMPPPPMPkPPPPPkPPMPPPPMdPPPWgMkMM..",
+  "MDcPddPPPDDdPDgcppPPgcDPDDdMcPcPPdgMkDDM.",
+  "MWgPPPPPPDDDccPkkkWkPcPPDDDPPPPPPMddkDDDM",
+  ".MdPPPPPPPPPPPPPkrrrPPPPPPPPPPPPPMddkMDDk",
+  "..kPpPPPPPPPPPPcrrrrcPPPPPPPPPPPMdddkPMk.",
+  "...kPPPPPPPPPPPcPrrPPPPPPPPPPPPPMdddkPM..",
+  "....kPPPPPPPPPPPPPPPPPPPPPPPPPPMPdddkPM..",
+  ".....kPPPPPPPPPPPPPPPPPPPPPPPPDPddddkcPM.",
+  ".....MdPPPPPPPPPPPPPPPPPPPPPPPPPdddkDPPM.",
+  ".....MdPPPPPPPPPPPPPPPPPPPPPPPPddddkDPPM.",
+  ".....MddccPPPPPPPPPPPPPPPPPPPPdddddkDPPM.",
+  "......MddPPPPPPPPPPPPPPPPPPPcddddddkdPPM.",
+  "......MdddcPcPPPPPPPPPPPcPcPddddddkMdPM..",
+  "......MdddddPPPPPPPPPPPPPPddddddddkdddM..",
+  ".......MddddddPPPPPPPPPdddddddddddkdddM..",
+  ".......MdddddddddddddddddddddddddkdddM...",
+  "........MdddMMdddddddddddddddddddkddM....",
+  "........MdddddMMMdddddddddddddddkdMM.....",
+  ".........MdddddddMMMMMDdddddddddkM.......",
+  "..........Mgggdddk....Mddddddddk.........",
+  "..........gWWWgkk......Mddgggddk.........",
+  "...........kkkk.........MgWWWgk..........",
+  ".........................kkkkk...........",
 ];
 
 const PALETTE: Record<string, string> = {
-  o: "#5D4A4E",
-  t: "#8B5A46",
-  p: "#F6B8C8",
-  d: "#EC93AD",
-  k: "#2E2326",
-  w: "#FFFFFF",
-  r: "#F1829E",
+  W: "#F8F8F8",
+  p: "#F8C8B0",
+  P: "#F8C8C8",
+  d: "#F8B0B0",
+  D: "#F88080",
+  M: "#B05050",
+  e: "#682020",
+  k: "#101010",
+  b: "#805038",
+  t: "#988068",
+  c: "#F8E0B0",
+  r: "#D83828",
+  g: "#989898",
 };
 
-// Mid-blink frame: the two 2x2 eyes (rows 10-11, cols 7-8 / 15-16) become closed-lid
-// lines — glint row turns to body pink, pupil row to outline.
-const EYE_COLS = [7, 8, 15, 16];
+// Mid-blink frame: the eyes are 1x2 black marks at cols 14/20, rows 15-16; dropping the
+// top pixel of each (to body pink) leaves a 1px squint.
 const BLINK_SPRITE = SPRITE.map((row, y) => {
-  if (y !== 10 && y !== 11) return row;
+  if (y !== 15) return row;
   const chars = [...row];
-  for (const x of EYE_COLS) chars[x] = y === 10 ? "p" : "o";
+  chars[14] = "P";
+  chars[20] = "P";
   return chars.join("");
 });
 
 // On-screen size of one sprite pixel — big enough that the pixels read as pixels.
-const PX = 3;
+const PX = 2;
 
 function ClefairySprite({ blink }: { blink: boolean }) {
   const rows = blink ? BLINK_SPRITE : SPRITE;
