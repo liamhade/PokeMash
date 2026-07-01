@@ -69,6 +69,28 @@ function buildFilterQuery(filters: Filters): string {
   return query ? `&${query}` : "";
 }
 
+// Warm the browser image cache for a card likely to appear next, so its <Image> renders
+// from cache with no visible load when it mounts.
+function warmImage(url: string) {
+  if (typeof window === "undefined") return;
+  const img = new window.Image();
+  img.src = url;
+}
+
+// Identifies the exact on-screen state a preload was fetched for: the pair, the mode, and
+// the active filters. If any of these changes, the preload is stale and must be ignored.
+function pairKey(cards: Card[], keepWinner: boolean, filters: Filters): string {
+  const ids = cards.map((card) => card.card_id).sort().join(",");
+  return `${keepWinner ? "keep" : "fresh"}|${buildFilterQuery(filters)}|${ids}`;
+}
+
+// The prefetched next comparison. "keep": a fresh challenger per possible winner (Keep
+// Winner mode). "fresh": a whole new pair (Keep Winner off). `key` ties it to the state
+// it's valid for; any mismatch falls back to a normal fetch.
+type Preload =
+  | { mode: "keep"; key: string; challengers: Record<string, Card> }
+  | { mode: "fresh"; key: string; pair: Card[] };
+
 export default function ComparisonScreen() {
   const [cards, setCards] = useState<Card[] | null>(null);
   const [pos, setPos] = useState<Record<string, Position>>({});
@@ -116,25 +138,24 @@ export default function ComparisonScreen() {
     keepWinnerRef.current = keepWinner;
   }, [keepWinner]);
 
-  const loadNextPair = useCallback(async () => {
-    const playerId = getPlayerId();
-    const res = await fetch(
-      `/api/comparison/next?playerId=${playerId}${buildFilterQuery(filtersRef.current)}`,
-    );
-    const { cards: next } = (await res.json()) as { cards?: Card[] };
+  // Prefetched next comparison, warmed while the current pair is on screen so a pick can
+  // advance without waiting on a fetch. Purely an optimization: any key mismatch falls
+  // back to the normal fetch path. cardsRef lets async preloads notice the board changed.
+  const preloadRef = useRef<Preload | null>(null);
+  const cardsRef = useRef<Card[] | null>(cards);
+  useEffect(() => {
+    cardsRef.current = cards;
+  }, [cards]);
 
-    // Clear the outgoing cards first so the new pair mounts below the screen
-    // without the old (now off-screen-above) cards re-rendering at center.
+  // Animate a chosen pair in from below to center. Shared by the fetch path and the
+  // preload path (which supplies the pair directly, skipping the fetch). Clears the
+  // outgoing cards first so the new pair mounts below without the old ones flashing.
+  const mountPair = useCallback((next: Card[]) => {
     setPickedId(null);
     setHoveredId(null);
     setCards(null);
     setPos({});
     setFloats({}); // a fresh pair carries no rating floats from the previous round
-    // Filters can match fewer than two cards; show a message instead of crashing.
-    if (!next || next.length < 2) {
-      setPoolEmpty(true);
-      return;
-    }
     setPoolEmpty(false);
     requestAnimationFrame(() => {
       setCards(next);
@@ -147,6 +168,74 @@ export default function ComparisonScreen() {
         }),
       );
     });
+  }, []);
+
+  const loadNextPair = useCallback(async () => {
+    const playerId = getPlayerId();
+    const res = await fetch(
+      `/api/comparison/next?playerId=${playerId}${buildFilterQuery(filtersRef.current)}`,
+    );
+    const { cards: next } = (await res.json()) as { cards?: Card[] };
+
+    // Filters can match fewer than two cards; clear the board and show a message.
+    if (!next || next.length < 2) {
+      setPickedId(null);
+      setHoveredId(null);
+      setCards(null);
+      setPos({});
+      setFloats({});
+      setPoolEmpty(true);
+      return;
+    }
+    mountPair(next);
+  }, [mountPair]);
+
+  // Prefetch what comes after the current settled pair and warm its image(s), so a pick
+  // can use it instantly. Keep Winner: a challenger per possible winner (excluding the
+  // current opponent so it isn't re-served). Off: a whole fresh pair. Results are dropped
+  // if the board changed while fetching (captured `key` no longer matches).
+  const preloadNext = useCallback(async () => {
+    const current = cardsRef.current;
+    if (!current || current.length < 2) return;
+    const keep = keepWinnerRef.current;
+    const filters = filtersRef.current;
+    const key = pairKey(current, keep, filters);
+    if (preloadRef.current?.key === key) return; // already preloaded for this state
+    const playerId = getPlayerId();
+    const query = buildFilterQuery(filters);
+    const stale = () =>
+      pairKey(cardsRef.current ?? [], keepWinnerRef.current, filtersRef.current) !== key;
+
+    if (keep) {
+      const entries = await Promise.all(
+        current.map(async (winner) => {
+          const opponent = current.find((card) => card.card_id !== winner.card_id)!;
+          const res = await fetch(
+            `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}&excludeId=${opponent.card_id}${query}`,
+          );
+          const { cards: next } = (await res.json()) as { cards?: Card[] };
+          const fresh = next?.find((card) => card.card_id !== winner.card_id) ?? null;
+          return [winner.card_id, fresh] as const;
+        }),
+      );
+      if (stale()) return;
+      const challengers: Record<string, Card> = {};
+      for (const [id, fresh] of entries) {
+        if (fresh) {
+          challengers[id] = fresh;
+          warmImage(fresh.image_url);
+        }
+      }
+      preloadRef.current = { mode: "keep", key, challengers };
+    } else {
+      const res = await fetch(`/api/comparison/next?playerId=${playerId}${query}`);
+      const { cards: next } = (await res.json()) as { cards?: Card[] };
+      if (stale()) return;
+      if (next && next.length >= 2) {
+        next.forEach((card) => warmImage(card.image_url));
+        preloadRef.current = { mode: "fresh", key, pair: next };
+      }
+    }
   }, []);
 
   // On mount, restore the previously-saved pair (settled at center, immediately
@@ -177,17 +266,34 @@ export default function ComparisonScreen() {
     }
   }, [cards, ready, streak, streakCardId]);
 
+  // Prefetch the next comparison once the current pair is settled and pickable. Re-runs
+  // when the pair, readiness, or Keep Winner mode changes. preloadNext only touches refs
+  // and the image cache (no setState), so it neither re-renders nor trips the lint rule.
+  useEffect(() => {
+    if (cards && ready) preloadNext();
+  }, [cards, ready, keepWinner, preloadNext]);
+
   // Keep Winner mode: hold the winner at center, slide the loser out, and slide a
   // freshly chosen challenger up into the loser's now-empty slot.
   async function swapLoserForFresh(winner: Card, loser: Card, playerId: string) {
-    const res = await fetch(
-      `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}${buildFilterQuery(filtersRef.current)}`,
-    );
-    const { cards: next } = (await res.json()) as { cards?: Card[] };
-    const fresh = next?.find((card) => card.card_id !== winner.card_id);
-    // No fresh challenger fits the filters; fall back to a full reload, which surfaces
-    // the empty-pool message rather than leaving a stuck board.
+    // Use the preloaded challenger for this winner when it's still valid; otherwise fetch
+    // (excluding the loser, which the just-recorded result would exclude anyway). Consume
+    // the preload either way so it can't be reused.
+    const key = pairKey([winner, loser], true, filtersRef.current);
+    const pre = preloadRef.current;
+    preloadRef.current = null;
+    let fresh =
+      pre?.mode === "keep" && pre.key === key ? pre.challengers[winner.card_id] : undefined;
     if (!fresh) {
+      const res = await fetch(
+        `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}&excludeId=${loser.card_id}${buildFilterQuery(filtersRef.current)}`,
+      );
+      const { cards: next } = (await res.json()) as { cards?: Card[] };
+      fresh = next?.find((card) => card.card_id !== winner.card_id);
+    }
+    // No fresh challenger fits the filters (or it collided with the loser); full reload,
+    // which surfaces the empty-pool message rather than leaving a stuck board.
+    if (!fresh || fresh.card_id === loser.card_id) {
       loadNextPair();
       return;
     }
@@ -258,7 +364,12 @@ export default function ComparisonScreen() {
       await swapLoserForFresh(winner, loser, playerId);
     } else {
       setPos(positionsFor(cards, "above"));
-      setTimeout(() => loadNextPair(), 500);
+      // Use the preloaded fresh pair if it's still valid; otherwise fetch after the slide.
+      const key = pairKey(cards, false, filtersRef.current);
+      const pre = preloadRef.current;
+      preloadRef.current = null;
+      const preloadedPair = pre?.mode === "fresh" && pre.key === key ? pre.pair : null;
+      setTimeout(() => (preloadedPair ? mountPair(preloadedPair) : loadNextPair()), 500);
     }
   }
 
@@ -282,6 +393,7 @@ export default function ComparisonScreen() {
   function applyFilters(next: Filters) {
     setFilters(next);
     filtersRef.current = next;
+    preloadRef.current = null; // any preload was for the old filters
     setFilterOpen(false);
     setReady(false);
     loadNextPair();

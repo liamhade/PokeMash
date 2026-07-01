@@ -246,6 +246,11 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const playerId = params.get("playerId");
   const winnerId = params.get("winnerId");
+  // Optional: a card id to exclude from the challenger pool even if not yet in history.
+  // The client uses this to PRELOAD the next challenger for the on-screen winner while the
+  // current pair is still up — passing the current opponent so it isn't served right back
+  // (the same guarantee the post-pick history normally provides once the result is saved).
+  const excludeId = params.get("excludeId");
   if (!playerId) {
     return NextResponse.json({ error: "playerId is required" }, { status: 400 });
   }
@@ -391,6 +396,7 @@ export async function GET(request: NextRequest) {
     const comparedOpponentIds = new Set(
       history?.map((row) => (row.winner_card === winnerId ? row.loser_card : row.winner_card)),
     );
+    if (excludeId) comparedOpponentIds.add(excludeId);
 
     const fresh = supply_winner_with_fresh_card(winner, ratedCards, comparedOpponentIds);
     pair = [winner, fresh];

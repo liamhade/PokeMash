@@ -461,3 +461,21 @@
 - [ ] The Impact verification `<meta>` is written as raw JSX (with a `@ts-expect-error`)
   rather than via Next's `metadata` export. What attribute does the metadata API force that
   Impact rejects, and what React 19 behavior moves a `<meta>` from `<body>` into `<head>`?
+
+- [ ] Preloading the Keep-Winner challenger needs the new `excludeId` API param. Since the
+  challenger normally excludes the loser via saved `comparisons` history, why does fetching
+  it *before* the pick (and before the POST that records the result) risk re-serving the
+  current opponent, and how does `excludeId` reproduce the post-pick guarantee?
+
+- [ ] `preloadNext` captures `key = pairKey(...)` up front and re-checks `stale()` after the
+  `await` before storing into `preloadRef`. What race does that guard close if the user picks
+  (or changes filters) while the two speculative fetches are still in flight?
+
+- [ ] The preload is designed so every mismatch (`preloadRef.current?.key !== key`, missing
+  challenger, collision with the loser) falls back to the original fetch path. Why is
+  "optimization that can only ever be as slow as before, never wrong" the right invariant for
+  a change to the core play loop — and what did that let us skip worrying about?
+
+- [ ] Keep-Winner preload issues *two* speculative `/api/comparison/next` calls per settled
+  pair (one per possible winner), of which at most one is used. What's the cost/benefit of
+  that, and when would the wasted call be most expensive (think pool size, DB sampling)?
