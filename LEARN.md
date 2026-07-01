@@ -444,3 +444,12 @@
   (market_price's "no sales data" sentinel) when the column switched. Why is the junk value
   column-specific, and what filter bug appears if a `maxPrice`-only filter forgets to
   exclude it?
+
+- [ ] The Impact verification `<meta>` is rendered as raw JSX in `layout.tsx` rather than via
+  Next's `metadata` export. What attribute does the metadata API force (`content`) that Impact's
+  snippet doesn't want (`value`), and what React 19 behavior lets a `<meta>` written inside
+  `<body>` still end up inside `<head>`?
+
+- [ ] Why place the verification tag in the root `layout.tsx` (every route) rather than only
+  the home `page.tsx`, given Impact says "paste it on your home page" — and what's the
+  downside, if any, of it appearing on every page?
