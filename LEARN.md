@@ -516,3 +516,19 @@
   advance the board on pure animation timing. Why did moving the number's *source* off the
   network also fix the "new card enters too late" delay — i.e. what was the entrance actually
   waiting on before?
+
+- [ ] The old swap was two *sequential* slides (loser fully out, THEN card in) with a dead
+  gap. `overlapSwap` runs them together by rendering the loser as an `absolute inset-0`
+  overlay inside the *incoming* card's wrapper. Why does `inset-0` inside that wrapper place
+  the overlay exactly over the slot without any coordinate math, and why does making it
+  absolute avoid a 3-card flex shift?
+
+- [ ] The overlap only runs on a preload HIT (`preChallenger` known synchronously); a miss
+  falls back to the sequential `swapLoserForFresh` fetch. Why can't the overlap start without
+  the challenger already in hand, and what would the board do if we tried to overlap while
+  still fetching?
+
+- [ ] `FloatNumber` was extracted so the exit overlay can show the departing card's `-Y`
+  even though that card is no longer in the `cards` array. Where does the overlay read its
+  float from, and why would the number vanish if we'd left the float markup inlined in the
+  `cards.map` only?

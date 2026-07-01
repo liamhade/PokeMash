@@ -28,6 +28,33 @@ const POSITION_CLASS: Record<Position, string> = {
   above: "-translate-y-[120vh]",
 };
 
+// The floating "+X / -Y" beside a card. Its own component so the exit overlay can reuse it
+// for the departing card. `onEnd` fires when the drift-and-fade animation finishes.
+function FloatNumber({ float, onEnd }: { float: FloatDelta; onEnd: () => void }) {
+  return (
+    <span className="pointer-events-none absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2">
+      <span
+        key={float.key}
+        onAnimationEnd={onEnd}
+        style={
+          {
+            "--float-x": `${float.dx}px`,
+            "--float-y": `${float.dy}px`,
+            fontFamily: "var(--font-elo)", // Bitcount Prop Single (see layout.tsx)
+          } as React.CSSProperties
+        }
+        className={[
+          "elo-float block text-4xl font-bold tabular-nums",
+          "drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]",
+          float.delta > 0 ? "text-green-500" : "text-red-500",
+        ].join(" ")}
+      >
+        {float.delta > 0 ? `+${float.delta}` : float.delta}
+      </span>
+    </span>
+  );
+}
+
 // The two comparison cards. Pure presentation: all pick/animation state lives in
 // ComparisonScreen and arrives via props, keeping this area a dumb renderer.
 type ComparisonAreaProps = {
@@ -40,6 +67,9 @@ type ComparisonAreaProps = {
   streak: number;
   streakCardId: string | null;
   poolEmpty: boolean;
+  // A card sliding out as an overlay in `overId`'s slot (the overlap swap). Its position
+  // is driven by `pos[card.card_id]`, its float by `floats[card.card_id]`.
+  exiting: { card: Card; overId: string } | null;
   onPick: (card: Card) => void;
   onHover: (id: string | null) => void;
   onFloatEnd: (cardId: string) => void;
@@ -55,6 +85,7 @@ export default function ComparisonArea({
   streak,
   streakCardId,
   poolEmpty,
+  exiting,
   onPick,
   onHover,
   onFloatEnd,
@@ -75,6 +106,9 @@ export default function ComparisonArea({
         const float = floats[card.card_id];
         // Streak glow only on the card the streak belongs to (the held winner).
         const flame = card.card_id === streakCardId ? flameColor(streak) : null;
+        // A departing card overlays THIS card's slot (it leaves as this one arrives).
+        const exit = exiting && exiting.overId === card.card_id ? exiting.card : null;
+        const exitFloat = exit ? floats[exit.card_id] : undefined;
 
         return (
           // Wrapper stays put (the button's slide is a transform, which doesn't
@@ -114,30 +148,33 @@ export default function ComparisonArea({
               />
             </button>
 
-            {/* Rating change floating off the card into the white margin. Outer span
-                pins to the card centre; inner span runs the drift-and-fade (its own
-                transform), so re-mounting via `key` restarts a fresh drift each pick. */}
-            {float && (
-              <span className="pointer-events-none absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2">
-                <span
-                  key={float.key}
-                  onAnimationEnd={() => onFloatEnd(card.card_id)}
-                  style={
-                    {
-                      "--float-x": `${float.dx}px`,
-                      "--float-y": `${float.dy}px`,
-                      fontFamily: "var(--font-elo)", // Bitcount Prop Single (see layout.tsx)
-                    } as React.CSSProperties
-                  }
+            {/* Rating change floating off the card into the white margin. */}
+            {float && <FloatNumber float={float} onEnd={() => onFloatEnd(card.card_id)} />}
+
+            {/* Departing card: an absolute overlay filling this slot, sliding out on its own
+                position while this card slides in underneath. Its -Y number rides along. */}
+            {exit && (
+              <>
+                <button
+                  disabled
+                  aria-hidden
                   className={[
-                    "elo-float block text-4xl font-bold tabular-nums",
-                    "drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]",
-                    float.delta > 0 ? "text-green-500" : "text-red-500",
+                    "absolute inset-0 z-20 rounded-xl transition-all duration-[350ms] ease-out",
+                    POSITION_CLASS[pos[exit.card_id] ?? "center"],
                   ].join(" ")}
                 >
-                  {float.delta > 0 ? `+${float.delta}` : float.delta}
-                </span>
-              </span>
+                  <Image
+                    src={exit.image_url}
+                    alt=""
+                    width={325}
+                    height={450}
+                    className="relative z-10 rounded-xl"
+                  />
+                </button>
+                {exitFloat && (
+                  <FloatNumber float={exitFloat} onEnd={() => onFloatEnd(exit.card_id)} />
+                )}
+              </>
             )}
           </div>
         );

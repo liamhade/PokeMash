@@ -110,6 +110,10 @@ export default function ComparisonScreen() {
   const [pos, setPos] = useState<Record<string, Position>>({});
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  // A card sliding OUT rendered as an absolute overlay in the incoming card's slot, so the
+  // loser can leave while the challenger arrives (one motion). `overId` is the challenger
+  // whose slot hosts the overlay; the loser's own position drives its slide (via `pos`).
+  const [exiting, setExiting] = useState<{ card: Card; overId: string } | null>(null);
   const [keepWinner, setKeepWinner] = useState(true);
   // True only when both cards are settled at center and a pick is allowed. Guards
   // against picking mid-animation or double-submitting a comparison.
@@ -351,6 +355,42 @@ export default function ComparisonScreen() {
     }, SLIDE_MS);
   }
 
+  // Preload-hit fast path: slide the loser OUT and the challenger IN at the same time. The
+  // loser becomes an absolute overlay in the challenger's slot (`exiting`) so it leaves the
+  // flex flow and the challenger takes the slot — one ~SLIDE_MS motion instead of two. The
+  // loser's -Y float rides along in the overlay.
+  function overlapSwap(winner: Card, loser: Card, challenger: Card, newWinnerRating: GlickoRating) {
+    setPickedId(null);
+    setHoveredId(null);
+    clearFloat(challenger.card_id); // guard the incoming card against a stale float
+    setExiting({ card: loser, overId: challenger.card_id });
+    setCards((prev) =>
+      prev!.map((card) => {
+        if (card.card_id === loser.card_id) return challenger;
+        if (card.card_id === winner.card_id) return { ...card, ...newWinnerRating };
+        return card;
+      }),
+    );
+    // Challenger mounts below; the loser overlay stays at center (where it was).
+    setPos((prev) => ({ ...prev, [challenger.card_id]: "below", [loser.card_id]: "center" }));
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        // Both slide up together: loser out the top, challenger up into the slot.
+        setPos((prev) => ({ ...prev, [challenger.card_id]: "center", [loser.card_id]: "above" }));
+        setTimeout(() => {
+          clearFloat(loser.card_id);
+          setExiting(null);
+          setPos((prev) => {
+            const updated = { ...prev };
+            delete updated[loser.card_id];
+            return updated;
+          });
+          setReady(true);
+        }, SLIDE_MS);
+      }),
+    );
+  }
+
   function handlePick(winner: Card) {
     if (!ready || !cards) return;
     const pair = cards; // capture before the state below changes
@@ -391,10 +431,21 @@ export default function ComparisonScreen() {
     }).catch(() => {});
 
     if (keepWinnerRef.current) {
-      // React instantly: start the loser sliding out now, before resolving the challenger
-      // (so there's no pause even when the preload missed and we have to fetch).
-      setPos((prev) => ({ ...prev, [loser.card_id]: "above" }));
-      swapLoserForFresh(winner, loser, playerId, newWinnerRating);
+      // Fast path: if the challenger is already preloaded, overlap the loser leaving with
+      // the challenger arriving (one motion) instead of loser-out-THEN-card-in.
+      const key = pairKey([winner, loser], true, filtersRef.current);
+      const pre = preloadRef.current;
+      const preChallenger =
+        pre?.mode === "keep" && pre.key === key ? pre.challengers[winner.card_id] : undefined;
+      if (preChallenger && preChallenger.card_id !== loser.card_id) {
+        preloadRef.current = null;
+        overlapSwap(winner, loser, preChallenger, newWinnerRating);
+      } else {
+        // Preload missed: start the loser sliding out now (instant reaction), then fetch the
+        // challenger and slide it in after (sequential).
+        setPos((prev) => ({ ...prev, [loser.card_id]: "above" }));
+        swapLoserForFresh(winner, loser, playerId, newWinnerRating);
+      }
     } else {
       setPos(positionsFor(pair, "above"));
       // Use the preloaded fresh pair if it's still valid; otherwise fetch after the slide.
@@ -446,6 +497,7 @@ export default function ComparisonScreen() {
         streak={streak}
         streakCardId={streakCardId}
         poolEmpty={poolEmpty}
+        exiting={exiting}
         onPick={handlePick}
         onHover={setHoveredId}
         onFloatEnd={clearFloat}
