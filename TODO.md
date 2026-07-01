@@ -2,11 +2,7 @@
 
 ## FUNCTIONAL
 
-- [x] (**flip card over in `See Rankings`**) Clicking on a card in `See Rankings` reveals the `year`, `set`, `pack`, and `market price`, in a simple two column table, with labels on the left and values on the right.
-
-- [x] (**move `Play` information to sidebar**) `Filter`, Color codes for streaking, and `Keep Winer` toggle should be moved to a simple side bar component (`playInfoPanel`), leaving the two cards for comparison in the `comparisonArea` (new name for the component).
-
-- [x] (**fix card spacing**). Cards are touching the bottom of the screen + Cards too far from the top of the screen -> add a margin bottom and top to `comparisonArea`.
+- [ ] (**consolidate components**) combine panelRight and panelLeft into the comparison screen, since that's the only place that we would need the information.
 
 - [ ] (**anon->sign-up**) The user gets 20 free comparisons (that number should be easily adjustable in the backend code). After that, the user is prompted with a sign-in modal in the center of the screen (the rest of the screen should be blurred). All sign-in functionalities should leverage `Supabases` built-in sign-in functionalites. The user should be prompted to sign-in with their Google account (OAuth, which Supabase natively supports). After a user signs-in, the comparisons / rankings that they performed while anonymous should automatically transfer over to their current account.
 
@@ -76,3 +72,9 @@
 - [ ] `PanelLeft` and `PanelRight` are `w-56 shrink-0` siblings of the `flex-1` `ComparisonArea`. Why does making the panels `shrink-0` (and the area `flex-1`) keep the two cards visually centered, and what happens to the centering if `ComparisonArea` had a fixed width instead?
 
 - [ ] We deleted `PlayInfoPanel` and split its contents into two edge columns rather than keeping one panel. Given the goal was "don't affect the comparison area's y-margin," why does flanking the area with side columns satisfy that better than a single top toolbar or one-sided sidebar would?
+
+## add `collector_number` to the rankings card back
+
+- [ ] Adding `collector_number` to the rankings response only required editing the `cards!inner(...)` select string and the `RankedCard` type — why did the `...row.cards` spread in `route.ts` mean the mapping code needed no change, and what would break if a selected column had no matching field on `RankedCard`?
+
+- [ ] The `details` array wraps `collector_number` in `orDash` just like the other nullable fields. What's the design benefit of routing every display value through one null-normalizing helper versus letting each row decide its own fallback, and when would that uniformity become a constraint?

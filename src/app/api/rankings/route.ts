@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   let ranksQuery = supabase
     .from("card_ranks")
     .select(
-      "r, cards!inner(card_id, name, image_url, rarity, set, pack, release_date, market_price)",
+      "r, cards!inner(card_id, name, image_url, rarity, set, pack, release_date, collector_number, market_price)",
     )
     .eq("player_id", playerId)
     .order("r", { ascending: false });

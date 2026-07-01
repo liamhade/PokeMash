@@ -15,6 +15,7 @@ type RankedCard = {
   set: string | null;
   pack: string | null;
   release_date: string | null;
+  collector_number: string | null;
   market_price: number | null;
 };
 
@@ -72,6 +73,7 @@ function RankingCard({ card }: { card: RankedCard }) {
 
   const details: [string, string][] = [
     ["Name", orDash(card.name)],
+    ["Number", orDash(card.collector_number)],
     ["Set", orDash(card.set)],
     ["Pack", orDash(card.pack)],
     ["Released", orDash(card.release_date)],
