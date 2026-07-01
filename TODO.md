@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## glow-only winner flash + Clefairy shrink
+
+- [ ] The flash keyframes changed from a 12% opacity ramp-in to starting at `opacity: 1` at 0%. Given the click also kicks off card slides and a dial spin in the same instant, why does even a ~50ms ramp make a feedback cue feel like it "didn't happen", and what does this say about ordering feedback vs. consequence animations?
+
+- [ ] Clefairy shrinks via `viewBox` + a 0.75 display scale instead of setting `PX = 1.5`. What rendering artifact do fractional rect coordinates risk under `shape-rendering: crispEdges`, and why does scaling the whole vector sidestep it?
+
 ## winner flash on every pick
 
 - [ ] The flash is a `key={picks}`-remounted span with a `forwards` one-shot animation, and `pickedId` is now deliberately never cleared mid-swap. Why did the old static `isPicked` shadow show nothing on the overlap paths, and why is it safe for `pickedId` to point at a card that's no longer on the board?

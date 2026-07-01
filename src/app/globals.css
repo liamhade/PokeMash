@@ -63,16 +63,12 @@ body {
   will-change: opacity;
 }
 
-/* Winner flash: a quick green ring + glow around the picked card, played once per pick
-   (the span is remounted with a fresh key each click). Ends transparent and stays there
-   (`forwards`), so the span lingering in the DOM after the animation shows nothing. */
+/* Winner flash: a quick pure glow (no hard ring) around the picked card, played once
+   per pick (the span is remounted with a fresh key each click). Starts at full opacity
+   so it registers the instant of the click, holds, then fades. Ends transparent and
+   stays there (`forwards`), so the span lingering in the DOM shows nothing. */
 @keyframes pick-flash {
-  0% {
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
+  0%,
   55% {
     opacity: 1;
   }
@@ -82,12 +78,13 @@ body {
 }
 
 .pick-flash {
-  inset: -3px; /* a hair outside the card so the ring hugs the border */
+  inset: -2px;
   border-radius: 0.9rem;
+  /* the span has no background — only the outward shadow renders, so it's glow-only */
   box-shadow:
-    0 0 0 3px rgb(34 197 94),
-    0 0 24px 8px rgb(34 197 94 / 0.65);
-  animation: pick-flash 420ms ease-out forwards;
+    0 0 24px 8px rgb(34 197 94 / 0.9),
+    0 0 56px 22px rgb(34 197 94 / 0.45);
+  animation: pick-flash 500ms ease-out forwards;
   will-change: opacity;
 }
 
