@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Image from "next/image";
 import { getPlayerId } from "@/lib/playerId";
 import RarityFilterModal from "@/components/RarityFilterModal";
 import FilterButton from "@/components/FilterButton";
+import RankingCard from "@/components/RankingCard";
 
 type RankedCard = {
   rank: number;
@@ -12,6 +12,8 @@ type RankedCard = {
   name: string;
   image_url: string;
   r: number;
+  // TCGplayer Near-Mint market value for the card-flip; null when unknown.
+  market_price: number | null;
 };
 
 type RankingsResponse = {
@@ -48,6 +50,9 @@ export default function RankingsPage() {
   );
 
   useEffect(() => {
+    // Load on mount. loadRankings sets state (setData(null)) synchronously before its
+    // fetch; the lint rule flags that but it's the intended initial load.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRankings(selectedRarities);
     // Only run on mount; filter changes refetch explicitly in onApply.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,12 +91,11 @@ export default function RankingsPage() {
                   <span className="w-12 text-right text-3xl font-bold text-neutral-400">
                     {card.rank}
                   </span>
-                  <Image
-                    src={card.image_url}
-                    alt={card.name}
-                    width={220}
-                    height={305}
-                    className="rounded-xl shadow-md"
+                  {/* Click a card to flip it and see its TCGplayer price + buy link. */}
+                  <RankingCard
+                    name={card.name}
+                    imageUrl={card.image_url}
+                    marketPrice={card.market_price}
                   />
                 </div>
               ))

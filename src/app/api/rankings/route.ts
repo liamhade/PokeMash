@@ -17,9 +17,11 @@ export async function GET(request: NextRequest) {
 
   // !inner so a rarity filter on the embedded `cards` row drops ranks whose card
   // doesn't match, rather than returning them with a null relation.
+  // market_price feeds the Rankings card-flip (TCGplayer Near-Mint value). Once the
+  // migration lands, add tcgplayer_product_id here too for exact affiliate product links.
   let ranksQuery = supabase
     .from("card_ranks")
-    .select("r, cards!inner(card_id, name, image_url, rarity)")
+    .select("r, cards!inner(card_id, name, image_url, rarity, market_price)")
     .eq("player_id", playerId)
     .order("r", { ascending: false });
   if (rarities.length > 0) {

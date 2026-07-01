@@ -453,3 +453,13 @@
 - [ ] Why place the verification tag in the root `layout.tsx` (every route) rather than only
   the home `page.tsx`, given Impact says "paste it on your home page" — and what's the
   downside, if any, of it appearing on every page?
+
+- [ ] `RankingCard`'s flip uses a `preserve-3d` container with front/back both `absolute
+  inset-0`, each with `backface-visibility: hidden` and the back pre-rotated
+  `rotateY(180deg)`. Walk through why both faces must be pre-stacked and back-hidden for
+  the flip to reveal exactly one face — and why the `<a>` calls `stopPropagation()`.
+
+- [ ] `tcgplayerAffiliateUrl` falls back to a name-search URL when `productId` is absent, and
+  the partner code comes from `NEXT_PUBLIC_TCGPLAYER_PARTNER_CODE`. Why does this design let
+  us ship the referral today (before the productId backfill) — and why must the partner code
+  be `NEXT_PUBLIC_` rather than a server-only env var?
