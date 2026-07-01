@@ -15,58 +15,84 @@ function roamRange(): number {
 
 type Emote = "none" | "hop" | "wiggle";
 
-// Grey-outline eyes: open dots, or brief closed lines mid-blink.
-function ClefairySvg({ blink }: { blink: boolean }) {
+// The sprite: one character per pixel, retro-handheld style, drawn in-repo (authored via
+// a render-and-eyeball script, no copied asset). Legend: . empty | o outline | t brown
+// ear tip | p pink body | d dark pink (forehead curl) | k eye | w eye glint | r blush.
+const SPRITE = [
+  ".....tt.........tt......",
+  "....ttt...oo....ttt.....",
+  "....tttt.oddo..tttt.....",
+  "....ttppooddo.opptt.....",
+  "....opppo.ooo.opppo.....",
+  "....oppppopppoppppo.....",
+  "....opppppppppppppo.....",
+  ".....opppppppppppo......",
+  "....opppppppppppppo.....",
+  "...opppppppppppppppo....",
+  "...opppwkppppppwkppo....",
+  "..oppppkkppppppkkpppo...",
+  ".opprrpppppppppppprrpo..",
+  ".opppppppopppopppppppo..",
+  "..ooppppppoooppppppoo...",
+  "....opppppppppppppo.....",
+  ".....opppppppppppo......",
+  "......opppppppppo.......",
+  ".......opppppppo........",
+  "......opppooopppo.......",
+  "......oooo...oooo.......",
+];
+
+const PALETTE: Record<string, string> = {
+  o: "#5D4A4E",
+  t: "#8B5A46",
+  p: "#F6B8C8",
+  d: "#EC93AD",
+  k: "#2E2326",
+  w: "#FFFFFF",
+  r: "#F1829E",
+};
+
+// Mid-blink frame: the two 2x2 eyes (rows 10-11, cols 7-8 / 15-16) become closed-lid
+// lines — glint row turns to body pink, pupil row to outline.
+const EYE_COLS = [7, 8, 15, 16];
+const BLINK_SPRITE = SPRITE.map((row, y) => {
+  if (y !== 10 && y !== 11) return row;
+  const chars = [...row];
+  for (const x of EYE_COLS) chars[x] = y === 10 ? "p" : "o";
+  return chars.join("");
+});
+
+// On-screen size of one sprite pixel — big enough that the pixels read as pixels.
+const PX = 3;
+
+function ClefairySprite({ blink }: { blink: boolean }) {
+  const rows = blink ? BLINK_SPRITE : SPRITE;
   return (
-    <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-      {/* ears */}
-      <path
-        d="M20 21 Q15 11 11 6 Q19 8 24 16"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M36 21 Q41 11 45 6 Q37 8 32 16"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      {/* forehead curl */}
-      <path
-        d="M25 18 Q26 12 32 13 Q28 14.5 28.5 18"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      {/* round body */}
-      <circle cx="28" cy="32" r="15" stroke="currentColor" strokeWidth="2" />
-      {/* stubby arms */}
-      <path d="M13.5 32 Q9 34 12 38" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M42.5 32 Q47 34 44 38" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      {/* feet */}
-      <path d="M21 46.5 Q20 50.5 25.5 49.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M35 46.5 Q36 50.5 30.5 49.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      {/* eyes: dots open, lines mid-blink */}
-      {blink ? (
-        <>
-          <path d="M21.5 29.5 H25" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          <path d="M31 29.5 H34.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </>
-      ) : (
-        <>
-          <circle cx="23" cy="29.5" r="1.7" fill="currentColor" />
-          <circle cx="33" cy="29.5" r="1.7" fill="currentColor" />
-        </>
+    <svg
+      width={rows[0].length * PX}
+      height={rows.length * PX}
+      shapeRendering="crispEdges"
+    >
+      {rows.flatMap((row, y) =>
+        [...row].map((ch, x) =>
+          ch === "." ? null : (
+            <rect
+              key={`${x}-${y}`}
+              x={x * PX}
+              y={y * PX}
+              width={PX}
+              height={PX}
+              fill={PALETTE[ch]}
+            />
+          ),
+        ),
       )}
-      {/* mouth */}
-      <path d="M25 35 Q28 38 31 35" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 
-// A minimalist grey-outline Clefairy that keeps the player company at the bottom of the
-// board. A single self-rescheduling timer is its "brain": it walks to a random spot at a
+// A pixel-art Clefairy that keeps the player company at the bottom of the board. A
+// single self-rescheduling timer is its "brain": it walks to a random spot at a
 // constant toddle (waddling as it goes), stands around, glances the other way, blinks,
 // and mixes in little hop/wiggle emotes — with randomized pauses so the rhythm feels
 // natural, not metronomic. It also hops on every pick (the `picks`-keyed wrapper, kept
@@ -161,9 +187,7 @@ export default function Clefairy({ picks }: { picks: number }) {
               }
             >
               <div className={walking ? "clefairy-waddle" : "critter-idle"}>
-                <div className="text-neutral-400">
-                  <ClefairySvg blink={blink} />
-                </div>
+                <ClefairySprite blink={blink} />
               </div>
             </div>
           </div>

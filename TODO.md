@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## pixel-art Clefairy sprite
+
+- [ ] The sprite is a string map rendered as one SVG `<rect>` per pixel with `shapeRendering="crispEdges"`, and `BLINK_SPRITE` is derived by rewriting four columns in the two eye rows. What breaks silently if a future sprite edit shifts the eyes off rows 10–11, and how could the blink transform locate the eyes robustly instead?
+
+- [ ] The sprite was authored by generating the silhouette geometrically (ellipse + triangles + auto-outline pass) and then eyeballing PNG renders, rather than hand-typing the grid. When is "build a tiny toolchain to see your output" worth it over editing blind, and what did the auto-outline pass guarantee that hand-pixeling kept getting wrong?
+
 ## Clefairy wanderer
 
 - [ ] `Clefairy` stacks five nested divs (positioner → facing flip → pick hop → wander emote → waddle/bob), each owning one transform. Which pairs would visibly break if merged onto one element, and why does the pick hop need a layer separate from the wander emote specifically?
