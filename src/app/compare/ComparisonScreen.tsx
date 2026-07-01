@@ -303,7 +303,6 @@ export default function ComparisonScreen() {
     // pick time, so only the loser→challenger replacement remains.)
     const remaining = Math.max(0, SLIDE_MS - (performance.now() - slideStart));
     setTimeout(() => {
-      setPickedId(null);
       setHoveredId(null);
       setCards((prev) =>
         prev!.map((card) => (card.card_id === loser.card_id ? challenger : card)),
@@ -327,8 +326,9 @@ export default function ComparisonScreen() {
   // loser becomes an absolute overlay in the challenger's slot (`exiting`) so it leaves the
   // flex flow and the challenger takes the slot — one ~SLIDE_MS motion instead of two. The
   // loser's dial (`loserDial`) rides along, ticking down under the slot.
+  // pickedId is deliberately NOT cleared here (or in the other swap paths): the winner's
+  // one-shot flash must outlive the swap, and it re-keys/moves on the next pick anyway.
   function overlapSwap(loser: Card, challenger: Card, loserDial: Exit["dial"]) {
-    setPickedId(null);
     setHoveredId(null);
     setExiting([{ card: loser, overId: challenger.card_id, dial: loserDial }]);
     setCards((prev) =>
@@ -358,7 +358,6 @@ export default function ComparisonScreen() {
   // Each departing card overlays the slot of the incoming card on its side (left stays
   // left), with its dial tween riding along.
   function overlapFresh(oldPair: Card[], next: Card[], exits: Exit[]) {
-    setPickedId(null);
     setHoveredId(null);
     setExiting(exits);
     setCards(next);

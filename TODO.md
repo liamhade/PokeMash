@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## winner flash on every pick
+
+- [ ] The flash is a `key={picks}`-remounted span with a `forwards` one-shot animation, and `pickedId` is now deliberately never cleared mid-swap. Why did the old static `isPicked` shadow show nothing on the overlap paths, and why is it safe for `pickedId` to point at a card that's no longer on the board?
+
+- [ ] The flash animates only `opacity` on a span whose ring/glow is a static `box-shadow`, mirroring the `.flame` approach. What does animating opacity (vs. animating box-shadow itself) buy on the compositor, and when would that shortcut stop being available?
+
 ## extract Clefairy from the reference chart
 
 - [ ] The extractor brute-forces the chart's cell size/offset by minimizing mean brightness along candidate gridline positions, then takes each cell's per-channel MEDIAN over its center region. Why median instead of mean here (what do JPG artifacts and gridline bleed do to each), and why sample only the center 40% of the cell?

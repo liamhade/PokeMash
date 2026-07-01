@@ -100,9 +100,13 @@ export default function ComparisonArea({
                 POSITION_CLASS[pos[card.card_id] ?? "below"],
                 isHovered ? "scale-110" : "scale-100",
                 isHovered ? "shadow-[0_0_40px_12px_rgba(0,0,0,0.25)]" : "",
-                isPicked ? "shadow-[0_0_40px_12px_rgba(34,197,94,0.9)]" : "",
               ].join(" ")}
             >
+              {/* Winner flash: a quick one-shot green ring + glow. Keyed by the pick
+                  counter so a repeat winner (Keep Winner streak) replays it every click. */}
+              {isPicked && (
+                <span key={picks} aria-hidden className="pick-flash pointer-events-none absolute z-20" />
+              )}
               {/* Streak glow: a colored backing + halo behind the card (z-0). The
                   fill colors the immediate backdrop right up to the border, and the
                   box-shadow glows outward; the tier color escalates with the streak. */}
@@ -151,6 +155,10 @@ export default function ComparisonArea({
                     POSITION_CLASS[pos[exit.card.card_id] ?? "center"],
                   ].join(" ")}
                 >
+                  {/* With Keep Winner off the winner departs too — its flash rides along. */}
+                  {pickedId === exit.card.card_id && (
+                    <span key={picks} aria-hidden className="pick-flash pointer-events-none absolute z-20" />
+                  )}
                   <Image
                     src={exit.card.image_url}
                     alt=""
