@@ -8,10 +8,6 @@
 
 	- [ ] (**account handling**) A red `Sign Up` Pill button will be created in the upper right in the `Nav Bar`. When the user clicks it, the same modal that pops-up in the **anon->sign-up** ticket should appear. The user should be prompted to sign-in with their Google Account (OAuth). Once the user signs in, a person icon appears in the upper-right. If they click on the person icon, it shows a dropdown modal that contains their email address that they are signed in with, as well as a sign-out button.
 
-- [ ] (**pre-loaded future comparisons**)
-	- *PROBLEM*: Card selection takes too long.
-	- *SOLUTION*: Quicken card selection process by preloading the possible future cards so that when the player makes a comparison, the next card(s) to load-in is already present in memory. This function must work for both selections of the `Keep Winner` toggle.
-
 - [ ] (**move comparison pool rule into the database**)
 	- *PROBLEM*: The rarity rule above lives in TypeScript because the app's read-only key can't create DB objects. That means an extra `cards` read per request and logic split from the data.
 	- *SOLUTION*: Apply `supabase/migrations/20260630_comparison_pool.sql` (creates `comparison_pool()`), then switch `/api/comparison/next` back to `supabase.rpc("comparison_pool")`. Needs someone with Supabase DB access.
@@ -48,6 +44,12 @@
 - [ ] If the user selects a 
 
 # LEARNING
+
+## batched challenger queue with image-decode gating
+
+- [ ] `preloadNext` now fires each side's queue top-off as an independent `.then` chain instead of the old `await Promise.all(...)`, and validates on resolve with `preloadRef.current !== store` plus "is the winner still on board" — why did the single `Promise.all` make a click before the *slower* fetch a total miss even when the *relevant* challenger had already arrived, and what does comparing the store by object identity catch that re-computing a key string wouldn't?
+
+- [ ] The overlap fast path now requires `imageReady(challenger.image_url)` (a decoded image), else it degrades to the slide path even with the card data in hand. Why is "queue depth 3 but only WARM_DEPTH 2 images warmed" a defensible split of the prefetching budget, and what changes about the discard economics now that one API call returns `count` challengers instead of one per call?
 
 ## warm the optimizer URL, not the raw image URL
 

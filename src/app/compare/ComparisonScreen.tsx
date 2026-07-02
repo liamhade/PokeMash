@@ -72,6 +72,16 @@ function buildFilterQuery(filters: Filters): string {
   return query ? `&${query}` : "";
 }
 
+// Warm-up state per source URL: absent = never warmed, false = download/decode still in
+// flight, true = decoded and cached. Only a `true` image is safe to mount with no visible
+// load, so the swap fast paths gate on imageReady — a preloaded card whose art is still
+// in flight takes the slower slide path instead, buying the download time to finish.
+const imageWarmth = new Map<string, boolean>();
+
+function imageReady(url: string): boolean {
+  return imageWarmth.get(url) === true;
+}
+
 // Warm the browser image cache for a card likely to appear next, so its <Image> renders
 // from cache with no visible load when it mounts. next/image rewrites the source URL into
 // an /_next/image?url=…&w=…&q=… request, so we must warm THAT — warming the raw
@@ -80,27 +90,44 @@ function buildFilterQuery(filters: Filters): string {
 // (same CARD_IMAGE dimensions), and mirroring srcSet/sizes onto the warm-up Image makes
 // the browser run the same candidate selection, hitting the identical URL at mount.
 function warmImage(url: string) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || imageWarmth.has(url)) return;
+  imageWarmth.set(url, false);
   const { props } = getImageProps({ src: url, alt: "", ...CARD_IMAGE });
   const img = new window.Image();
   if (props.sizes) img.sizes = props.sizes;
   if (props.srcSet) img.srcset = props.srcSet;
   img.src = props.src;
+  img.decode().then(
+    () => imageWarmth.set(url, true),
+    () => imageWarmth.delete(url), // failed/aborted: forget it so a later warm can retry
+  );
 }
 
-// Identifies the exact on-screen state a preload was fetched for: the pair, the mode, and
-// the active filters. If any of these changes, the preload is stale and must be ignored.
+// Identifies the exact on-screen state a fresh-pair preload was fetched for: the pair,
+// the mode, and the active filters. If any of these changes, the preload is stale and
+// must be ignored. (Keep Winner queues use filterKey + the winner's on-board presence
+// instead — a queue survives across picks as long as its winner keeps winning.)
 function pairKey(cards: Card[], keepWinner: boolean, filters: Filters): string {
   const ids = cards.map((card) => card.card_id).sort().join(",");
   return `${keepWinner ? "keep" : "fresh"}|${buildFilterQuery(filters)}|${ids}`;
 }
 
-// The prefetched next comparison. "keep": a fresh challenger per possible winner (Keep
-// Winner mode). "fresh": a whole new pair (Keep Winner off). `key` ties it to the state
-// it's valid for; any mismatch falls back to a normal fetch.
+// The prefetched next comparison. "keep": a shallow QUEUE of challengers per possible
+// winner (Keep Winner mode) — a pick consumes the winner's head and discards the loser's
+// queue, so a click can never outrun a single in-flight fetch. "fresh": a whole new pair
+// (Keep Winner off). filterKey/key tie a preload to the state it's valid for; any
+// mismatch falls back to a normal fetch.
 type Preload =
-  | { mode: "keep"; key: string; challengers: Record<string, Card> }
+  | { mode: "keep"; filterKey: string; queues: Record<string, Card[]> }
   | { mode: "fresh"; key: string; pair: Card[] };
+
+// Challengers to keep queued per potential winner. Deep enough that rapid picks can't
+// drain it before a refill lands, shallow enough that entries stay fresh (a queued
+// matchup was chosen against the winner's rating at fetch time, which keeps moving).
+const QUEUE_DEPTH = 3;
+// Only the front of each queue gets its image downloaded+decoded ahead of time — warming
+// all of it would spend bandwidth on art that is often discarded with the losing side.
+const WARM_DEPTH = 2;
 
 export default function ComparisonScreen() {
   const [cards, setCards] = useState<Card[] | null>(null);
@@ -144,6 +171,9 @@ export default function ComparisonScreen() {
   // advance without waiting on a fetch. Purely an optimization: any key mismatch falls
   // back to the normal fetch path. cardsRef lets async preloads notice the board changed.
   const preloadRef = useRef<Preload | null>(null);
+  // Winner ids with a queue top-off fetch in flight, so the preload effect re-firing
+  // (every board change) can't stack duplicate requests for the same side.
+  const preloadInFlightRef = useRef<Set<string>>(new Set());
   const cardsRef = useRef<Card[] | null>(cards);
   useEffect(() => {
     cardsRef.current = cards;
@@ -191,43 +221,62 @@ export default function ComparisonScreen() {
   }, [mountPair]);
 
   // Prefetch what comes after the current settled pair and warm its image(s), so a pick
-  // can use it instantly. Keep Winner: a challenger per possible winner (excluding the
-  // current opponent so it isn't re-served). Off: a whole fresh pair. Results are dropped
-  // if the board changed while fetching (captured `key` no longer matches).
+  // can use it instantly. Keep Winner: top each possible winner's challenger queue up to
+  // QUEUE_DEPTH (excluding the current opponent and everything already queued, so nothing
+  // is served twice); each side's fetch lands independently — a click between the two
+  // still gets whichever queue already arrived. Off: a whole fresh pair. Results are
+  // dropped if the mode/filters changed (store replaced) or the winner left the board.
   const preloadNext = useCallback(async () => {
     const current = cardsRef.current;
     if (!current || current.length < 2) return;
     const keep = keepWinnerRef.current;
     const filters = filtersRef.current;
-    const key = pairKey(current, keep, filters);
-    if (preloadRef.current?.key === key) return; // already preloaded for this state
     const playerId = getPlayerId();
     const query = buildFilterQuery(filters);
-    const stale = () =>
-      pairKey(cardsRef.current ?? [], keepWinnerRef.current, filtersRef.current) !== key;
 
     if (keep) {
-      const entries = await Promise.all(
-        current.map(async (winner) => {
-          const opponent = current.find((card) => card.card_id !== winner.card_id)!;
-          const res = await fetch(
-            `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}&excludeId=${opponent.card_id}${query}`,
-          );
-          const { cards: next } = (await res.json()) as { cards?: Card[] };
-          const fresh = next?.find((card) => card.card_id !== winner.card_id) ?? null;
-          return [winner.card_id, fresh] as const;
-        }),
-      );
-      if (stale()) return;
-      const challengers: Record<string, Card> = {};
-      for (const [id, fresh] of entries) {
-        if (fresh) {
-          challengers[id] = fresh;
-          warmImage(fresh.image_url);
-        }
+      // A store from another mode or filter set is dead; start over. (In-flight fetches
+      // tied to the old store notice `preloadRef.current !== store` and drop themselves.)
+      if (preloadRef.current?.mode !== "keep" || preloadRef.current.filterKey !== query) {
+        preloadRef.current = { mode: "keep", filterKey: query, queues: {} };
       }
-      preloadRef.current = { mode: "keep", key, challengers };
+      const store = preloadRef.current;
+      for (const winner of current) {
+        const opponent = current.find((card) => card.card_id !== winner.card_id)!;
+        const queue = (store.queues[winner.card_id] ??= []);
+        // Re-warm the front on every pass: after a pick consumes the head, the next
+        // entries move into WARM_DEPTH range (warmImage dedupes, so this is cheap).
+        queue.slice(0, WARM_DEPTH).forEach((card) => warmImage(card.image_url));
+        const need = QUEUE_DEPTH - queue.length;
+        if (need <= 0 || preloadInFlightRef.current.has(winner.card_id)) continue;
+        preloadInFlightRef.current.add(winner.card_id);
+        const exclude = [opponent.card_id, ...queue.map((card) => card.card_id)].join(",");
+        fetch(
+          `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}&excludeId=${exclude}&count=${need}${query}`,
+        )
+          .then((res) => res.json())
+          .then(({ cards: next }: { cards?: Card[] }) => {
+            if (preloadRef.current !== store) return; // mode/filters changed meanwhile
+            const board = cardsRef.current;
+            if (!board?.some((card) => card.card_id === winner.card_id)) return; // winner left
+            const onBoard = new Set(board.map((card) => card.card_id));
+            // next[0] is the winner echoed back; the rest are the fresh challengers.
+            for (const card of next?.slice(1) ?? []) {
+              if (queue.length >= QUEUE_DEPTH) break;
+              if (onBoard.has(card.card_id)) continue;
+              if (queue.some((queued) => queued.card_id === card.card_id)) continue;
+              queue.push(card);
+            }
+            queue.slice(0, WARM_DEPTH).forEach((card) => warmImage(card.image_url));
+          })
+          .catch(() => {}) // preload is best-effort; a pick just falls back to fetching
+          .finally(() => preloadInFlightRef.current.delete(winner.card_id));
+      }
     } else {
+      const key = pairKey(current, false, filters);
+      if (preloadRef.current?.mode === "fresh" && preloadRef.current.key === key) return;
+      const stale = () =>
+        pairKey(cardsRef.current ?? [], keepWinnerRef.current, filtersRef.current) !== key;
       const res = await fetch(`/api/comparison/next?playerId=${playerId}${query}`);
       const { cards: next } = (await res.json()) as { cards?: Card[] };
       if (stale()) return;
@@ -276,21 +325,18 @@ export default function ComparisonScreen() {
   }, [cards, keepWinner, preloadNext]);
 
   // Keep Winner mode: the loser is already sliding out (started in handlePick, at
-  // `slideStart`); pick a fresh challenger and slide it up into the loser's slot. The
-  // dials already spun instantly (client-computed), so nothing waits on the POST.
+  // `slideStart`); slide a fresh challenger up into the loser's slot. The caller passes
+  // `preChallenger` when the winner's queue had a card (its image just wasn't decoded in
+  // time for the overlap path); with an empty queue we fetch one. The dials already spun
+  // instantly (client-computed), so nothing waits on the POST.
   async function swapLoserForFresh(
     winner: Card,
     loser: Card,
     playerId: string,
     slideStart: number,
+    preChallenger?: Card,
   ) {
-    // Use the preloaded challenger for this winner when it's still valid; otherwise fetch
-    // (excluding the loser so it isn't re-served). Consume the preload so it can't be reused.
-    const key = pairKey([winner, loser], true, filtersRef.current);
-    const pre = preloadRef.current;
-    preloadRef.current = null;
-    let fresh =
-      pre?.mode === "keep" && pre.key === key ? pre.challengers[winner.card_id] : undefined;
+    let fresh = preChallenger;
     if (!fresh) {
       const res = await fetch(
         `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}&excludeId=${loser.card_id}${buildFilterQuery(filtersRef.current)}`,
@@ -441,20 +487,37 @@ export default function ComparisonScreen() {
     }).catch(() => {});
 
     if (keepWinnerRef.current) {
-      // Fast path: if the challenger is already preloaded, overlap the loser leaving with
-      // the challenger arriving (one motion) instead of loser-out-THEN-card-in.
-      const key = pairKey([winner, loser], true, filtersRef.current);
-      const pre = preloadRef.current;
-      const preChallenger =
-        pre?.mode === "keep" && pre.key === key ? pre.challengers[winner.card_id] : undefined;
-      if (preChallenger && preChallenger.card_id !== loser.card_id) {
-        preloadRef.current = null;
-        overlapSwap(loser, preChallenger, loserDial);
+      // Pop the winner's challenger queue. The queue outlives the pick (unlike the old
+      // one-shot preload): its remaining entries stay valid while this winner holds the
+      // board, and the preload effect tops it back up after the swap.
+      const store = preloadRef.current;
+      const queue =
+        store?.mode === "keep" && store.filterKey === buildFilterQuery(filtersRef.current)
+          ? store.queues[winner.card_id]
+          : undefined;
+      let challenger: Card | undefined;
+      while (queue && queue.length > 0) {
+        const head = queue.shift()!;
+        // Server-side exclusions make a board collision near-impossible; guard anyway.
+        if (head.card_id !== winner.card_id && head.card_id !== loser.card_id) {
+          challenger = head;
+          break;
+        }
+      }
+      // The loser's queue speculated on the loser winning; it leaves with the loser.
+      if (store?.mode === "keep") delete store.queues[loser.card_id];
+
+      if (challenger && imageReady(challenger.image_url)) {
+        // Fast path: challenger in hand AND its art decoded — overlap the loser leaving
+        // with the challenger arriving (one motion) instead of loser-out-THEN-card-in.
+        overlapSwap(loser, challenger, loserDial);
       } else {
-        // Preload missed: start the loser sliding out now (instant reaction), then fetch the
-        // challenger and slide it in as soon as both the fetch and the slide are done.
+        // No decoded challenger: start the loser sliding out now (instant reaction), then
+        // slide the challenger in once the slide (and, if the queue was empty, a fetch)
+        // is done — the slide buys a still-loading image time to finish.
         setPos((prev) => ({ ...prev, [loser.card_id]: "above" }));
-        swapLoserForFresh(winner, loser, playerId, performance.now());
+        if (challenger) warmImage(challenger.image_url);
+        swapLoserForFresh(winner, loser, playerId, performance.now(), challenger);
       }
     } else {
       // Use the preloaded fresh pair if it's still valid; otherwise fetch after the slide.
@@ -463,11 +526,13 @@ export default function ComparisonScreen() {
       preloadRef.current = null;
       const preloadedPair = pre?.mode === "fresh" && pre.key === key ? pre.pair : null;
       // Overlapping needs disjoint ids: `pos` and the exit overlays are keyed by card_id,
-      // so a card in both pairs would have to be "above" and "below" at once.
+      // so a card in both pairs would have to be "above" and "below" at once. It also
+      // needs both incoming images decoded — otherwise the sequential path below buys
+      // them the slide-out to finish loading.
       const disjoint =
         preloadedPair &&
         !preloadedPair.some((card) => pair.some((old) => old.card_id === card.card_id));
-      if (preloadedPair && disjoint) {
+      if (preloadedPair && disjoint && preloadedPair.every((card) => imageReady(card.image_url))) {
         const winnerDial = {
           from: Math.round(winnerRating.r),
           to: Math.round(newWinnerRating.r),

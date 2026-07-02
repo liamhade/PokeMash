@@ -239,18 +239,49 @@ function supply_winner_with_fresh_card(
   return band[Math.floor(Math.random() * band.length)];
 }
 
-// Picks the next pair of cards for a player to compare.
+/**
+ * Batched variant for the client's preload queue: up to `n` distinct challengers, each
+ * drawn by the same explore/exploit policy. Picked cards are removed from the pool
+ * between draws so one batch can't contain duplicates; returns fewer than `n` (possibly
+ * zero) when the pool runs dry. The expensive work in this route (count/ranks/history
+ * reads, the window sample) is per-REQUEST, so extra draws here are nearly free.
+ */
+function supply_winner_with_fresh_cards(
+  winner: RatedCard,
+  candidates: RatedCard[],
+  comparedOpponentIds: Set<string>,
+  n: number,
+): RatedCard[] {
+  const fresh: RatedCard[] = [];
+  let pool = candidates;
+  for (let i = 0; i < n; i++) {
+    if (!pool.some((card) => card.card_id !== winner.card_id)) break;
+    const pick = supply_winner_with_fresh_card(winner, pool, comparedOpponentIds);
+    fresh.push(pick);
+    pool = pool.filter((card) => card.card_id !== pick.card_id);
+  }
+  return fresh;
+}
+
+// Cap on `count` so a buggy or hostile client can't ask for the whole pool.
+const FRESH_COUNT_MAX = 5;
+
+// Picks the next cards for a player to compare.
 // Query: ?playerId=...  and optionally &winnerId=... (Keep Winner mode: returns
-// the winner plus one fresh challenger instead of a brand-new pair).
+// the winner plus `count` (default 1) fresh challengers instead of a brand-new pair).
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const playerId = params.get("playerId");
   const winnerId = params.get("winnerId");
-  // Optional: a card id to exclude from the challenger pool even if not yet in history.
-  // The client uses this to PRELOAD the next challenger for the on-screen winner while the
-  // current pair is still up — passing the current opponent so it isn't served right back
-  // (the same guarantee the post-pick history normally provides once the result is saved).
-  const excludeId = params.get("excludeId");
+  // Optional: card ids (comma-separated) to exclude from the challenger pool even if not
+  // yet in history. The client uses this to PRELOAD challengers for the on-screen winner
+  // while the current pair is still up — passing the current opponent plus any challengers
+  // already queued, so none of them is served right back (the same guarantee the post-pick
+  // history normally provides once results are saved).
+  const excludeIds = (params.get("excludeId") ?? "").split(",").filter(Boolean);
+  // How many challengers to return in Keep Winner mode (the client batches its preload
+  // queue into one request); capped so `count` can't dump the whole pool.
+  const freshCount = Math.min(FRESH_COUNT_MAX, Math.max(1, Number(params.get("count")) || 1));
   if (!playerId) {
     return NextResponse.json({ error: "playerId is required" }, { status: 400 });
   }
@@ -404,7 +435,7 @@ export async function GET(request: NextRequest) {
     })),
   );
 
-  let pair: [RatedCard, RatedCard];
+  let chosen: RatedCard[];
   if (winnerId) {
     // The held winner may fall outside the sampled eligible pool, so it won't be
     // in `ratedCards`. Fetch it directly in that case rather than 404-ing — the
@@ -427,18 +458,18 @@ export async function GET(request: NextRequest) {
     const comparedOpponentIds = new Set(
       history?.map((row) => (row.winner_card === winnerId ? row.loser_card : row.winner_card)),
     );
-    if (excludeId) comparedOpponentIds.add(excludeId);
+    for (const id of excludeIds) comparedOpponentIds.add(id);
 
-    const fresh = supply_winner_with_fresh_card(winner, ratedCards, comparedOpponentIds);
-    pair = [winner, fresh];
+    const fresh = supply_winner_with_fresh_cards(winner, ratedCards, comparedOpponentIds, freshCount);
+    chosen = [winner, ...fresh];
   } else {
-    pair = information_rich_pair(ratedCards);
+    chosen = information_rich_pair(ratedCards);
   }
 
   return NextResponse.json({
     // r/rd/mu are included so the client can compute the Glicko-2 +X/-Y for a pick
     // instantly (same inputs the POST uses), instead of waiting on the write to return them.
-    cards: pair.map((card) => ({
+    cards: chosen.map((card) => ({
       card_id: card.card_id,
       name: card.name,
       image_url: card.image_url,
