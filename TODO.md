@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## nav: centered Play/Rankings, Login placeholder, How-it-works modal
+
+- [ ] In `NavBar.tsx`, Play/Rankings are centered with `md:absolute md:left-1/2 md:-translate-x-1/2` instead of flex spacers, falling back to `ml-auto` (right-aligned) below `md`. Why can't plain flex centering (`justify-center` or twin `flex-1` spacers) give a TRUE center here, and what collision does the phone fallback avoid?
+
+- [ ] `HowItWorks.tsx` explains the ratings as "winner takes points from the loser" even though the code runs Glicko-2, and it deliberately never shows the number 1500. What's the argument for a user-facing explanation lagging the real algorithm's sophistication, and where would that simplification start to mislead users about what they see on the Rankings page?
+
 ## Clefairy peeks over cards, walks to clicks
 
 - [ ] In `Clefairy.tsx`, `onClick` listens on the play screen (`areaRef.current.parentElement`) even though the roam layer covers the same box, and it hit-tests her via `spriteBoxRef.getBoundingClientRect()` instead of an onClick on the sprite. What two z-order/pointer-events problems does this pair of choices sidestep that the "obvious" approach (make the sprite clickable) would hit?
