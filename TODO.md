@@ -45,6 +45,12 @@
 
 # LEARNING
 
+## click dance replaces the scare
+
+- [ ] The dance's three bars live in ONE CSS animation (`clefairy-dance ... 3` iterations) while the twirls are two JS `after(DANCE_BEAT_MS * n, flip)` timers, coupled only by the 800ms constant appearing in both files. What visual artifact appears if the CSS duration is edited without `DANCE_BEAT_MS` (or vice versa), and why was the facing flip not expressible inside the keyframes themselves (think: which element owns `scaleX`)?
+
+- [ ] Replacing the scare deleted the `crouch`/`shaking` states, their JSX layer, and the `clefairy-shake` keyframes in the same commit rather than leaving them "in case we want trembling later". What's the YAGNI argument for deleting working animation code that took real effort to tune, and what makes it cheap to resurrect if needed?
+
 ## extract the Gyarados sprite
 
 - [ ] The extractor found the same 8.85px pitch on both axes but different offsets (x 8.75, y 0), and scored candidates by mean luminance along whole gridlines. Why does scoring entire lines (rather than a single row/column of samples) make the search robust to the chart's heavier every-N gridlines and JPG noise, and what would a half-cell offset error have done to every cell's median?

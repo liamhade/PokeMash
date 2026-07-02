@@ -145,23 +145,30 @@ body {
   animation: clefairy-waddle 0.32s ease-in-out infinite;
 }
 
-/* Scared tremble while she hides from a click: a fast 1px shiver. Replaces the
-   gait/idle class for the duration, so it owns this layer's transform. */
-@keyframes clefairy-shake {
+/* Click-on-her dance: three bounce-and-tilt bars (JS flips her facing between
+   bars so she twirls through it). Feet-anchored origin so the tilts read as
+   steps, not a sway about her middle. */
+@keyframes clefairy-dance {
   0%,
+  30%,
+  60%,
   100% {
-    transform: translateX(0);
+    transform: translateY(0) rotate(0deg) scale(1, 1);
   }
-  25% {
-    transform: translateX(-1px);
+  15% {
+    transform: translateY(-10px) rotate(-12deg) scale(0.95, 1.05);
   }
-  75% {
-    transform: translateX(1px);
+  45% {
+    transform: translateY(-10px) rotate(12deg) scale(0.95, 1.05);
+  }
+  80% {
+    transform: translateY(-3px) scale(1.1, 0.88);
   }
 }
 
-.clefairy-shake {
-  animation: clefairy-shake 100ms linear infinite;
+.clefairy-dance {
+  animation: clefairy-dance 800ms ease-in-out 3;
+  transform-origin: 50% 90%;
 }
 
 /* One-shot hover hint on ranked cards: a brief clockwise/counter-clockwise wiggle to

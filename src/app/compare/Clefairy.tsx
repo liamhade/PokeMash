@@ -5,7 +5,11 @@ import { useEffect, useRef, useState } from "react";
 // A relaxed toddle, in px/s. Walk duration scales with distance so speed stays constant.
 const WALK_SPEED = 41;
 
-type Emote = "none" | "hop" | "wiggle";
+type Emote = "none" | "hop" | "wiggle" | "dance";
+
+// One bar of the click dance (must match the clefairy-dance keyframe duration);
+// the routine runs three bars with a facing flip between them.
+const DANCE_BEAT_MS = 800;
 
 // The sprite: one character per pixel, machine-extracted from the classic Clefairy
 // pixel chart (grid-fitted, per-cell median color, quantized to the anchors below).
@@ -236,8 +240,8 @@ function PixelArt({ rows, scale }: { rows: string[]; scale: number }) {
 // She also hops on every pick (the `picks`-keyed wrapper, kept separate from the
 // wander emote so the two one-shot animations can't cancel each other). The roam
 // layer itself takes no pointer events; instead a click listener on the play screen
-// sends her walking to the clicked spot; a click landing ON her scares her into a
-// hide-then-peek episode. She stays aria-hidden: decorative either way. The layer
+// sends her walking to the clicked spot; a click landing ON her sets off a little
+// three-bar dance. She stays aria-hidden: decorative either way. The layer
 // sits at z-0 UNDER the board (z-10) so she passes behind the cards.
 export default function Clefairy({ picks }: { picks: number }) {
   const [x, setX] = useState(0);
@@ -252,10 +256,6 @@ export default function Clefairy({ picks }: { picks: number }) {
   const [blink, setBlink] = useState(false);
   // Which walk frame (0 = left foot up, 1 = right foot up) is showing mid-glide.
   const [stepFrame, setStepFrame] = useState(0);
-  // Scare reaction (a click landing on her): crouched low for the whole episode,
-  // trembling only while her back is turned.
-  const [crouch, setCrouch] = useState(false);
-  const [shaking, setShaking] = useState(false);
   // Current position/orientation, readable inside the timer loop without re-running
   // the effect (the loop's closure would only ever see the initial state).
   const xRef = useRef(0);
@@ -418,6 +418,12 @@ export default function Clefairy({ picks }: { picks: number }) {
       });
     }
 
+    // Turn to face the other way (a glance, or a dance twirl beat).
+    function flip() {
+      facingRef.current = facingRef.current === 1 ? -1 : 1;
+      setFacing(facingRef.current);
+    }
+
     function act() {
       const { w } = area();
       const { xMin, xMax, yMin } = bounds();
@@ -452,8 +458,7 @@ export default function Clefairy({ picks }: { picks: number }) {
         setEmoteKey((k) => k + 1);
         schedule(900 + Math.random() * 1100);
       } else if (roll < 0.85) {
-        facingRef.current = facingRef.current === 1 ? -1 : 1; // glance the other way
-        setFacing(facingRef.current);
+        flip(); // glance the other way
         schedule(700 + Math.random() * 1000);
       } else {
         schedule(1600 + Math.random() * 2600); // just stand there, being round
@@ -475,39 +480,17 @@ export default function Clefairy({ picks }: { picks: number }) {
         e.clientY >= box.top - 4 &&
         e.clientY <= box.bottom + 4
       ) {
-        // Startled! She leaps into a 180 — back to the viewer — and hides, crouched
-        // and trembling; steals a glance at us, decides it's not safe, hides again,
-        // and only then turns around and settles back to normal. The pool clear
-        // interrupts pending acts (and a scare already in progress restarts clean).
+        // She's delighted: three dance bars on the emote layer, twirling to face
+        // the other way between bars. The pool clear interrupts pending acts (and
+        // a dance already in progress restarts clean via the emote-layer remount).
         timers.forEach((t) => clearTimeout(t));
         timers.clear();
         setPeeking(false);
-        setEmote("hop"); // the leap: the remounted emote layer plays the jump
+        setEmote("dance");
         setEmoteKey((k) => k + 1);
-        backRef.current = true;
-        setShowBack(true);
-        setCrouch(true);
-        setShaking(true);
-        after(1000, () => {
-          // A wary peek back at the viewer: face forward, tremble paused.
-          backRef.current = false;
-          setShowBack(false);
-          setShaking(false);
-        });
-        after(1800, () => {
-          // Still spooked — turn away and hide again.
-          backRef.current = true;
-          setShowBack(true);
-          setShaking(true);
-        });
-        after(2800, () => {
-          // All clear: face us, stand up, and let the wander brain take over.
-          backRef.current = false;
-          setShowBack(false);
-          setCrouch(false);
-          setShaking(false);
-          schedule(800 + Math.random() * 1200);
-        });
+        after(DANCE_BEAT_MS, flip);
+        after(DANCE_BEAT_MS * 2, flip);
+        schedule(DANCE_BEAT_MS * 3 + 600 + Math.random() * 1200);
         return;
       }
       const a = el.getBoundingClientRect();
@@ -515,13 +498,10 @@ export default function Clefairy({ picks }: { picks: number }) {
       // Aim her sprite's center at the click, clamped to the walkable box.
       const tx = e.clientX - a.left - a.width / 2 - SPRITE_W / 2;
       const ty = e.clientY - (a.top + a.height - 24) + SPRITE_H / 2;
-      // A command interrupts whatever she was doing (pending acts, a held peek,
-      // or a scare mid-episode — so its crouch/tremble must be reset here too).
+      // A command interrupts whatever she was doing (pending acts, a held peek).
       timers.forEach((t) => clearTimeout(t));
       timers.clear();
       setPeeking(false);
-      setCrouch(false);
-      setShaking(false);
       const cx = Math.min(xMax, Math.max(xMin, tx));
       const cy = Math.min(0, Math.max(yMin, ty));
       // Commanded walks hustle at double the idle-wander toddle.
@@ -601,25 +581,17 @@ export default function Clefairy({ picks }: { picks: number }) {
               <div
                 key={emoteKey}
                 className={
-                  emote === "hop" ? "critter-hop" : emote === "wiggle" ? "wiggle" : ""
+                  emote === "hop"
+                    ? "critter-hop"
+                    : emote === "wiggle"
+                      ? "wiggle"
+                      : emote === "dance"
+                        ? "clefairy-dance"
+                        : ""
                 }
               >
-                {/* scare crouch: squash toward her feet so she visibly ducks down.
-                    Its own layer — the shiver/gait class below owns that transform. */}
-                <div
-                  style={{
-                    transform: crouch ? "scaleY(0.7)" : undefined,
-                    transformOrigin: "50% 100%",
-                    transition: "transform 150ms ease-out",
-                  }}
-                >
-                  <div
-                    className={
-                      shaking ? "clefairy-shake" : walking ? "clefairy-waddle" : "critter-idle"
-                    }
-                  >
-                    <PixelArt rows={rows} scale={DISPLAY_SCALE} />
-                  </div>
+                <div className={walking ? "clefairy-waddle" : "critter-idle"}>
+                  <PixelArt rows={rows} scale={DISPLAY_SCALE} />
                 </div>
               </div>
             </div>
