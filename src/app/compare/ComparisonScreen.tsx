@@ -615,7 +615,7 @@ export default function ComparisonScreen() {
 
       {/* Mobile-only streak legend (it lives in PanelLeft on md+). Same stacked column
           as desktop, tucked under the Filter trigger on the left edge. */}
-      <div className="px-4 pt-2 md:hidden">
+      <div className="px-4 pt-5 md:hidden">
         <StreakLegend className="flex-col gap-2" />
       </div>
 

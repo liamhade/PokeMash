@@ -45,7 +45,11 @@
 
 # LEARNING
 
-## phone legend: stack it like desktop
+## phone legend: nudge down
+
+- [ ] The nudge was `pt-2` → `pt-5` on the legend's wrapper in `ComparisonScreen`, not a margin on `StreakLegend` itself. Given the component is also rendered inside `PanelLeft`, why must one-off spacing live on the call site's wrapper, and what would have happened on desktop if the space had been added inside the component?
+
+- [ ] Tailwind's spacing scale made "down a touch" a choice among fixed steps (pt-3/4/5 = 12/16/20px) rather than an arbitrary pixel value (`pt-[13px]` exists but is discouraged). What consistency property does snapping every spacing decision to the shared scale preserve across the app, and when is an arbitrary value genuinely warranted?
 
 - [ ] Restacking the phone legend only touched the wrapper div in `ComparisonScreen` and the `className` passed to `StreakLegend` — no component code changed. What did leaving layout direction to the caller (rather than baking `flex-row`/`flex-col` variants into `StreakLegend` as a prop like `horizontal`) buy in this exact iteration, and where would that "caller owns layout" pattern start to hurt?
 
