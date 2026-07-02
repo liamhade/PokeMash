@@ -45,7 +45,11 @@
 
 # LEARNING
 
-## chained refills: the queue keeps up with rapid picks
+## streak legend on phones
+
+- [ ] The "missing" iOS legend was never an iOS bug: `PanelLeft` is `hidden md:flex`, and the phone toolbar had only rescued the Filter trigger from it. Why does verifying this fix via `curl` + grep for both class strings work even though `ComparisonScreen` is a client component — what does Next.js render of a client component on the server, and which kind of hiding (CSS breakpoint vs. conditional render) would that check NOT see?
+
+- [ ] The legend was extracted into `StreakLegend` with layout direction left to the caller's `className`, while the Filter-trigger-plus-badge markup remains duplicated between `PanelLeft` and the toolbar. By the "3+ occurrences" DRY rule both are only at two — what makes extraction the right call for the legend anyway (think: what just went wrong because the two copies COULDN'T drift), and is the same argument true for the badge?
 
 - [ ] The catch-up call in `preloadNext`'s `.finally` had to become `preloadNextInner()` — a named function expression calling itself — because ESLint rejected `preloadNext()` inside its own `useCallback` initializer. Why is the `const` binding not referenceable there while the function's own name is, and why must the in-flight delete happen BEFORE the recursive call for the catch-up to do anything?
 

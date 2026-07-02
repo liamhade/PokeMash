@@ -12,6 +12,7 @@ import FilterButton from "@/components/FilterButton";
 import KeepWinnerToggle from "@/components/KeepWinnerToggle";
 import PanelLeft from "@/components/PanelLeft";
 import PanelRight from "@/components/PanelRight";
+import StreakLegend from "@/components/StreakLegend";
 import { getImageProps } from "next/image";
 import ComparisonArea, {
   CARD_IMAGE,
@@ -610,6 +611,11 @@ export default function ComparisonScreen() {
           )}
         </div>
         <KeepWinnerToggle keepWinner={keepWinner} onToggle={() => setKeepWinner((on) => !on)} />
+      </div>
+
+      {/* Mobile-only streak legend, laid out as a row (it lives in PanelLeft on md+). */}
+      <div className="flex justify-center pt-2 md:hidden">
+        <StreakLegend className="flex-row gap-3" />
       </div>
 
       <PanelLeft filters={filters} onOpenFilter={() => setFilterOpen(true)} />
