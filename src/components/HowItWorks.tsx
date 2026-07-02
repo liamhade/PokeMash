@@ -41,10 +41,10 @@ export default function HowItWorks() {
 
             <div className="space-y-3 text-sm text-neutral-600">
               <p>
-                Every card starts with the same rating. Each time you pick between two
-                cards, the one you choose <span className="font-semibold">wins the
-                matchup</span> and takes rating points from the loser — the same idea
-                as ELO ratings in chess.
+                Every card starts with the same rating: 1200. Each time you pick
+                between two cards, the one you choose <span className="font-semibold">
+                wins the matchup</span> and takes rating points from the loser — the
+                same idea as ELO ratings in chess.
               </p>
               <p>
                 How many points change hands depends on the matchup. If a card beats a

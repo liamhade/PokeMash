@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## nav right cluster + 1200 in How it works
+
+- [ ] Moving How-it-works/Login to the right only touched flex margins (`ml-auto` moved from the nav to the right cluster, with `md:` variants) because Play/Rankings are absolutely centered on desktop. In the phone layout, which element's `ml-auto` now creates the right-edge grouping, and what would break if BOTH clusters kept `ml-auto`?
+
+- [ ] The modal now hardcodes "1200" while the code reads `DEFAULT_RATING.r`. What's the argument for and against interpolating the constant into the copy, and which failure (stale prose vs. copy coupled to internals) is likelier to be caught in this project's workflow?
+
 ## Clefairy tuning + 1200 starting rating
 
 - [ ] The butt-first-descent bug: `xRef`/`yRef` always hold the current walk's TARGET, so a click that interrupts a glide computed its direction from where she was GOING, not where she visually was — fixed by reading `DOMMatrixReadOnly(getComputedStyle(pos).transform)` at the top of `walkTo`. Why does reading the computed transform mid-transition return the interpolated in-flight value rather than the destination the inline style declares?
