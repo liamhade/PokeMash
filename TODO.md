@@ -45,6 +45,12 @@
 
 # LEARNING
 
+## scared hide sequence on click
+
+- [ ] The scare timeline is four `after()` calls scheduled all at once from the click (at 0/1000/1800/2800ms) rather than a chain where each step schedules the next. What does scheduling them up front buy when a second click interrupts mid-episode (think: what the `timers` pool clear guarantees), and where would a chained version have leaked state?
+
+- [ ] The crouch is an inline-style `scaleY(0.7)` on its own div while the tremble is a CSS class replacing the gait class on the layer below. Why can't the crouch and the shake share one element (what happens to `scaleY` the moment `clefairy-shake`'s `translateX` keyframe takes over the transform property), and why does the crouch use `transform-origin: 50% 100%` specifically?
+
 ## stepping walk cycle
 
 - [ ] `liftFoot` treats the hip line asymmetrically: below `FEET_TOP` the shift is unconditional (vacated pixels go empty), while above it only non-'.' source pixels overwrite. What would each half of the sprite look like if the other rule were applied to it — i.e. why can't one blit rule serve both regions?

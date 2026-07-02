@@ -145,6 +145,25 @@ body {
   animation: clefairy-waddle 0.32s ease-in-out infinite;
 }
 
+/* Scared tremble while she hides from a click: a fast 1px shiver. Replaces the
+   gait/idle class for the duration, so it owns this layer's transform. */
+@keyframes clefairy-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-1px);
+  }
+  75% {
+    transform: translateX(1px);
+  }
+}
+
+.clefairy-shake {
+  animation: clefairy-shake 100ms linear infinite;
+}
+
 /* One-shot hover hint on ranked cards: a brief clockwise/counter-clockwise wiggle to
    suggest the card is interactive (click to flip). Runs once (no `infinite`), so it plays
    a single time each time the class is applied; the caller re-applies it per hover. */
