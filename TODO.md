@@ -45,6 +45,12 @@
 
 # LEARNING
 
+## peek sprite: restore the wing under her ear
+
+- [ ] The missing chunk existed because `PEEK_SPRITE`'s face rows were truncated at the arm columns (`...` padding) while the full `SPRITE` keeps the black wing (`k`/`DD` pixels) on that flank — why did the wing clip at the ear line specifically, and what invariant do all rows of a sprite grid have to satisfy for `PixelArt`'s `rows[0].length`-based viewBox to render every row correctly?
+
+- [ ] The fix was verified by extracting the string grids from `Clefairy.tsx` with a scratch script and rendering PNGs, rather than reasoning about the character grid in place. When is building a tiny render-toolchain worth it over reading the "code" directly, and what class of sprite bug (think: the screenshot that triggered this task) can ONLY be caught by looking at pixels?
+
 ## phone legend: nudge down
 
 - [ ] The nudge was `pt-2` → `pt-5` on the legend's wrapper in `ComparisonScreen`, not a margin on `StreakLegend` itself. Given the component is also rendered inside `PanelLeft`, why must one-off spacing live on the call site's wrapper, and what would have happened on desktop if the space had been added inside the component?
