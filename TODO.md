@@ -45,6 +45,12 @@
 
 # LEARNING
 
+## top-down snaking Gyarados + open-space-only roaming
+
+- [ ] The traveling wave is one shared `gyarados-undulate` keyframe with per-piece inline `--amp` and a NEGATIVE `animationDelay` of `-i * WAVE_LAG_MS` (tail is i=0). Work through why a negative delay makes the head the most phase-ADVANCED piece and thus makes the crest travel head→tail — and what the wave would do if the delays were positive instead?
+
+- [ ] `openMeadow` checks the path at quarter points from her CURRENT position, which is why the episode-end walk-out couldn't reuse it (she starts behind a card, so every path sample fails and she'd freeze). What's the general lesson about preconditions baked into a helper ("start point is in open space") that hold in one call site but not another, and how does the target-only fallback loop encode the difference?
+
 ## Gyarados visits: chase, hide, nervous peeks
 
 - [ ] The visit is scheduled on a dedicated `visitTimer` handle while everything INSIDE the visit runs on the interruptible `timers` pool, and `onClick` early-returns while `episodeRef.current` is true. Trace what would break under each alternative: the visit scheduled in the pool, or clicks left enabled mid-episode — which one loses Gyarados forever and which one strands Clefairy hidden with `episodeRef` stuck true?

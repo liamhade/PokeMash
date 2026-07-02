@@ -1,125 +1,84 @@
-// Gyarados, machine-extracted from a gridded pixel chart (same pipeline as the
-// Clefairy sprite: brute-forced gridline pitch/offset, per-cell median color over
-// the cell's center region, quantized to the anchors below, background removed by
-// flood-filling border-connected white so the white FINS survive).
+// Top-down (bird's-eye) Gyarados, drawn as three 16x16 pieces that the play
+// screen composes into a strip — tail, body segments, head — laid along +x and
+// rotated to his travel heading. Each piece undulates across the travel axis
+// with a phase lag, so the body snakes like a slow wave. Authored by hand and
+// tuned against PNG renders (the side-view chart can't be re-projected).
 //
-// Legend: k outline black | B body blue | L light blue | C bright cyan | N dark
-// blue | E darkest navy | W fin white | w fin lavender | g fin grey | t belly tan |
-// T belly shade | y pale spots | b belly dark | R mouth dark red | r eye red |
-// O tongue orange. The art natively faces LEFT (head at bottom-left, tail fan at
-// top-right).
+// Legend: k outline black | B body blue | L light blue highlight | N dark crest
+// blue | W fin white / whisker | w fin lavender shade | y pale back spots |
+// r eye red. The head points RIGHT; the runtime rotation supplies every other
+// heading, so each piece is symmetric about its horizontal midline.
 export const GYARADOS_PALETTE: Record<string, string> = {
   k: "#101820",
   B: "#1890B0",
   L: "#30B8E0",
-  C: "#60D8F0",
   N: "#106080",
-  E: "#083048",
   W: "#F8F8F8",
   w: "#C8C8E8",
-  g: "#787888",
-  t: "#E0C880",
-  T: "#C8A068",
   y: "#F0F0B0",
-  b: "#604818",
-  R: "#881818",
   r: "#E03028",
-  O: "#F07030",
 };
 
-const GYARADOS_SPRITE = [
-  ".........................................................................k.......",
-  ".........................................................................Nk......",
-  "........................................................................gwNk.....",
-  "......................................................................g.gwNk.....",
-  "........................................NNNN.....................NN..gwggwwNk....",
-  "......................................NNLLLLBN...................NBNggwwgwwNN....",
-  ".....................g.............BNNNLLLLLLLBN.................gNBNwwwwwwgNk...",
-  "....................gWg..........BBLLLLkNLLLLLLLNN..........Ngg..gNBBNwwwwwwNk...",
-  "...................gWWWg....g..BBCCCLLLLLkLLLLLLELB.........NNwggwwNBBNwwwwwNN...",
-  "....................gWWw...gwkBCCCCCCLLLLLNLLLLLLBLN.........NwwgwwwNBBNwwwwgE...",
-  "....................gWWWg.gwwkCCCCCCCLLLLLNLLLLLLNLLN........NNwwwwwNBBNNwwwwNk..",
-  ".....................gWWWgkwwkCCCCCCLLLLLLLNyyyLLNLLN.........NNwwwwwNBBNwwwwNk..",
-  "......................gWWWgwwkCCCCLLLLLLLLLEyyyyLNyLLk.........NNwwwwwNBBNwwwNk..",
-  "......................gWWWwgwkCLLLLLLLyyLLLNyyyyLNyyLk..........NNwwwwNBBNwwwNN..",
-  ".......................gWWwwwkLLLLLLyyyyyLLBNyyLBNyyyLk..........NNgwwwNBBEwgNN..",
-  "....................gkkgWwwwwwkBBLLyyyyyyLLBNLLBBEyyTLk...........NNNwwNBBNwgNN..",
-  "...................gWWWggwwwwwNLLBBLyyyyLLLBEBBBBETtBBk.............NNgwNBNNNN...",
-  "...................gWWWWWwwwwwwNLLLNkyyLLLBBEBtTNBBBBBk..............NNNNBNNNk...",
-  "....................gkWWWWwwwwNLLLLLBkLLBBBBNTtTNBBBBBk................EENNNNk...",
-  ".................g....kWWWwwwELLLLLLLkBBBBTbTTTbtBBBBBk.................NNEkkk...",
-  ".........g......gwk...kkwWwwELLLLLLLLBkBttTbTttbTtBBBEk..................NkBNkE..",
-  "........gWgk...gwwk..kBkwwwwNLLLLLLLBBkttttbTtbtTtBBBNBk..................NBNTNk.",
-  ".......gWWWWgk..gwwk.kBBkwwNLLLLLLLLBBBkTtbttbttTTBBNTBk.......g.........NBBTTNk.",
-  "........gWWWWWkkgwwwkkBBkwwELLLLLLLBBBBktTbbbtttTTtNTtBBk.....gWg........NBBTbNk.",
-  ".........ggWWWWwkgwwwkBBBNwBLLLLLLLBBBtkTbkTttTttkNTttTBk.....gWWk...g.g..kkkNN..",
-  "...........gWWWWWwggwwNBBBNBBLLLLLBBBBttkkbttTTkkBBBttTBk....gWWWkk.gwgwg.kBBBBE.",
-  "............ggWWWwwwwwwNNNNNkBLLLBBBBBTtkTTbkkbttTBBTtTBk....gWWgkwkwwgwgNNBBBBBN",
-  "..............gWWwwwwwwwNBLLLNkBBBBBBTTbkTtTttttTtBBBTBBk....gWWgwwkwwwgwNBBBBBBN",
-  "............gggWwwwwwwwwNLLLLLBBkBBkkkkkWbTTTTTTTTTBBBBk.....gWWWwkgwwwgwNBBBBBTk",
-  "...........gWWWggwwwwwwNLLLLLLLLBkkLLLBkWbTTtTttTtTBBBkTk...gWWWwwkgwwwwwNBBBBtTk",
-  "...........gWWWWWWwwwwwNLLLLLLLLBLLLLLBkWWktttttTttBkkTttkg.gWWWwkgwkwwwwNkkkNTbk",
-  "............ggWWNWWwwwwgLLLLLLLBLLLLLBBkWWWbbTtTTtbbBBBTtkWggWWwwkwwkkwwwEBBBNNb.",
-  "..............gNBNWwwwNLLLLLLLLBLLLLLBkWWWWbTbbNNbtTtBBtBBkWgWWwgwwkWkwwNBBBBBBk.",
-  "...............NBNWwwwNLLLLLLLBLLLLLBBkWWWbTTNNLEttTtBBBBBkWWgwwgwwkWWNwNBBBBBBBk",
-  "...............NBNNwwwgLLLLLLLBLLLLBBkWWWWbtNLLNEttttTBBBBkWWWwwwwkWWWNNBBBBttBBk",
-  "...............NBNkgwwwNLLLLLLLLLLBBEkWWWWNNLLgkTtTTtTBBBBkwWwwwwwkWWNNLNNBTTtBBk",
-  "...............EBNkNNNNNLLLLLkkkLLBNBkWWENLLggwkTttTtTBBBkBkwwwwwgWkNCCCLLNTttBtk",
-  "...............NBNNBBBLCNNLLNBBkLBBNBkWNLLggwwgkTtttttBBBNBkwwwwwNNLCCCCCLLNtBBTk",
-  "...............NBNkBBLCCLLNkBBkBBBNBBkkNBgwwwwktTtttTBBBNTBBkwwwgNNNCLCCCLLLEBTk.",
-  "..............BNBNkBBLCLLLkBBkBkkkBBkWkLgwwwwgtTtttTTBENttTBkkkkgLLLECCCLLLLEttk.",
-  ".............BCNBNkBLCCLLkBBkBBBBBkENkLLgwwwwgTTTtTTkkBBTtTBkLkLLLLLLNCLLyyLBkk..",
-  "......E......BCNBNkBLCLLkNBBkBBBkkLLBkBNwwwwwWkbbbbbtTTBBtTkBLLkLLLLLBNyyyyLBN...",
-  ".....NBN....BCkBBNNkBLLkNNNkBBBBLLLLBkBNwwwwWWkgTtttttttBBBktTLkLLLLBBNyyyTBBk...",
-  ".....NBBN...BCkBBNNkBBkNNNkBBBLLLLLBkBNwwwWWWWWgTtttttttTBBNTttBkyyTBBBNyTBBBk...",
-  "......kBBN..LCkBBNNkBkNNNkBBLLLLLLBBkBNwwWWWWWWgtttttttttBEttttBkttttBBNBBBBtk...",
-  "......kBBBkBCCkBBNNkkNNNkBLLBLLLLBBkkBNwWWWWwwktTttttttttBNBTTBBkttttBBkBBBTk....",
-  ".......kBBBkkNNBBNNkNNNNkNBLBLLLLBBkBBNwwwwwwgktTttttttTBNBBBBBBktTTBBBkBBTtk....",
-  "........kBBNNNNBBBBNNNNkBwNLLBLLBkBkBBwwwwwwwkktTtTttttTNBBBBBBkBBBBBBBkBTTk.....",
-  ".NNEN....kNNNNBBBBBNNNkkwWNLLBLLBkkBkBwwwwwwwwgkktTTTTENtTBBBBBkBBBBBBkkTkk......",
-  "NLLBBNNNkkkNNEBBBBNNNNkrWWwBBLLLBBBkkkwwwwwwwwkkTkkkbbtttttTBBkBBtttTBkkk........",
-  ".NNNBBBkBBBkNkBBBBNNNkrROWwBLLLBBBBBBBkwwwwwwWWgktTTttttttttTkTtTTttTN...........",
-  "..gwNNEkBBBBkNkBBNNENkOkOBBLLLLNBBBBBBkwkkkwWWWk.bbtTtttttttktttttttk............",
-  "...gwwwwNkBBNwNNNNNkkLNNELLLLLLNBBBBkk.k...kgWWk...bbtttttbkktttTtkk.............",
-  "....gwwwwNkBBwrkNNkCCLLLLLLLLLNBBBBk.........kkk.....bbbbb...bbbbk...............",
-  ".....gwwwwwNBNNkkkLCNBLbbbLLLLNBBBBkNN...........................................",
-  ".....gwwwwwNBBNCLBLLNbbtttbLLLNBBBkBBBk..........................................",
-  "......kwwwNBBNbNBLLbbyyyTtTkLLLNBBkkkBBk.........................................",
-  "......kWwNBBBbyybbbyyybbbbTTbbLNBBk..kBBN........................................",
-  "......gWWNBBbTbbyyyTkkkwWkbttbkBNBBk..kBN........................................",
-  "......gWWgNNNbgwbbbRRRRgWkkbtttkNBBk...NBN.......................................",
-  ".......gg....EbwWkRRRRRRgkkkkkTTTNBBk..kBN.......................................",
-  "..............kgWkRRRRRRRkkkkkkkTTNBk...NBN......................................",
-  "...............kgbkRRRRRRkkkrrRkkTNk....kBk......................................",
-  "................kkTtkRRRkkrOOOrRktk.....kBk......................................",
-  ".................NkktkRRkOOOOOOrkTk.....NBk......................................",
-  "................NBBNkTRkrOOOOOOrbtk....NBN.......................................",
-  "................NBN..kTROOOOOOOrbTk....kBN.......................................",
-  "................NBN..kTrOOOOOOObTtk....kCN.......................................",
-  "................NBN...kRrOOOOOrbyb.....kCN.......................................",
-  ".................NBN..kRrOOObbRbyk.....kCN.......................................",
-  ".................NBN..ktRRrRWwbbyk.....NCCN......................................",
-  ".................NBN..ggRRrrRwbbyk......NCN.....NN...............................",
-  "................NBN..kgWWRRRbRyyTk......NCCN...NCk...............................",
-  "............NN..NBN..kygRRRtyyytk........kCCNNNCCk...............................",
-  "............NLNNLBN...kyyyyykkbk..........kCCCCkk................................",
-  ".............NLLLN.....kkkkk...............kkkk..................................",
-  "..............NNN................................................................",
+// Head from above: blunt snout, red eye ridges at the front sides, the dark
+// crest tapering back down the centerline, whisker barbels trailing the jaw.
+export const GYARADOS_HEAD = [
+  "................",
+  "................",
+  "....kkkkkk......",
+  "..kkBLLLLBkk....",
+  ".kBLBBBBBBBBkkW.",
+  ".kBBBBBBBBBBBkWk",
+  "kBNNBBBBBBrrBk..",
+  "kBNNNNNBBBBBBBk.",
+  "kBNNNNNNNBBBBBk.",
+  "kBNNNNNNNBBBBBk.",
+  "kBNNNNNBBBBBBBk.",
+  "kBNNBBBBBBrrBk..",
+  ".kBBBBBBBBBBBkWk",
+  ".kBLBBBBBBBBkkW.",
+  "..kkBLLLLBkk....",
+  "....kkkkkk......",
 ];
 
-// The tail fan (top-right), split from the body so it can sweep back and forth
-// like a fish's while he swims. The cut was tuned visually against the chart: the
-// fan's upper blades plus its lower lobe, hinged where the fan meets the last body
-// segment. Stray cells at the seam only micro-wiggle, so the cut need not be exact.
-const isTailCell = (x: number, y: number) => (x >= 56 && y <= 24) || (x >= 66 && y <= 33);
+// One body slice: outlined only along the flanks (top/bottom rows) so adjoining
+// slices merge into one unbroken tube; white dorsal-fin diamonds ride the spine
+// and pale spots dust the back.
+export const GYARADOS_SEGMENT = [
+  "................",
+  "................",
+  "kkkkkkkkkkkkkkkk",
+  "BLLBBBBBBLLBBBBB",
+  "BBByBBBBBBBBByBB",
+  "BBBBBBBByBBBBBBB",
+  "BBBBBWWBBBBBWWBB",
+  "BBBBWWWWBBBWWWWB",
+  "BBBBWWWWBBBWWWWB",
+  "BBBBBWWBBBBBWWBB",
+  "ByBBBBBBBByBBBBB",
+  "BBBBBBByBBBBBBBB",
+  "BLLBBBBBBLLBBBBB",
+  "kkkkkkkkkkkkkkkk",
+  "................",
+  "................",
+];
 
-export const GYARADOS_BODY = GYARADOS_SPRITE.map((row, y) =>
-  [...row].map((ch, x) => (isTailCell(x, y) ? "." : ch)).join(""),
-);
-export const GYARADOS_TAIL = GYARADOS_SPRITE.map((row, y) =>
-  [...row].map((ch, x) => (isTailCell(x, y) ? ch : ".")).join(""),
-);
-
-// The hinge point (cell ~62, 28 of 77 rows x 81 cols), as a CSS transform-origin
-// for the sweep rotation on the tail overlay.
-export const GYARADOS_TAIL_ORIGIN = "76% 36%";
+// Tail: the blue stub opens into the caudal fan — a backward-pointing V from
+// above — white with lavender shading toward the trailing edge.
+export const GYARADOS_TAIL = [
+  "................",
+  "kk..............",
+  "kWWkk...........",
+  "kWWWWkk.........",
+  ".kWWWWWWkk......",
+  ".kwWWWWWWWkkkkkk",
+  "..kwwWWWWWWBBBBB",
+  "..kwwwWWWWWBBBBB",
+  "..kwwwWWWWWBBBBB",
+  "..kwwWWWWWWBBBBB",
+  ".kwWWWWWWWkkkkkk",
+  ".kWWWWWWkk......",
+  "kWWWWkk.........",
+  "kWWkk...........",
+  "kk..............",
+  "................",
+];
