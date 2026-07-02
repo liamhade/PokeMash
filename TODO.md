@@ -13,8 +13,8 @@
 	- *SOLUTION*: Apply `supabase/migrations/20260630_comparison_pool.sql` (creates `comparison_pool()`), then switch `/api/comparison/next` back to `supabase.rpc("comparison_pool")`. Needs someone with Supabase DB access.
 
 - [ ] (**add `supertype` / `subtypes` columns to `cards`**)
-	- *PROBLEM*: Three pool filters are fragile name/regex hacks because the data has no card-type info: energy detection (`isEnergyCard` name regex), Item/Stadium exclusion (the 573-name `itemStadiumNames.ts` list, which goes stale with new sets), and the GX/V/ex "buzzword" mechanic detection (`FEATURED_MECHANIC` regex).
-	- *SOLUTION*: Add `supertype` (Pokémon | Trainer | Energy) and `subtypes` (e.g. Item/Stadium/Supporter for Trainers; V/VMAX/ex/GX/… for Pokémon) columns, backfilled from the Pokémon TCG API (match by set + collector number, fall back to name). Then replace: energy filter → `supertype = 'Energy'`; Item/Stadium → `supertype='Trainer' AND subtypes && '{Item,Stadium}'`; buzzword keep → `subtypes` contains a mechanic tag. NOTE: "full art" is NOT a type — it stays in `rarity` (Ultra/Illustration/Special Illustration/etc.), so the rarity rules are unaffected. Needs Supabase DB write access + a one-time backfill job.
+	- *PROBLEM*: Three pool filters are fragile name/regex hacks because the data has no card-type info: energy detection (`isEnergyCard` name regex), Item/Stadium/Tool exclusion (the 794-name `excludedTrainerNames.ts` list, which goes stale with new sets), and the GX/V/ex "buzzword" mechanic detection (`FEATURED_MECHANIC` regex).
+	- *SOLUTION*: Add `supertype` (Pokémon | Trainer | Energy) and `subtypes` (e.g. Item/Stadium/Supporter for Trainers; V/VMAX/ex/GX/… for Pokémon) columns, backfilled from the Pokémon TCG API (match by set + collector number, fall back to name). Then replace: energy filter → `supertype = 'Energy'`; Item/Stadium/Tool → `supertype='Trainer' AND subtypes && '{Item,Stadium,Pokémon Tool}'`; buzzword keep → `subtypes` contains a mechanic tag. NOTE: "full art" is NOT a type — it stays in `rarity` (Ultra/Illustration/Special Illustration/etc.), so the rarity rules are unaffected. Needs Supabase DB write access + a one-time backfill job.
 
 - [ ] (**increase new card novetly**) 
 	- *PROBLEM*: Card comparisons don't feel new enough. Currently, the comparison function often compares the same cards over and over again, rather than pulling new cards from the database. With `Keep Winner` on (the preferred mode), `supply_winner_with_fresh_card` always picks the UNSEEN card *nearest in rating* to the winner — an informative matchup, but it keeps surfacing the same narrow power band, so it feels repetitive.
@@ -44,6 +44,12 @@
 - [ ] If the user selects a 
 
 # LEARNING
+
+## exclude Trainer Tool cards
+
+- [ ] The API reports 849 Item cards but the normalized list holds only 368 Item names, and 26 of the 247 Tool names were already present via Item/Stadium. What do those two collapses tell you about what the exclusion actually keys on (printings vs. names), and why is a card like Big Charm — which carries BOTH Item and Pokémon Tool subtypes in different printings — caught either way?
+
+- [ ] The regeneration script lives in the session scratchpad, not the repo, even though the file header says "regenerate when new sets add such trainers" — the third time this list is rebuilt by re-deriving the script from the header. At what point does YAGNI flip and the generator deserve to be checked in under `scripts/`, and what would it need (the normalizeName copy?) to not drift from the route?
 
 ## scared hide sequence on click
 
