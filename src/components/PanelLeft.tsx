@@ -4,6 +4,8 @@ import { STREAK_TIERS } from "@/lib/streak";
 
 // Left column flanking the comparison area: the Filter trigger and the streak-color
 // legend. Pure presentation — filter state lives in ComparisonScreen and is passed down.
+// Hidden below md — the mobile toolbar in ComparisonScreen carries the Filter trigger
+// instead (the legend is desktop-only).
 type PanelLeftProps = {
   filters: Filters;
   onOpenFilter: () => void;
@@ -11,7 +13,7 @@ type PanelLeftProps = {
 
 export default function PanelLeft({ filters, onOpenFilter }: PanelLeftProps) {
   return (
-    <aside className="flex w-56 shrink-0 flex-col items-start gap-8 px-6 py-4">
+    <aside className="hidden md:flex w-56 shrink-0 flex-col items-start gap-8 px-6 py-4">
       {/* Filter trigger. A dot badges it when any price/era/series filter is active. */}
       <div className="relative">
         <FilterButton onClick={onOpenFilter} />

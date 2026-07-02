@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getPlayerId } from "@/lib/playerId";
 import { updateRating, DEFAULT_RATING, type GlickoRating } from "@/lib/glicko2";
-import FilterModal, { EMPTY_FILTERS, type Filters } from "@/components/FilterModal";
+import FilterModal, {
+  EMPTY_FILTERS,
+  hasActiveFilters,
+  type Filters,
+} from "@/components/FilterModal";
+import FilterButton from "@/components/FilterButton";
+import KeepWinnerToggle from "@/components/KeepWinnerToggle";
 import PanelLeft from "@/components/PanelLeft";
 import PanelRight from "@/components/PanelRight";
 import ComparisonArea, {
@@ -11,6 +17,7 @@ import ComparisonArea, {
   type Position,
   type Exit,
 } from "./ComparisonArea";
+import Clefairy from "./Clefairy";
 
 function positionsFor(cards: Card[], position: Position): Record<string, Position> {
   return Object.fromEntries(cards.map((card) => [card.card_id, position]));
@@ -505,7 +512,23 @@ export default function ComparisonScreen() {
   }
 
   return (
-    <div className="relative flex flex-1 overflow-hidden bg-white">
+    // Stacks vertically on phones (toolbar over the board); md and up is the original
+    // row of PanelLeft | ComparisonArea | PanelRight, untouched.
+    <div className="relative flex flex-col md:flex-row flex-1 overflow-hidden bg-white">
+      {/* Mobile-only toolbar carrying the side panels' controls (they're hidden < md). */}
+      <div className="flex items-center justify-between px-4 pt-3 md:hidden">
+        <div className="relative">
+          <FilterButton onClick={() => setFilterOpen(true)} />
+          {hasActiveFilters(filters) && (
+            <span
+              aria-hidden
+              className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-600 ring-2 ring-white"
+            />
+          )}
+        </div>
+        <KeepWinnerToggle keepWinner={keepWinner} onToggle={() => setKeepWinner((on) => !on)} />
+      </div>
+
       <PanelLeft filters={filters} onOpenFilter={() => setFilterOpen(true)} />
 
       <ComparisonArea
@@ -527,6 +550,11 @@ export default function ComparisonScreen() {
         keepWinner={keepWinner}
         onToggleKeepWinner={() => setKeepWinner((on) => !on)}
       />
+
+      {/* Roams the whole play screen (this relative, overflow-hidden container) at
+          z-0, UNDER the board's z-10 — so she can wander behind the cards and peek
+          out, and the container edge clips her off-screen wrap walk. */}
+      <Clefairy picks={picks} />
 
       {/* Mounted only while open so its working state resets from `filters` each time. */}
       {filterOpen && (

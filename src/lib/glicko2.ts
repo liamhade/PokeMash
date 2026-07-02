@@ -90,4 +90,9 @@ export function updateRating(player: GlickoRating, opponent: GlickoRating, score
   return fromGlickoScale(newMu, newPhi, newSigma);
 }
 
-export const DEFAULT_RATING: GlickoRating = { r: 1500, rd: 350, mu: 0.06 };
+// Cards start at 1200 (1500 read as inflated). Note the internal scale anchor in
+// toGlickoScale/fromGlickoScale stays at 1500 on purpose: the anchor is arbitrary
+// and independent of the starting rating — the math only ever uses rating
+// DIFFERENCES. Ratings stored before this change sit ~300 higher than fresh cards;
+// accepted while the site is in testing.
+export const DEFAULT_RATING: GlickoRating = { r: 1200, rd: 350, mu: 0.06 };

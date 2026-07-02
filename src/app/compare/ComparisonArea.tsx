@@ -2,7 +2,6 @@ import Image from "next/image";
 import { flameColor } from "@/lib/streak";
 import { DEFAULT_RATING } from "@/lib/glicko2";
 import RatingDial from "./RatingDial";
-import Clefairy from "./Clefairy";
 
 // r/rd/mu are the card's Glicko-2 rating (this player's), sent by /api/comparison/next so
 // the client can compute a pick's rating change instantly. Optional: a pair restored from
@@ -69,8 +68,9 @@ export default function ComparisonArea({
 }: ComparisonAreaProps) {
   return (
     // my-8 keeps the cards clear of the top and bottom edges; pb-40 remains so the
-    // rating dials have room below the cards.
-    <div className="flex flex-1 items-center justify-center gap-8 lg:gap-16 my-8 pb-40 relative z-10">
+    // rating dials have room below the cards. Base (phone) values are tighter; md and
+    // up restores the original desktop spacing exactly.
+    <div className="flex flex-1 items-center justify-center gap-3 md:gap-8 lg:gap-16 my-4 md:my-8 pb-28 md:pb-40 relative z-10">
       {poolEmpty && (
         <p className="max-w-xs text-center text-neutral-500">
           No cards match these filters. Open{" "}
@@ -91,6 +91,9 @@ export default function ComparisonArea({
           // slot while the card slides away instead of riding off-screen with it.
           <div key={card.card_id} className="relative">
             <button
+              // Marks this card's box for the Clefairy, who peeks over its top
+              // edge when her wander path crosses it.
+              data-compare-card
               onClick={() => onPick(card)}
               onMouseEnter={() => onHover(card.card_id)}
               onMouseLeave={() => onHover(null)}
@@ -122,7 +125,9 @@ export default function ComparisonArea({
                 alt={card.name}
                 width={325}
                 height={450}
-                className="relative z-10 rounded-xl"
+                // Two cards side by side on a phone (44vw each + gap); md and up pins
+                // the original fixed 325px so desktop is unchanged.
+                className="relative z-10 h-auto w-[44vw] md:w-[325px] rounded-xl"
                 priority
               />
             </button>
@@ -164,7 +169,7 @@ export default function ComparisonArea({
                     alt=""
                     width={325}
                     height={450}
-                    className="relative z-10 rounded-xl"
+                    className="relative z-10 h-auto w-[44vw] md:w-[325px] rounded-xl"
                   />
                 </button>
                 <RatingDial from={exit.dial.from} value={exit.dial.to} />
@@ -173,8 +178,6 @@ export default function ComparisonArea({
           </div>
         );
       })}
-
-      <Clefairy picks={picks} />
     </div>
   );
 }
