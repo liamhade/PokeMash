@@ -45,6 +45,12 @@
 
 # LEARNING
 
+## extract the Gyarados sprite
+
+- [ ] The extractor found the same 8.85px pitch on both axes but different offsets (x 8.75, y 0), and scored candidates by mean luminance along whole gridlines. Why does scoring entire lines (rather than a single row/column of samples) make the search robust to the chart's heavier every-N gridlines and JPG noise, and what would a half-cell offset error have done to every cell's median?
+
+- [ ] `GYARADOS_BODY`/`GYARADOS_TAIL` are derived at module load from one `GYARADOS_SPRITE` via an `isTailCell` predicate, instead of shipping two hand-split grids. What does the single-source split guarantee when someone later retouches a pixel near the seam, and why is an imprecise cut acceptable HERE when the same sloppiness in `liftFoot`'s foot spans would visibly break the walk?
+
 ## exclude Trainer Tool cards
 
 - [ ] The API reports 849 Item cards but the normalized list holds only 368 Item names, and 26 of the 247 Tool names were already present via Item/Stadium. What do those two collapses tell you about what the exclusion actually keys on (printings vs. names), and why is a card like Big Charm — which carries BOTH Item and Pokémon Tool subtypes in different printings — caught either way?
