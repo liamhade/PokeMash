@@ -45,6 +45,12 @@
 
 # LEARNING
 
+## stepping walk cycle
+
+- [ ] `liftFoot` treats the hip line asymmetrically: below `FEET_TOP` the shift is unconditional (vacated pixels go empty), while above it only non-'.' source pixels overwrite. What would each half of the sprite look like if the other rule were applied to it — i.e. why can't one blit rule serve both regions?
+
+- [ ] The step-frame interval (160ms) lives in a React `setInterval` effect keyed on `walking`, while the bob is a 320ms CSS keyframe — the two are never phase-locked, and the CSS comment only claims they land "roughly" together. Why is an exact 2:1 sync between a JS timer and a CSS animation not actually achievable here, and why does the walk still read fine without it?
+
 ## peek sprite: restore the wing under her ear
 
 - [ ] The missing chunk existed because `PEEK_SPRITE`'s face rows were truncated at the arm columns (`...` padding) while the full `SPRITE` keeps the black wing (`k`/`DD` pixels) on that flank — why did the wing clip at the ear line specifically, and what invariant do all rows of a sprite grid have to satisfy for `PixelArt`'s `rows[0].length`-based viewBox to render every row correctly?

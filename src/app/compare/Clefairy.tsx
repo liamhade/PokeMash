@@ -158,6 +158,32 @@ const PEEK_SPRITE = [
   ".........kddkddkddk....kddkddkddk........",
 ];
 
+// Walk frames: while she glides, alternate lifting each foot so the motion reads
+// as steps rather than a rock. A lift shifts the foot's column strip up LIFT rows:
+// below the hip line it's a pure shift (the vacated rows go empty), and where the
+// raised foot overlaps the body its opaque pixels win — the foot tucks in front of
+// her rump — while its transparent pixels leave the body art intact.
+const FEET_TOP = 35; // first row that is feet, not body, in SPRITE/BACK_SPRITE
+const LIFT = 2;
+const LEFT_FOOT: [number, number] = [10, 17]; // column span of each foot
+const RIGHT_FOOT: [number, number] = [22, 31];
+
+function liftFoot(rows: string[], [c0, c1]: [number, number]): string[] {
+  return rows.map((row, y) => {
+    if (y < FEET_TOP - LIFT) return row;
+    const chars = [...row];
+    for (let x = c0; x <= c1; x++) {
+      const src = rows[y + LIFT]?.[x] ?? ".";
+      if (y >= FEET_TOP || src !== ".") chars[x] = src;
+    }
+    return chars.join("");
+  });
+}
+
+// One frame per foot; the step timer alternates between them while walking.
+const WALK_FRONT = [liftFoot(SPRITE, LEFT_FOOT), liftFoot(SPRITE, RIGHT_FOOT)];
+const WALK_BACK = [liftFoot(BACK_SPRITE, LEFT_FOOT), liftFoot(BACK_SPRITE, RIGHT_FOOT)];
+
 // A puzzled pixel "?" (cream fill, black outline) that pops up over her head
 // when the player clicks her.
 const QMARK = [
@@ -240,6 +266,8 @@ export default function Clefairy({ picks }: { picks: number }) {
   const [emote, setEmote] = useState<Emote>("none");
   const [emoteKey, setEmoteKey] = useState(0);
   const [blink, setBlink] = useState(false);
+  // Which walk frame (0 = left foot up, 1 = right foot up) is showing mid-glide.
+  const [stepFrame, setStepFrame] = useState(0);
   // The "?" popup: `qmark` keys the pop-in animation so every click replays it.
   const [qmark, setQmark] = useState(0);
   const [showQmark, setShowQmark] = useState(false);
@@ -492,6 +520,15 @@ export default function Clefairy({ picks }: { picks: number }) {
     };
   }, []);
 
+  // Step cadence: alternate feet while a glide is in flight. 160ms/step suits the
+  // toddle speed (~2 steps per 13px of travel at WALK_SPEED); the interval dies with
+  // the walk so she always plants both feet when she stops.
+  useEffect(() => {
+    if (!walking) return;
+    const timer = setInterval(() => setStepFrame((frame) => frame ^ 1), 160);
+    return () => clearInterval(timer);
+  }, [walking]);
+
   // Blink every few seconds, on its own clock so it can land mid-walk or mid-stand.
   useEffect(() => {
     let open: ReturnType<typeof setTimeout>;
@@ -512,13 +549,17 @@ export default function Clefairy({ picks }: { picks: number }) {
     };
   }, []);
 
+  // Mid-glide the stepping frames take over (they trump the blink: eyes stay open
+  // while she watches where she's going); at rest the usual stand/blink pair shows.
   const rows = peeking
     ? PEEK_SPRITE
-    : showBack
-      ? BACK_SPRITE
-      : blink
-        ? BLINK_SPRITE
-        : SPRITE;
+    : walking
+      ? (showBack ? WALK_BACK : WALK_FRONT)[stepFrame]
+      : showBack
+        ? BACK_SPRITE
+        : blink
+          ? BLINK_SPRITE
+          : SPRITE;
 
   return (
     // Full-bleed roam layer under the board; the parent's overflow-hidden clips
