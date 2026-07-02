@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## Clefairy peeks over cards, walks to clicks
+
+- [ ] In `Clefairy.tsx`, `onClick` listens on the play screen (`areaRef.current.parentElement`) even though the roam layer covers the same box, and it hit-tests her via `spriteBoxRef.getBoundingClientRect()` instead of an onClick on the sprite. What two z-order/pointer-events problems does this pair of choices sidestep that the "obvious" approach (make the sprite clickable) would hit?
+
+- [ ] `peekBehind` never draws the card edge — it pins the peek sprite's bottom at `card.top + 2` and lets the z-10 card occlude everything below its border, so "hands gripping the edge" is faked purely by positioning against a measured DOM rect. What's the tradeoff of composing an effect out of live layout measurements (`cardRects` per act) versus baking the relationship into one owned component, and when does the measured approach break?
+
 ## Clefairy roams the whole page
 
 - [ ] In `Clefairy.tsx`, the left-edge wrap teleports her by setting `walkMs` to 0 in the same act as the new `x`, then waits `after(60, …)` before starting the re-entry `walkTo`. Why does the 0ms transition render as an instant jump rather than a fast walk, and what would the user see if the re-entry walk were started in the same tick as the snap?

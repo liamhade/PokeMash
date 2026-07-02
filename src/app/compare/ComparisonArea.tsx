@@ -91,6 +91,9 @@ export default function ComparisonArea({
           // slot while the card slides away instead of riding off-screen with it.
           <div key={card.card_id} className="relative">
             <button
+              // Marks this card's box for the Clefairy, who peeks over its top
+              // edge when her wander path crosses it.
+              data-compare-card
               onClick={() => onPick(card)}
               onMouseEnter={() => onHover(card.card_id)}
               onMouseLeave={() => onHover(null)}
