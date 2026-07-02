@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## responsive iPhone layout (desktop untouched)
+
+- [ ] Every mobile change is a base-value + `md:` pair where the `md:` value restates the old class exactly (e.g. `gap-3 md:gap-8`, `w-[44vw] md:w-[325px]`). Why does this convention make "desktop is unchanged" true by construction rather than by testing, and what's the one way it can still silently break (think: what was the OLD base value before the edit)?
+
+- [ ] Debugging the missing pick-flash: computed style showed `animationName: none` while the source file had the rule, and the served CSS chunk contained pre-session classes only — a stale `.next` Turbopack cache poisoned by git checkouts under a running dev server. What's the general diagnostic ladder this followed (rendered → computed → served → source), and why is each step's mismatch conclusive about where the fault is?
+
 ## fix Clefairy's flipped facing
 
 - [ ] The fix negates `facing` at the render (`scaleX(${-facing})`) instead of swapping the `dir` assignment in the wander brain. Why is "state keeps movement semantics, the view layer absorbs the art's native orientation" the more maintainable split — what would a future emote that depends on movement direction look like under each choice?

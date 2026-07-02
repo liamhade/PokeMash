@@ -48,7 +48,7 @@ export default function RatingDial({ value, from }: { value: number; from?: numb
       <span
         style={{ fontFamily: "var(--font-elo)" }} // Bitcount Prop Single (see layout.tsx)
         className={[
-          "text-3xl font-bold tabular-nums transition-colors duration-300",
+          "text-2xl md:text-3xl font-bold tabular-nums transition-colors duration-300",
           delta > 0 ? "text-green-500" : delta < 0 ? "text-red-500" : "text-neutral-700",
         ].join(" ")}
       >

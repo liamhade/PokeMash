@@ -69,8 +69,9 @@ export default function ComparisonArea({
 }: ComparisonAreaProps) {
   return (
     // my-8 keeps the cards clear of the top and bottom edges; pb-40 remains so the
-    // rating dials have room below the cards.
-    <div className="flex flex-1 items-center justify-center gap-8 lg:gap-16 my-8 pb-40 relative z-10">
+    // rating dials have room below the cards. Base (phone) values are tighter; md and
+    // up restores the original desktop spacing exactly.
+    <div className="flex flex-1 items-center justify-center gap-3 md:gap-8 lg:gap-16 my-4 md:my-8 pb-28 md:pb-40 relative z-10">
       {poolEmpty && (
         <p className="max-w-xs text-center text-neutral-500">
           No cards match these filters. Open{" "}
@@ -122,7 +123,9 @@ export default function ComparisonArea({
                 alt={card.name}
                 width={325}
                 height={450}
-                className="relative z-10 rounded-xl"
+                // Two cards side by side on a phone (44vw each + gap); md and up pins
+                // the original fixed 325px so desktop is unchanged.
+                className="relative z-10 h-auto w-[44vw] md:w-[325px] rounded-xl"
                 priority
               />
             </button>
@@ -164,7 +167,7 @@ export default function ComparisonArea({
                     alt=""
                     width={325}
                     height={450}
-                    className="relative z-10 rounded-xl"
+                    className="relative z-10 h-auto w-[44vw] md:w-[325px] rounded-xl"
                   />
                 </button>
                 <RatingDial from={exit.dial.from} value={exit.dial.to} />

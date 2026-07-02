@@ -7,7 +7,7 @@ import NavButton from "./NavButton";
 // shadow makes the bar look like it floats above the page.
 export default function NavBar() {
   return (
-    <header className="sticky top-0 z-50 flex items-center bg-white px-6 py-2 shadow-md">
+    <header className="sticky top-0 z-50 flex items-center bg-white px-4 md:px-6 py-2 shadow-md">
       <Link href="/" className="flex items-center">
         {/* The source PNG's outline is thin and light. Until the asset is redrawn (see
             TODO: make logo dark), stack dark drop-shadows on all four sides to fake a
@@ -24,7 +24,7 @@ export default function NavBar() {
 
       {/* Spacer pushes the buttons toward the right, then a small right margin
           keeps them off the very edge. */}
-      <nav className="ml-auto mr-8 flex items-center gap-2">
+      <nav className="ml-auto mr-0 md:mr-8 flex items-center gap-2">
         <NavButton href="/compare">Play</NavButton>
         <NavButton href="/rankings">Rankings</NavButton>
       </nav>
