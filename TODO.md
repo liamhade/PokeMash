@@ -49,7 +49,11 @@
 
 # LEARNING
 
-## fix Clefairy's flipped facing
+## warm the optimizer URL, not the raw image URL
+
+- [ ] `warmImage` now mirrors `getImageProps`'s `srcSet`/`sizes` onto the warm-up `Image` instead of just setting `props.src`. Why is copying the srcset (and letting the browser run candidate selection twice) the only way to guarantee a cache hit on a high-DPR display, and which URL would a plain `img.src = props.src` warm there?
+
+- [ ] The cold `/_next/image` request measured ~0.2–0.8s while the warm one was ~2ms, yet the raw pkmncards.com URL we used to warm was itself being cached fine. What general lesson about "warming a cache" does this bug illustrate — what must you verify about the *consumer's* request before a prefetch counts as a prefetch?
 
 - [ ] The fix negates `facing` at the render (`scaleX(${-facing})`) instead of swapping the `dir` assignment in the wander brain. Why is "state keeps movement semantics, the view layer absorbs the art's native orientation" the more maintainable split — what would a future emote that depends on movement direction look like under each choice?
 

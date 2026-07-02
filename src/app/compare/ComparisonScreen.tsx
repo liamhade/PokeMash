@@ -6,7 +6,9 @@ import { updateRating, DEFAULT_RATING, type GlickoRating } from "@/lib/glicko2";
 import FilterModal, { EMPTY_FILTERS, type Filters } from "@/components/FilterModal";
 import PanelLeft from "@/components/PanelLeft";
 import PanelRight from "@/components/PanelRight";
+import { getImageProps } from "next/image";
 import ComparisonArea, {
+  CARD_IMAGE,
   type Card,
   type Position,
   type Exit,
@@ -71,11 +73,19 @@ function buildFilterQuery(filters: Filters): string {
 }
 
 // Warm the browser image cache for a card likely to appear next, so its <Image> renders
-// from cache with no visible load when it mounts.
+// from cache with no visible load when it mounts. next/image rewrites the source URL into
+// an /_next/image?url=…&w=…&q=… request, so we must warm THAT — warming the raw
+// pkmncards.com URL fills the cache with a URL the mounted card never asks for.
+// getImageProps resolves the same src/srcSet the <Image> in ComparisonArea will render
+// (same CARD_IMAGE dimensions), and mirroring srcSet/sizes onto the warm-up Image makes
+// the browser run the same candidate selection, hitting the identical URL at mount.
 function warmImage(url: string) {
   if (typeof window === "undefined") return;
+  const { props } = getImageProps({ src: url, alt: "", ...CARD_IMAGE });
   const img = new window.Image();
-  img.src = url;
+  if (props.sizes) img.sizes = props.sizes;
+  if (props.srcSet) img.srcset = props.srcSet;
+  img.src = props.src;
 }
 
 // Identifies the exact on-screen state a preload was fetched for: the pair, the mode, and
