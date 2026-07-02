@@ -613,9 +613,10 @@ export default function ComparisonScreen() {
         <KeepWinnerToggle keepWinner={keepWinner} onToggle={() => setKeepWinner((on) => !on)} />
       </div>
 
-      {/* Mobile-only streak legend, laid out as a row (it lives in PanelLeft on md+). */}
-      <div className="flex justify-center pt-2 md:hidden">
-        <StreakLegend className="flex-row gap-3" />
+      {/* Mobile-only streak legend (it lives in PanelLeft on md+). Same stacked column
+          as desktop, tucked under the Filter trigger on the left edge. */}
+      <div className="px-4 pt-2 md:hidden">
+        <StreakLegend className="flex-col gap-2" />
       </div>
 
       <PanelLeft filters={filters} onOpenFilter={() => setFilterOpen(true)} />

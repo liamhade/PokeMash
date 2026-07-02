@@ -45,7 +45,11 @@
 
 # LEARNING
 
-## streak legend on phones
+## phone legend: stack it like desktop
+
+- [ ] Restacking the phone legend only touched the wrapper div in `ComparisonScreen` and the `className` passed to `StreakLegend` — no component code changed. What did leaving layout direction to the caller (rather than baking `flex-row`/`flex-col` variants into `StreakLegend` as a prop like `horizontal`) buy in this exact iteration, and where would that "caller owns layout" pattern start to hurt?
+
+- [ ] The horizontal row was chosen initially to save vertical space on phones, and the user rejected it on sight. What does this suggest about which layout decisions are worth shipping as a guess versus asking/mocking first, and why is a cheap-to-reverse guess (one wrapper div) still the right default in this workflow?
 
 - [ ] The "missing" iOS legend was never an iOS bug: `PanelLeft` is `hidden md:flex`, and the phone toolbar had only rescued the Filter trigger from it. Why does verifying this fix via `curl` + grep for both class strings work even though `ComparisonScreen` is a client component — what does Next.js render of a client component on the server, and which kind of hiding (CSS breakpoint vs. conditional render) would that check NOT see?
 
