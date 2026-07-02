@@ -2,7 +2,6 @@ import Image from "next/image";
 import { flameColor } from "@/lib/streak";
 import { DEFAULT_RATING } from "@/lib/glicko2";
 import RatingDial from "./RatingDial";
-import Clefairy from "./Clefairy";
 
 // r/rd/mu are the card's Glicko-2 rating (this player's), sent by /api/comparison/next so
 // the client can compute a pick's rating change instantly. Optional: a pair restored from
@@ -176,8 +175,6 @@ export default function ComparisonArea({
           </div>
         );
       })}
-
-      <Clefairy picks={picks} />
     </div>
   );
 }

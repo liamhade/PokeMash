@@ -17,6 +17,7 @@ import ComparisonArea, {
   type Position,
   type Exit,
 } from "./ComparisonArea";
+import Clefairy from "./Clefairy";
 
 function positionsFor(cards: Card[], position: Position): Record<string, Position> {
   return Object.fromEntries(cards.map((card) => [card.card_id, position]));
@@ -549,6 +550,11 @@ export default function ComparisonScreen() {
         keepWinner={keepWinner}
         onToggleKeepWinner={() => setKeepWinner((on) => !on)}
       />
+
+      {/* Roams the whole play screen (this relative, overflow-hidden container) at
+          z-0, UNDER the board's z-10 — so she can wander behind the cards and peek
+          out, and the container edge clips her off-screen wrap walk. */}
+      <Clefairy picks={picks} />
 
       {/* Mounted only while open so its working state resets from `filters` each time. */}
       {filterOpen && (
