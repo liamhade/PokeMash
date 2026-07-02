@@ -1,13 +1,17 @@
-// Top-down (bird's-eye) Gyarados, drawn as three 16x16 pieces that the play
-// screen composes into a strip — tail, body segments, head — laid along +x and
-// rotated to his travel heading. Each piece undulates across the travel axis
-// with a phase lag, so the body snakes like a slow wave. Authored by hand and
-// tuned against PNG renders (the side-view chart can't be re-projected).
+// Top-down (bird's-eye) Gyarados, drawn as 24-row pieces that the play screen
+// composes into a strip — tail fan, stem, body slices, neck, head — laid along
+// +x and rotated to his travel heading. Modeled on the official top-down render:
+// radiating crest horns swept back off the head, big white jagged fins behind
+// the neck, cream belly-plate crescents at every segment joint, small ruffle
+// fins on the rear third, and the serrated two-pronged caudal fan.
 //
-// Legend: k outline black | B body blue | L light blue highlight | N dark crest
-// blue | W fin white / whisker | w fin lavender shade | y pale back spots |
-// r eye red. The head points RIGHT; the runtime rotation supplies every other
-// heading, so each piece is symmetric about its horizontal midline.
+// Every piece is authored as a 12-row top half and mirrored about the
+// horizontal midline, so the strip is symmetric and any runtime heading works.
+// Pieces paint tail->head; each piece's left columns overlap its tail-side
+// neighbor and must visually continue it.
+//
+// Legend: k outline black | B body blue | L light dorsal highlight | N dark
+// crest blue | W fin white | w fin lavender shade | c belly cream | r eye red.
 export const GYARADOS_PALETTE: Record<string, string> = {
   k: "#101820",
   B: "#1890B0",
@@ -15,70 +19,110 @@ export const GYARADOS_PALETTE: Record<string, string> = {
   N: "#106080",
   W: "#F8F8F8",
   w: "#C8C8E8",
-  y: "#F0F0B0",
+  c: "#F0E0B8",
   r: "#E03028",
 };
 
-// Head from above: blunt snout, red eye ridges at the front sides, the dark
-// crest tapering back down the centerline, whisker barbels trailing the jaw.
-export const GYARADOS_HEAD = [
-  "................",
-  "................",
-  "....kkkkkk......",
-  "..kkBLLLLBkk....",
-  ".kBLBBBBBBBBkkW.",
-  ".kBBBBBBBBBBBkWk",
-  "kBNNBBBBBBrrBk..",
-  "kBNNNNNBBBBBBBk.",
-  "kBNNNNNNNBBBBBk.",
-  "kBNNNNNNNBBBBBk.",
-  "kBNNNNNBBBBBBBk.",
-  "kBNNBBBBBBrrBk..",
-  ".kBBBBBBBBBBBkWk",
-  ".kBLBBBBBBBBkkW.",
-  "..kkBLLLLBkk....",
-  "....kkkkkk......",
-];
+function mirror(top: string[]): string[] {
+  return [...top, ...[...top].reverse()];
+}
 
-// One body slice: outlined only along the flanks (top/bottom rows) so adjoining
-// slices merge into one unbroken tube; white dorsal-fin diamonds ride the spine
-// and pale spots dust the back.
-export const GYARADOS_SEGMENT = [
-  "................",
-  "................",
-  "kkkkkkkkkkkkkkkk",
-  "BLLBBBBBBLLBBBBB",
-  "BBByBBBBBBBBByBB",
-  "BBBBBBBByBBBBBBB",
-  "BBBBBWWBBBBBWWBB",
-  "BBBBWWWWBBBWWWWB",
-  "BBBBWWWWBBBWWWWB",
-  "BBBBBWWBBBBBWWBB",
-  "ByBBBBBBBByBBBBB",
-  "BBBBBBByBBBBBBBB",
-  "BLLBBBBBBLLBBBBB",
-  "kkkkkkkkkkkkkkkk",
-  "................",
-  "................",
-];
+// Head, 26 wide: tube-blue left columns so the neck flows in, long swept-back
+// crest horns, the crest diamond at the center-back, red eye ridges near the
+// snout sides, a nostril dot, and whisker barbels trailing the jaw.
+export const GYARADOS_HEAD = mirror([
+  "kkk.......................",
+  "kNNkkk......kk............",
+  ".kkNNNkk...kNNk...........",
+  "...kkNNNk..kNNNk..........",
+  ".....kkNkkkkNNkkkkkk......",
+  "......kkBBBBBBBBBBBkkk....",
+  "kkkkkkBBBBBBBBBBBBBBBkk...",
+  "BBBBBBBBBBBBBBBBBBBBBBkk..",
+  "BBBBBNBBBBBBBBBBBBBBBBBk..",
+  "BBBBNNNBBBBBBBBBBrrBBBBk..",
+  "BBBBNNNNBBBBBBBBBrrBBkBkW.",
+  "BBBBNNNNNBBBBBBBBBBBBBBkW.",
+]);
 
-// Tail: the blue stub opens into the caudal fan — a backward-pointing V from
-// above — white with lavender shading toward the trailing edge.
-export const GYARADOS_TAIL = [
-  "................",
-  "kk..............",
-  "kWWkk...........",
-  "kWWWWkk.........",
-  ".kWWWWWWkk......",
-  ".kwWWWWWWWkkkkkk",
-  "..kwwWWWWWWBBBBB",
-  "..kwwwWWWWWBBBBB",
-  "..kwwwWWWWWBBBBB",
-  "..kwwWWWWWWBBBBB",
-  ".kwWWWWWWWkkkkkk",
-  ".kWWWWWWkk......",
-  "kWWWWkk.........",
-  "kWWkk...........",
-  "kk..............",
-  "................",
-];
+// Neck, 16 wide: the big white jagged fins right behind the head.
+export const GYARADOS_NECK = mirror([
+  "....kk..........",
+  "...kWWkk...kk...",
+  "...kWWWWk.kWWk..",
+  "..kWWWWWWkkWWWk.",
+  "..kWWWWWWWWWWWk.",
+  ".kkWWWWWWWWWWWkk",
+  "kkkkkkkkkkkkkkkk",
+  "BBLLBBBBBBLLBBBB",
+  "BBBBBBBBBBBBBBBB",
+  "BBBBBBBBBBBBBBBB",
+  "BBBBBBBBBBBBBBBB",
+  "BBBBBBBBBBBBBBBB",
+]);
+
+// Body slice, 14 wide: cream belly-plate crescent at the left (tail-side)
+// joint, light dorsal highlight along the flanks.
+export const GYARADOS_SEG = mirror([
+  "..............",
+  "..............",
+  "..............",
+  "..............",
+  "..............",
+  "..............",
+  "kkkkkkkkkkkkkk",
+  "ccBLLBBBBBLLBB",
+  "ccBBBBBBBBBBBB",
+  "cBBBBBBBBBBBBB",
+  "cBBBBBBBBBBBBB",
+  "cBBBBBBBBBBBBB",
+]);
+
+// Body slice with the small grey-white ruffle fins of the rear third.
+export const GYARADOS_SEG_RUFFLE = mirror([
+  "..............",
+  "....kk........",
+  "...kwWk..kk...",
+  "...kwWWkkwWk..",
+  "..kwWWWWwWWk..",
+  "..kkWWWWWWWkk.",
+  "kkkkkkkkkkkkkk",
+  "ccBLLBBBBBLLBB",
+  "ccBBBBBBBBBBBB",
+  "cBBBBBBBBBBBBB",
+  "cBBBBBBBBBBBBB",
+  "cBBBBBBBBBBBBB",
+]);
+
+// Thin tail stem before the fan.
+export const GYARADOS_STEM = mirror([
+  "............",
+  "............",
+  "............",
+  "............",
+  "............",
+  "............",
+  "............",
+  "............",
+  "............",
+  "kkkkkkkkkkkk",
+  "ccBBBBBBBBBB",
+  "cBBBBBBBBBBB",
+]);
+
+// Caudal fan, 24 wide: two swept prongs with lavender webbing between, a ragged
+// serrated trailing edge, and the hub at the right connecting to the stem.
+export const GYARADOS_FAN = mirror([
+  "..kk....................",
+  ".kBBkk..................",
+  ".kBBBBkk................",
+  "..kkBBBBkk..............",
+  ".kwwkkBBBBkk............",
+  "..kwwwkkBBBBkk..........",
+  ".kwwwwwkkBBBBkk.........",
+  "..kwwwwwwkkBBBBkk.......",
+  ".kwwwwwwwwkkBBBBkkk.....",
+  "..kwwwwwwwwwkBBBBBBkkkkk",
+  ".kwwwwwwwwwwwkBBBBBBBBBB",
+  "..kwwwwwwwwwwwkBBBBBBBBB",
+]);

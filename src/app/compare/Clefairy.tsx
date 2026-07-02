@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
+  GYARADOS_FAN,
   GYARADOS_HEAD,
+  GYARADOS_NECK,
   GYARADOS_PALETTE,
-  GYARADOS_SEGMENT,
-  GYARADOS_TAIL,
+  GYARADOS_SEG,
+  GYARADOS_SEG_RUFFLE,
+  GYARADOS_STEM,
 } from "./gyaradosSprite";
 
 // A relaxed toddle, in px/s. Walk duration scales with distance so speed stays constant.
@@ -239,29 +242,32 @@ const SPRITE_H = SPRITE.length * PX * DISPLAY_SCALE;
 
 // The top-down Gyarados strip, tail→head along +x, rotated at runtime to his
 // travel heading. Each piece oscillates across the travel axis (amplitude
-// growing toward the tail); the traveling wave comes from the per-piece
-// animation delays — the head (rendered last) leads, the tail follows.
+// growing sharply toward the tail for big, whole-body strokes); the traveling
+// wave comes from the per-piece animation delays — the head (rendered last)
+// leads, the tail follows.
 const GYARADOS_PIECES = [
-  { rows: GYARADOS_TAIL, amp: 13 },
-  { rows: GYARADOS_SEGMENT, amp: 11 },
-  { rows: GYARADOS_SEGMENT, amp: 8 },
-  { rows: GYARADOS_SEGMENT, amp: 5 },
-  { rows: GYARADOS_HEAD, amp: 3 },
+  { rows: GYARADOS_FAN, amp: 26 },
+  { rows: GYARADOS_STEM, amp: 20 },
+  { rows: GYARADOS_SEG_RUFFLE, amp: 15 },
+  { rows: GYARADOS_SEG, amp: 11 },
+  { rows: GYARADOS_SEG, amp: 7 },
+  { rows: GYARADOS_NECK, amp: 4 },
+  { rows: GYARADOS_HEAD, amp: 2 },
 ];
-const WAVE_LAG_MS = 340; // per-piece phase lag within the 2.8s undulation
+const WAVE_LAG_MS = 380; // per-piece phase lag within the 3.4s undulation
 const OVERLAP_PX = 3 * PX * DISPLAY_SCALE; // adjoining pieces merge into one tube
-const GYARADOS_MAX_AMP = 13;
+const GYARADOS_MAX_AMP = 26;
 // Footprint for card avoidance: strip length minus overlaps; strip thickness
 // plus the full wave swing either side of the spine.
 const GYARADOS_W =
   GYARADOS_PIECES.reduce((w, piece) => w + piece.rows[0].length * PX * DISPLAY_SCALE, 0) -
   (GYARADOS_PIECES.length - 1) * OVERLAP_PX;
-const GYARADOS_H = 16 * PX * DISPLAY_SCALE + 2 * GYARADOS_MAX_AMP;
+const GYARADOS_H = 24 * PX * DISPLAY_SCALE + 2 * GYARADOS_MAX_AMP;
 // A slow menacing prowl (she toddles at 41), a faster dive/exit lunge, how long
 // a visit terrorizes the play area, and the randomized gap until the next one.
 const GYARADOS_SPEED = 70;
 const GYARADOS_LUNGE_SPEED = 170;
-const VISIT_MS = 8000;
+const VISIT_MS = 12_500;
 const VISIT_GAP_MIN_MS = 25_000;
 const VISIT_GAP_SPAN_MS = 35_000;
 
@@ -502,10 +508,30 @@ export default function Clefairy({ picks }: { picks: number }) {
       );
     }
 
-    // Gyarados' box for clearance checks: GYARADOS_H already includes the wave
-    // swing on both sides of the spine, so shift the anchor down by one swing.
+    // Sample a straight glide every ~40px against `clear`. (A fixed handful of
+    // fractions let long hops clip card corners between samples — the sworn
+    // enemy of "never behind the board".)
+    function pathClear(
+      x0: number,
+      y0: number,
+      x1: number,
+      y1: number,
+      clear: (x: number, y: number) => boolean,
+    ) {
+      const steps = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 40));
+      for (let i = 1; i < steps; i++) {
+        if (!clear(x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps)) return false;
+      }
+      return true;
+    }
+
+    // Gyarados' clearance box. He rotates about the strip's center to face any
+    // heading, so a turn sweeps his full LENGTH in an arc — clear a length-sided
+    // square around the center, not just the resting strip box, or a turn near
+    // the board arcs his head and tail across it.
     function gyaradosClear(x: number, y: number, cards: CardRect[]) {
-      return clearOfCards(x, y + GYARADOS_MAX_AMP, GYARADOS_W, GYARADOS_H, cards);
+      const centerY = y + GYARADOS_MAX_AMP - GYARADOS_H / 2;
+      return clearOfCards(x, centerY + GYARADOS_W / 2, GYARADOS_W, GYARADOS_W, cards);
     }
 
     // Glide Gyarados to (tx, ty), heading into his direction of travel. The
@@ -525,9 +551,9 @@ export default function Clefairy({ picks }: { picks: number }) {
     }
 
     // A random patch of open "white space": inside the play area but clear of
-    // every card box, with the glide path sampled at quarter points so a hop
-    // from one side to the other doesn't cut behind the board. Rejection-
-    // sampled; if he's hemmed in, he just holds position for a beat.
+    // every card box, with the whole glide path sampled so a hop from one side
+    // to the other doesn't cut behind the board. Rejection-sampled; if he's
+    // hemmed in, he just holds position for a beat.
     function openWater(): { x: number; y: number } {
       const { w, h } = area();
       const xMin = -w / 2 + 8;
@@ -535,13 +561,11 @@ export default function Clefairy({ picks }: { picks: number }) {
       const yMin = Math.min(0, -(h - GYARADOS_H - 96));
       const cards = cardRects();
       const from = gyaradosRef.current;
+      const clear = (x: number, y: number) => gyaradosClear(x, y, cards);
       for (let tries = 0; tries < 30; tries++) {
         const x = xMin + Math.random() * (xMax - xMin);
         const y = yMin * Math.random();
-        const pathClear = [0.25, 0.5, 0.75].every((f) =>
-          gyaradosClear(from.x + (x - from.x) * f, from.y + (y - from.y) * f, cards),
-        );
-        if (gyaradosClear(x, y, cards) && pathClear) return { x, y };
+        if (clear(x, y) && pathClear(from.x, from.y, x, y, clear)) return { x, y };
       }
       return from;
     }
@@ -552,21 +576,27 @@ export default function Clefairy({ picks }: { picks: number }) {
     function openMeadow(): { x: number; y: number } {
       const { xMin, xMax, yMin } = bounds();
       const cards = cardRects();
+      const clear = (x: number, y: number) => clearOfCards(x, y, SPRITE_W, SPRITE_H, cards);
       for (let tries = 0; tries < 30; tries++) {
         const x = xMin + Math.random() * (xMax - xMin);
         const y = yMin * Math.random();
-        const pathClear = [0.25, 0.5, 0.75].every((f) =>
-          clearOfCards(
-            xRef.current + (x - xRef.current) * f,
-            yRef.current + (y - yRef.current) * f,
-            SPRITE_W,
-            SPRITE_H,
-            cards,
-          ),
-        );
-        if (clearOfCards(x, y, SPRITE_W, SPRITE_H, cards) && pathClear) return { x, y };
+        if (clear(x, y) && pathClear(xRef.current, yRef.current, x, y, clear)) return { x, y };
       }
       return { x: xRef.current, y: yRef.current };
+    }
+
+    // A clear spot to step out to, checking only the TARGET: for when she is
+    // already overlapping the board (cards mounted over her, or she's emerging
+    // from a hide), where any path check from the start point must fail.
+    function stepOutSpot(): { x: number; y: number } {
+      const { xMin, xMax, yMin } = bounds();
+      const cards = cardRects();
+      for (let tries = 0; tries < 30; tries++) {
+        const x = xMin + Math.random() * (xMax - xMin);
+        const y = yMin * Math.random();
+        if (clearOfCards(x, y, SPRITE_W, SPRITE_H, cards)) return { x, y };
+      }
+      return { x: xRef.current, y: 0 }; // the floor lane below the board is always open
     }
 
     // Turn to face the other way (a glance, or a dance twirl beat).
@@ -610,9 +640,10 @@ export default function Clefairy({ picks }: { picks: number }) {
       const hide = hideSpotBehind(card);
       walkTo(hide.x, hide.y, undefined, WALK_SPEED * 3);
 
-      // He glides in from the side edge behind her back, hunting her old spot.
+      // He glides in from the edge on HER side of the screen — so the dive at
+      // her old spot never has to cross the board — hunting where she stood.
       const { w, h } = area();
-      const fromLeft = herX >= 0;
+      const fromLeft = herX < 0;
       const xMinG = -w / 2 + 8;
       const xMaxG = w / 2 - GYARADOS_W - 8;
       const yMinG = Math.min(0, -(h - GYARADOS_H - 96));
@@ -623,21 +654,26 @@ export default function Clefairy({ picks }: { picks: number }) {
       setGyarados({ x: startX, y: startY, ms: 0, angle: gyaradosAngleRef.current });
 
       // Prowl beat: glide to fresh open water, pause, repeat while time remains;
-      // then leave off a side edge — preferring one he can reach without cutting
-      // behind the board — and despawn.
+      // then leave — a side edge he can reach without cutting behind the board,
+      // else soaring off the top, else (hemmed in on a tiny screen) the nearest
+      // side regardless — and despawn.
       function prowl(remaining: number) {
         if (remaining <= 0) {
           const g = gyaradosRef.current;
-          const exits = [-w / 2 - GYARADOS_W - 24, w / 2 + 24].sort(
-            (a, b) => Math.abs(a - g.x) - Math.abs(b - g.x),
-          );
-          const cards = cardRects();
-          const pathClear = (exitX: number) =>
-            [0.25, 0.5, 0.75].every((f) =>
-              gyaradosClear(g.x + (exitX - g.x) * f, g.y, cards),
-            );
-          const exitX = exits.find(pathClear) ?? exits[0];
-          const ms = gyaradosGlide(exitX, g.y, GYARADOS_LUNGE_SPEED);
+          const cardsNow = cardRects();
+          const clear = (x: number, y: number) => gyaradosClear(x, y, cardsNow);
+          const sides =
+            g.x < 0
+              ? [-w / 2 - GYARADOS_W - 24, w / 2 + 24]
+              : [w / 2 + 24, -w / 2 - GYARADOS_W - 24];
+          const side = sides.find((exitX) => pathClear(g.x, g.y, exitX, g.y, clear));
+          const exit =
+            side !== undefined
+              ? { x: side, y: g.y }
+              : pathClear(g.x, g.y, g.x, -(h + GYARADOS_W), clear)
+                ? { x: g.x, y: -(h + GYARADOS_W) }
+                : { x: sides[0], y: g.y };
+          const ms = gyaradosGlide(exit.x, exit.y, GYARADOS_LUNGE_SPEED);
           after(ms + 80, () => setGyarados(null));
           return;
         }
@@ -648,35 +684,28 @@ export default function Clefairy({ picks }: { picks: number }) {
       }
       after(60, () => {
         // (60ms: let the off-screen spawn mount before animating, like the wrap.)
-        // Dive at her old spot — unless that sits against the board, in which
-        // case lunge to the nearest open water instead: he never crosses cards.
+        // Dive at her old spot — unless the spot or the way to it touches the
+        // board, in which case lunge to open water instead: he never crosses.
+        const clear = (x: number, y: number) => gyaradosClear(x, y, cards);
         const diveX = Math.max(xMinG, Math.min(xMaxG, herX + SPRITE_W / 2 - GYARADOS_W / 2));
         const diveY = Math.min(0, herY);
-        const dive = gyaradosClear(diveX, diveY, cards) ? { x: diveX, y: diveY } : openWater();
+        const dive =
+          clear(diveX, diveY) && pathClear(startX, startY, diveX, diveY, clear)
+            ? { x: diveX, y: diveY }
+            : openWater();
         const diveMs = gyaradosGlide(dive.x, dive.y, GYARADOS_LUNGE_SPEED);
         after(diveMs, () => prowl(VISIT_MS - 60 - diveMs));
       });
 
-      // Her side of the episode, on fixed beats under the 8s visit.
-      after(2400, () => nervousPeek(card, hide.y));
-      after(5100, () => nervousPeek(card, hide.y));
+      // Her side of the episode, on fixed beats under the visit.
+      after(2800, () => nervousPeek(card, hide.y));
+      after(6800, () => nervousPeek(card, hide.y));
       after(VISIT_MS + 1200, () => {
-        // All clear: step out to open space and get back to roaming. Target-only
-        // clearance — the walk necessarily STARTS behind the card, so openMeadow's
-        // path check would reject everything; falling to the floor below the
-        // board is the guaranteed way out.
+        // All clear: step out to open space and get back to roaming. stepOutSpot
+        // checks only the target — the walk necessarily STARTS behind the card,
+        // so openMeadow's path check would reject everything.
         episodeRef.current = false;
-        const { xMin, xMax, yMin } = bounds();
-        const cardsNow = cardRects();
-        let spot = { x: xRef.current, y: 0 };
-        for (let tries = 0; tries < 30; tries++) {
-          const x = xMin + Math.random() * (xMax - xMin);
-          const y = yMin * Math.random();
-          if (clearOfCards(x, y, SPRITE_W, SPRITE_H, cardsNow)) {
-            spot = { x, y };
-            break;
-          }
-        }
+        const spot = stepOutSpot();
         schedule(walkTo(spot.x, spot.y) + 600 + Math.random() * 1200);
         scheduleVisit();
       });
@@ -685,6 +714,17 @@ export default function Clefairy({ picks }: { picks: number }) {
     function act() {
       const { w } = area();
       const { xMax } = bounds();
+      // Cards can mount OVER wherever she happens to stand — the board loads
+      // after her, and filter changes remount it. If that happened (and no
+      // Gyarados episode legitimately hid her), step out before doing anything.
+      if (
+        !episodeRef.current &&
+        !clearOfCards(xRef.current, yRef.current, SPRITE_W, SPRITE_H, cardRects())
+      ) {
+        const spot = stepOutSpot();
+        schedule(walkTo(spot.x, spot.y) + 300 + Math.random() * 700);
+        return;
+      }
       const roll = Math.random();
       if (roll < 0.5) {
         // Wander the open white space only (openMeadow keeps the target AND the
@@ -697,14 +737,13 @@ export default function Clefairy({ picks }: { picks: number }) {
         // hidden, then keep walking left back into view. The wrap is a straight
         // trek across the whole width, so only take it when that shoreline is
         // clear of the board at her height; otherwise wander instead.
-        const shoreClear = [0, 0.2, 0.4, 0.6, 0.8, 1].every((f) =>
-          clearOfCards(
-            -w / 2 + f * (w - SPRITE_W),
-            yRef.current,
-            SPRITE_W,
-            SPRITE_H,
-            cardRects(),
-          ),
+        const cardsNow = cardRects();
+        const shoreClear = pathClear(
+          -w / 2,
+          yRef.current,
+          w / 2 - SPRITE_W,
+          yRef.current,
+          (x, y) => clearOfCards(x, y, SPRITE_W, SPRITE_H, cardsNow),
         );
         if (!shoreClear) {
           const spot = openMeadow();
@@ -779,12 +818,29 @@ export default function Clefairy({ picks }: { picks: number }) {
       let cy = Math.min(0, Math.max(yMin, ty));
       // A click on the board would tuck her behind a card — she only hides there
       // during Gyarados visits, so stop her just below the card instead.
-      const blocker = cardRects().find(
-        (c) => !clearOfCards(cx, cy, SPRITE_W, SPRITE_H, [c]),
-      );
+      const cards = cardRects();
+      const blocker = cards.find((c) => !clearOfCards(cx, cy, SPRITE_W, SPRITE_H, [c]));
       if (blocker) cy = Math.min(0, blocker.bottom + SPRITE_H + 6);
-      // Commanded walks hustle at double the idle-wander toddle.
-      schedule(walkTo(cx, cy, undefined, WALK_SPEED * 2) + 600 + Math.random() * 1400);
+      // Commanded walks hustle at double the idle-wander toddle. If the straight
+      // line to the target cuts behind the board, route around it through the
+      // floor lane instead: drop to the floor, cross, then rise to the target.
+      const clearHer = (x: number, y: number) => clearOfCards(x, y, SPRITE_W, SPRITE_H, cards);
+      if (pathClear(xRef.current, yRef.current, cx, cy, clearHer)) {
+        schedule(walkTo(cx, cy, undefined, WALK_SPEED * 2) + 600 + Math.random() * 1400);
+      } else {
+        walkTo(
+          xRef.current,
+          0,
+          () =>
+            walkTo(
+              cx,
+              0,
+              () => walkTo(cx, cy, () => schedule(600 + Math.random() * 1400), WALK_SPEED * 2),
+              WALK_SPEED * 2,
+            ),
+          WALK_SPEED * 2,
+        );
+      }
     }
     const screen = areaRef.current?.parentElement;
     screen?.addEventListener("click", onClick);

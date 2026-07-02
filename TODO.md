@@ -45,6 +45,12 @@
 
 # LEARNING
 
+## detailed Gyarados + airtight card avoidance
+
+- [ ] Both behind-the-board sightings traced to geometry the AABB checks silently ignored: the entry dive started OFF-SCREEN on the far side (path never checked), and turns rotate the strip about its center so the head/tail sweep an arc the resting box doesn't cover. Why does `gyaradosClear` clearing a LENGTH-sided square fix the rotation case for every heading at once, and what does it cost him on narrow screens where that square fits nowhere?
+
+- [ ] All the pieces are authored as a 12-row top half run through `mirror()`, which is exactly why the eyes sit at half-row 9 (not the midline) and why the head can be rotated to any heading without a flip. What would drawing the full 24 rows by hand have cost across the five iterations this art took, and where does the mirror trick break down (think: the old side-view sprite's asymmetric silhouette)?
+
 ## top-down snaking Gyarados + open-space-only roaming
 
 - [ ] The traveling wave is one shared `gyarados-undulate` keyframe with per-piece inline `--amp` and a NEGATIVE `animationDelay` of `-i * WAVE_LAG_MS` (tail is i=0). Work through why a negative delay makes the head the most phase-ADVANCED piece and thus makes the crest travel head→tail — and what the wave would do if the delays were positive instead?
