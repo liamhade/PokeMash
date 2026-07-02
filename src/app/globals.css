@@ -171,11 +171,11 @@ body {
   transform-origin: 50% 90%;
 }
 
-/* Gyarados swims with a slow traveling wave: every piece of the top-down strip
-   oscillates across the travel axis on the same period, with its amplitude set
-   inline (--amp, growing toward the tail) and its phase staggered by the inline
-   animation-delay (head leads, tail follows). */
-@keyframes gyarados-undulate {
+/* The serpents swim with a slow traveling wave: every piece of the top-down
+   strip oscillates across the travel axis on the same period, with its
+   amplitude set inline (--amp, growing toward the tail) and its phase staggered
+   by the inline animation-delay (head leads, tail follows). */
+@keyframes serpent-undulate {
   0%,
   100% {
     transform: translateY(calc(-1 * var(--amp)));
@@ -185,8 +185,24 @@ body {
   }
 }
 
-.gyarados-piece {
-  animation: gyarados-undulate 3400ms ease-in-out infinite;
+.serpent-piece {
+  animation: serpent-undulate 3400ms ease-in-out infinite;
+}
+
+/* The roll from the face-first entrance to top-down swimming: the strip mounts
+   vertically squashed and springs open, reading as the serpent turning
+   belly-up under the viewer. */
+@keyframes serpent-flip {
+  0% {
+    transform: scaleY(0.12);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+.serpent-flip {
+  animation: serpent-flip 320ms ease-out;
 }
 
 /* One-shot hover hint on ranked cards: a brief clockwise/counter-clockwise wiggle to

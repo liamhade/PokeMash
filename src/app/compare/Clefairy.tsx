@@ -1,15 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import {
-  GYARADOS_FAN,
-  GYARADOS_HEAD,
-  GYARADOS_NECK,
-  GYARADOS_PALETTE,
-  GYARADOS_SEG,
-  GYARADOS_SEG_RUFFLE,
-  GYARADOS_STEM,
-} from "./gyaradosSprite";
+import { SERPENTS } from "./serpentSprites";
 
 // A relaxed toddle, in px/s. Walk duration scales with distance so speed stays constant.
 const WALK_SPEED = 41;
@@ -174,7 +166,7 @@ const PEEK_SPRITE = [
 // Nervous peek frames: the peek sprite with each eye widened to white and the
 // pupil darted one column to the side (the pupil is the k pair below each eye's W
 // highlight; the vacated column becomes eye-white, which reads as wide scared
-// eyes). Every peek is a nervous one now — she only ever hides when Gyarados is
+// eyes). Every peek is a nervous one now — she only ever hides when a serpent is
 // on the prowl — so these alternate while she peeks, scanning the room for him.
 const PUPIL_ROWS = [15, 16];
 const PUPIL_COLS = [14, 20];
@@ -240,33 +232,38 @@ const DISPLAY_SCALE = 0.75;
 const SPRITE_W = SPRITE[0].length * PX * DISPLAY_SCALE;
 const SPRITE_H = SPRITE.length * PX * DISPLAY_SCALE;
 
-// The top-down Gyarados strip, tail→head along +x, rotated at runtime to his
-// travel heading. Each piece oscillates across the travel axis (amplitude
-// growing sharply toward the tail for big, whole-body strokes); the traveling
-// wave comes from the per-piece animation delays — the head (rendered last)
-// leads, the tail follows.
-const GYARADOS_PIECES = [
-  { rows: GYARADOS_FAN, amp: 26 },
-  { rows: GYARADOS_STEM, amp: 20 },
-  { rows: GYARADOS_SEG_RUFFLE, amp: 15 },
-  { rows: GYARADOS_SEG, amp: 11 },
-  { rows: GYARADOS_SEG, amp: 7 },
-  { rows: GYARADOS_NECK, amp: 4 },
-  { rows: GYARADOS_HEAD, amp: 2 },
-];
-const WAVE_LAG_MS = 380; // per-piece phase lag within the 3.4s undulation
+// The serpents' strips are tail→head along +x, rotated at runtime to the travel
+// heading; each piece oscillates across the travel axis and the traveling wave
+// comes from the per-piece animation delays — the head (rendered last) leads,
+// the tail follows. WAVE_LAG_MS is deliberately small: the strips use many
+// narrow slices, and a small phase step between NEIGHBORS keeps their relative
+// offset well under the tube thickness, so joints can never drift apart and
+// visibly disconnect (the big whole-body S still emerges from the lag summed
+// over ten pieces).
+const WAVE_LAG_MS = 120;
 const OVERLAP_PX = 3 * PX * DISPLAY_SCALE; // adjoining pieces merge into one tube
-const GYARADOS_MAX_AMP = 26;
-// Footprint for card avoidance: strip length minus overlaps; strip thickness
-// plus the full wave swing either side of the spine.
-const GYARADOS_W =
-  GYARADOS_PIECES.reduce((w, piece) => w + piece.rows[0].length * PX * DISPLAY_SCALE, 0) -
-  (GYARADOS_PIECES.length - 1) * OVERLAP_PX;
-const GYARADOS_H = 24 * PX * DISPLAY_SCALE + 2 * GYARADOS_MAX_AMP;
+// Per-serpent footprint for card avoidance: strip length minus overlaps; strip
+// thickness plus the full wave swing either side of the spine.
+const SERPENT_DIMS = SERPENTS.map((serpent) => {
+  const maxAmp = Math.max(...serpent.pieces.map((piece) => piece.amp));
+  return {
+    w:
+      serpent.pieces.reduce(
+        (total, piece) => total + piece.rows[0].length * PX * DISPLAY_SCALE,
+        0,
+      ) -
+      (serpent.pieces.length - 1) * OVERLAP_PX,
+    h: 24 * PX * DISPLAY_SCALE + 2 * maxAmp,
+    maxAmp,
+  };
+});
+type SerpentDim = (typeof SERPENT_DIMS)[number];
 // A slow menacing prowl (she toddles at 41), a faster dive/exit lunge, how long
-// a visit terrorizes the play area, and the randomized gap until the next one.
-const GYARADOS_SPEED = 70;
-const GYARADOS_LUNGE_SPEED = 170;
+// the face-first entrance holds before the roll to top-down, how long a visit
+// terrorizes the play area, and the randomized gap until the next one.
+const SERPENT_SPEED = 70;
+const SERPENT_LUNGE_SPEED = 170;
+const FACE_MS = 1500;
 const VISIT_MS = 12_500;
 const VISIT_GAP_MIN_MS = 25_000;
 const VISIT_GAP_SPAN_MS = 35_000;
@@ -317,10 +314,11 @@ function PixelArt({
 // walks to random spots — turning its back to the viewer for upward treks — strolls
 // off the left edge to reappear from the right, stands around, glances, blinks, and
 // mixes in little hop/wiggle emotes with randomized pauses so the rhythm feels
-// natural, not metronomic. Once in a while Gyarados tears in and hunts her for 8
-// seconds: she bolts behind a card (the only time she hides) and steals nervous
-// peeks — darting eyes, "!" overhead — while he prowls the open water seen from
-// above, body snaking in a slow wave, never crossing behind the board.
+// natural, not metronomic. Once in a while a legendary serpent (Gyarados and
+// Rayquaza alternate) looms in face-first, rolls belly-up, and hunts her: she
+// bolts behind a card (the only time she hides) and steals nervous peeks —
+// darting eyes, "!" overhead — while it prowls the open water seen from above,
+// body snaking in a slow wave, never crossing behind the board.
 // She also hops on every pick (the `picks`-keyed wrapper, kept separate from the
 // wander emote so the two one-shot animations can't cancel each other). The roam
 // layer itself takes no pointer events; instead a click listener on the play screen
@@ -342,14 +340,17 @@ export default function Clefairy({ picks }: { picks: number }) {
   const [stepFrame, setStepFrame] = useState(0);
   // Which darting-eye frame (0 = pupils left, 1 = right) is showing mid-peek.
   const [dartFrame, setDartFrame] = useState(0);
-  // Gyarados while he's visiting (null = off screen): target position in the same
-  // anchor-relative coordinates as her x/y, glide duration, and travel heading in
-  // degrees (cumulative, so turns always tween the short way around).
-  const [gyarados, setGyarados] = useState<{
+  // The visiting serpent (null = off screen): which one (index into SERPENTS),
+  // target position in the same anchor-relative coordinates as her x/y, glide
+  // duration, travel heading in degrees (cumulative, so turns always tween the
+  // short way around), and whether it's still face-first or swimming top-down.
+  const [serpent, setSerpent] = useState<{
+    kind: number;
     x: number;
     y: number;
     ms: number;
     angle: number;
+    form: "face" | "swim";
   } | null>(null);
   // Current position/orientation, readable inside the timer loop without re-running
   // the effect (the loop's closure would only ever see the initial state).
@@ -357,11 +358,12 @@ export default function Clefairy({ picks }: { picks: number }) {
   const yRef = useRef(0);
   const facingRef = useRef<1 | -1>(1);
   const backRef = useRef(false);
-  // Gyarados' current glide target and cumulative heading, readable inside the
-  // timer loop like her refs.
-  const gyaradosRef = useRef({ x: 0, y: 0 });
-  const gyaradosAngleRef = useRef(0);
-  // True while a Gyarados visit owns the stage. Player clicks are ignored for the
+  // The serpent's current glide target and cumulative heading, readable inside
+  // the timer loop like her refs; visitKindRef alternates Gyarados/Rayquaza.
+  const serpentRef = useRef({ x: 0, y: 0 });
+  const serpentAngleRef = useRef(0);
+  const visitKindRef = useRef(0);
+  // True while a serpent visit owns the stage. Player clicks are ignored for the
   // duration so they can't clear the episode's timers mid-choreography.
   const episodeRef = useRef(false);
   // The roam area (the whole play screen minus the nav); measured per walk so a
@@ -487,7 +489,10 @@ export default function Clefairy({ picks }: { picks: number }) {
     // One nervous peek from behind `card`: rise until just her face and fingers
     // clear its top edge (the fingertip rows hook over it), scan the room with
     // darting eyes and the "!" pop for ~1.1s, then sink back down to `hideY`.
+    // No-op once the visit is over (a late-arrival flee can push the second
+    // peek's timer past the episode's end).
     function nervousPeek(card: CardRect, hideY: number) {
+      if (!episodeRef.current) return;
       setPeeking(true);
       setWalkMs(350);
       yRef.current = card.top + 2;
@@ -525,43 +530,43 @@ export default function Clefairy({ picks }: { picks: number }) {
       return true;
     }
 
-    // Gyarados' clearance box. He rotates about the strip's center to face any
-    // heading, so a turn sweeps his full LENGTH in an arc — clear a length-sided
-    // square around the center, not just the resting strip box, or a turn near
-    // the board arcs his head and tail across it.
-    function gyaradosClear(x: number, y: number, cards: CardRect[]) {
-      const centerY = y + GYARADOS_MAX_AMP - GYARADOS_H / 2;
-      return clearOfCards(x, centerY + GYARADOS_W / 2, GYARADOS_W, GYARADOS_W, cards);
+    // The serpent's clearance box. It rotates about the strip's center to face
+    // any heading, so a turn sweeps its full LENGTH in an arc — clear a length-
+    // sided square around the center, not just the resting strip box, or a turn
+    // near the board arcs the head and tail across it.
+    function serpentClear(dim: SerpentDim, x: number, y: number, cards: CardRect[]) {
+      const centerY = y + dim.maxAmp - dim.h / 2;
+      return clearOfCards(x, centerY + dim.w / 2, dim.w, dim.w, cards);
     }
 
-    // Glide Gyarados to (tx, ty), heading into his direction of travel. The
+    // Glide the serpent to (tx, ty), heading into its direction of travel. The
     // heading accumulates by the SHORTEST turn from the previous one, so the CSS
-    // rotation tween never spins him the long way round. Returns the glide
+    // rotation tween never spins it the long way round. Returns the glide
     // duration so the visit choreography can schedule past it.
-    function gyaradosGlide(tx: number, ty: number, speed = GYARADOS_SPEED): number {
-      const from = gyaradosRef.current;
+    function serpentGlide(tx: number, ty: number, speed = SERPENT_SPEED): number {
+      const from = serpentRef.current;
       const ms = Math.max(400, (Math.hypot(tx - from.x, ty - from.y) / speed) * 1000);
       const raw = (Math.atan2(ty - from.y, tx - from.x) * 180) / Math.PI;
-      const prev = gyaradosAngleRef.current;
+      const prev = serpentAngleRef.current;
       const delta = ((raw - (((prev % 360) + 360) % 360) + 540) % 360) - 180;
-      gyaradosAngleRef.current = prev + delta;
-      gyaradosRef.current = { x: tx, y: ty };
-      setGyarados({ x: tx, y: ty, ms, angle: gyaradosAngleRef.current });
+      serpentAngleRef.current = prev + delta;
+      serpentRef.current = { x: tx, y: ty };
+      setSerpent((s) => s && { ...s, x: tx, y: ty, ms, angle: serpentAngleRef.current });
       return ms;
     }
 
     // A random patch of open "white space": inside the play area but clear of
     // every card box, with the whole glide path sampled so a hop from one side
-    // to the other doesn't cut behind the board. Rejection-sampled; if he's
-    // hemmed in, he just holds position for a beat.
-    function openWater(): { x: number; y: number } {
+    // to the other doesn't cut behind the board. Rejection-sampled; if the
+    // serpent is hemmed in, it just holds position for a beat.
+    function openWater(dim: SerpentDim): { x: number; y: number } {
       const { w, h } = area();
       const xMin = -w / 2 + 8;
-      const xMax = w / 2 - GYARADOS_W - 8;
-      const yMin = Math.min(0, -(h - GYARADOS_H - 96));
+      const xMax = w / 2 - dim.w - 8;
+      const yMin = Math.min(0, -(h - dim.h - 96));
       const cards = cardRects();
-      const from = gyaradosRef.current;
-      const clear = (x: number, y: number) => gyaradosClear(x, y, cards);
+      const from = serpentRef.current;
+      const clear = (x: number, y: number) => serpentClear(dim, x, y, cards);
       for (let tries = 0; tries < 30; tries++) {
         const x = xMin + Math.random() * (xMax - xMin);
         const y = yMin * Math.random();
@@ -571,7 +576,7 @@ export default function Clefairy({ picks }: { picks: number }) {
     }
 
     // Her wander targets stay in the open too — she only ever tucks in behind a
-    // card when Gyarados shows up, so an idle stroll must never park her (or
+    // card when a serpent shows up, so an idle stroll must never park her (or
     // route her) behind the board. Same rejection sampling as openWater.
     function openMeadow(): { x: number; y: number } {
       const { xMin, xMax, yMin } = bounds();
@@ -610,101 +615,125 @@ export default function Clefairy({ picks }: { picks: number }) {
     let visitTimer: ReturnType<typeof setTimeout> | undefined;
     function scheduleVisit() {
       visitTimer = setTimeout(
-        gyaradosVisit,
+        serpentVisit,
         VISIT_GAP_MIN_MS + Math.random() * VISIT_GAP_SPAN_MS,
       );
     }
 
-    // One Gyarados visit: he lunges in from the side edge behind her, hunting the
-    // spot where she stood, while she bolts behind the nearest card. He then
-    // prowls the open water in beats for the rest of the 8s; she steals two
-    // nervous peeks, and on what would be the third she steps back out to roam
-    // instead — he's gone by then.
-    function gyaradosVisit() {
+    // One serpent visit (Gyarados and Rayquaza alternate): it looms in face-
+    // first from the side edge on HER side of the screen, holds the glare for
+    // FACE_MS, rolls belly-up into the top-down view, and dives at the spot
+    // where she stood — never crossing the board. It then prowls the open water
+    // in beats for the rest of the visit; she bolts behind the nearest card in
+    // one continuous dash, pops up for a first nervous peek the moment she
+    // arrives, steals a second one later, and on what would be the third she
+    // steps back out to roam — the serpent is gone by then.
+    function serpentVisit() {
       const cards = cardRects();
       if (!cards.length || document.hidden) {
         scheduleVisit(); // empty board or hidden tab: nowhere to hide — try later
         return;
       }
+      const kind = visitKindRef.current;
+      visitKindRef.current = (kind + 1) % SERPENTS.length;
+      const dim = SERPENT_DIMS[kind];
       episodeRef.current = true;
       timers.forEach((t) => clearTimeout(t));
       timers.clear();
       setEmote("none"); // cut short a dance/hop; fleeing overrides celebration
       setPeeking(false);
 
-      // She bolts behind the card nearest to where she's standing.
+      // She bolts behind the card nearest to where she's standing — one fast,
+      // continuous run all the way there, with her first peek chained onto the
+      // ARRIVAL (a fixed-time peek could fire mid-run and yank her to the card
+      // top in a single 350ms hop: the "teleport").
       const herX = xRef.current;
       const herY = yRef.current;
       const off = (c: CardRect) => Math.abs((c.left + c.right) / 2 - herX);
       const card = cards.reduce((a, b) => (off(a) <= off(b) ? a : b));
       const hide = hideSpotBehind(card);
-      walkTo(hide.x, hide.y, undefined, WALK_SPEED * 3);
+      walkTo(
+        hide.x,
+        hide.y,
+        () => {
+          nervousPeek(card, hide.y);
+          after(4600, () => nervousPeek(card, hide.y));
+        },
+        WALK_SPEED * 5,
+      );
 
-      // He glides in from the edge on HER side of the screen — so the dive at
-      // her old spot never has to cross the board — hunting where she stood.
+      // The serpent looms in face-first at the edge on her side of the screen.
       const { w, h } = area();
       const fromLeft = herX < 0;
       const xMinG = -w / 2 + 8;
-      const xMaxG = w / 2 - GYARADOS_W - 8;
-      const yMinG = Math.min(0, -(h - GYARADOS_H - 96));
-      const startX = fromLeft ? -w / 2 - GYARADOS_W - 24 : w / 2 + 24;
+      const xMaxG = w / 2 - dim.w - 8;
+      const yMinG = Math.min(0, -(h - dim.h - 96));
+      const startX = fromLeft ? -w / 2 - dim.w - 24 : w / 2 + 24;
       const startY = Math.max(yMinG, Math.min(0, herY - SPRITE_H));
-      gyaradosRef.current = { x: startX, y: startY };
-      gyaradosAngleRef.current = fromLeft ? 0 : 180; // head into the screen
-      setGyarados({ x: startX, y: startY, ms: 0, angle: gyaradosAngleRef.current });
+      serpentRef.current = { x: startX, y: startY };
+      serpentAngleRef.current = fromLeft ? 0 : 180; // head into the screen
+      setSerpent({ kind, x: startX, y: startY, ms: 0, angle: 0, form: "face" });
 
       // Prowl beat: glide to fresh open water, pause, repeat while time remains;
-      // then leave — a side edge he can reach without cutting behind the board,
+      // then leave — a side edge it can reach without cutting behind the board,
       // else soaring off the top, else (hemmed in on a tiny screen) the nearest
       // side regardless — and despawn.
       function prowl(remaining: number) {
         if (remaining <= 0) {
-          const g = gyaradosRef.current;
+          const g = serpentRef.current;
           const cardsNow = cardRects();
-          const clear = (x: number, y: number) => gyaradosClear(x, y, cardsNow);
+          const clear = (x: number, y: number) => serpentClear(dim, x, y, cardsNow);
           const sides =
             g.x < 0
-              ? [-w / 2 - GYARADOS_W - 24, w / 2 + 24]
-              : [w / 2 + 24, -w / 2 - GYARADOS_W - 24];
+              ? [-w / 2 - dim.w - 24, w / 2 + 24]
+              : [w / 2 + 24, -w / 2 - dim.w - 24];
           const side = sides.find((exitX) => pathClear(g.x, g.y, exitX, g.y, clear));
           const exit =
             side !== undefined
               ? { x: side, y: g.y }
-              : pathClear(g.x, g.y, g.x, -(h + GYARADOS_W), clear)
-                ? { x: g.x, y: -(h + GYARADOS_W) }
+              : pathClear(g.x, g.y, g.x, -(h + dim.w), clear)
+                ? { x: g.x, y: -(h + dim.w) }
                 : { x: sides[0], y: g.y };
-          const ms = gyaradosGlide(exit.x, exit.y, GYARADOS_LUNGE_SPEED);
-          after(ms + 80, () => setGyarados(null));
+          const ms = serpentGlide(exit.x, exit.y, SERPENT_LUNGE_SPEED);
+          after(ms + 80, () => setSerpent(null));
           return;
         }
-        const spot = openWater();
-        const ms = gyaradosGlide(spot.x, spot.y);
+        const spot = openWater(dim);
+        const ms = serpentGlide(spot.x, spot.y);
         const pause = 150 + Math.random() * 350;
         after(ms + pause, () => prowl(remaining - ms - pause));
       }
       after(60, () => {
         // (60ms: let the off-screen spawn mount before animating, like the wrap.)
-        // Dive at her old spot — unless the spot or the way to it touches the
-        // board, in which case lunge to open water instead: he never crosses.
-        const clear = (x: number, y: number) => gyaradosClear(x, y, cards);
-        const diveX = Math.max(xMinG, Math.min(xMaxG, herX + SPRITE_W / 2 - GYARADOS_W / 2));
+        // Drift the glaring face just into view and hold it.
+        const faceW = SERPENTS[kind].face[0].length * PX * DISPLAY_SCALE;
+        const peekX = fromLeft ? -w / 2 + 16 : w / 2 - faceW - 16;
+        serpentRef.current = { x: peekX, y: startY };
+        setSerpent((s) => s && { ...s, x: peekX, ms: FACE_MS - 200 });
+      });
+      after(FACE_MS, () => {
+        // Roll belly-up into the top-down view, then dive at her old spot —
+        // unless the spot or the way to it touches the board, in which case
+        // lunge to open water instead: the serpent never crosses cards.
+        setSerpent((s) => s && { ...s, form: "swim" });
+        const clear = (x: number, y: number) => serpentClear(dim, x, y, cards);
+        const diveX = Math.max(xMinG, Math.min(xMaxG, herX + SPRITE_W / 2 - dim.w / 2));
         const diveY = Math.min(0, herY);
+        const start = serpentRef.current;
         const dive =
-          clear(diveX, diveY) && pathClear(startX, startY, diveX, diveY, clear)
+          clear(diveX, diveY) && pathClear(start.x, start.y, diveX, diveY, clear)
             ? { x: diveX, y: diveY }
-            : openWater();
-        const diveMs = gyaradosGlide(dive.x, dive.y, GYARADOS_LUNGE_SPEED);
-        after(diveMs, () => prowl(VISIT_MS - 60 - diveMs));
+            : openWater(dim);
+        const diveMs = serpentGlide(dive.x, dive.y, SERPENT_LUNGE_SPEED);
+        after(diveMs, () => prowl(VISIT_MS - FACE_MS - diveMs));
       });
 
-      // Her side of the episode, on fixed beats under the visit.
-      after(2800, () => nervousPeek(card, hide.y));
-      after(6800, () => nervousPeek(card, hide.y));
       after(VISIT_MS + 1200, () => {
         // All clear: step out to open space and get back to roaming. stepOutSpot
         // checks only the target — the walk necessarily STARTS behind the card,
         // so openMeadow's path check would reject everything.
         episodeRef.current = false;
+        setPeeking(false); // a straggling second peek must not outlive the visit
         const spot = stepOutSpot();
         schedule(walkTo(spot.x, spot.y) + 600 + Math.random() * 1200);
         scheduleVisit();
@@ -716,7 +745,7 @@ export default function Clefairy({ picks }: { picks: number }) {
       const { xMax } = bounds();
       // Cards can mount OVER wherever she happens to stand — the board loads
       // after her, and filter changes remount it. If that happened (and no
-      // Gyarados episode legitimately hid her), step out before doing anything.
+      // serpent episode legitimately hid her), step out before doing anything.
       if (
         !episodeRef.current &&
         !clearOfCards(xRef.current, yRef.current, SPRITE_W, SPRITE_H, cardRects())
@@ -728,7 +757,7 @@ export default function Clefairy({ picks }: { picks: number }) {
       const roll = Math.random();
       if (roll < 0.5) {
         // Wander the open white space only (openMeadow keeps the target AND the
-        // route clear of the board — she hides behind cards just for Gyarados).
+        // route clear of the board — she hides behind cards just for the serpents).
         const spot = openMeadow();
         schedule(walkTo(spot.x, spot.y) + 400 + Math.random() * 1600);
       } else if (roll < 0.58) {
@@ -778,7 +807,7 @@ export default function Clefairy({ picks }: { picks: number }) {
     // pointer events, so cards and panel controls keep working untouched): a click
     // on her starts her dance, anywhere else sends her walking there.
     function onClick(e: MouseEvent) {
-      // While Gyarados owns the stage she's busy hiding — ignore the audience
+      // While a serpent owns the stage she's busy hiding — ignore the audience
       // (a pool clear here would tear the visit's choreography apart).
       if (episodeRef.current) return;
       if ((e.target as Element | null)?.closest("button, a, input, select")) return;
@@ -817,7 +846,7 @@ export default function Clefairy({ picks }: { picks: number }) {
       const cx = Math.min(xMax, Math.max(xMin, tx));
       let cy = Math.min(0, Math.max(yMin, ty));
       // A click on the board would tuck her behind a card — she only hides there
-      // during Gyarados visits, so stop her just below the card instead.
+      // during serpent visits, so stop her just below the card instead.
       const cards = cardRects();
       const blocker = cards.find((c) => !clearOfCards(cx, cy, SPRITE_W, SPRITE_H, [c]));
       if (blocker) cy = Math.min(0, blocker.bottom + SPRITE_H + 6);
@@ -863,7 +892,7 @@ export default function Clefairy({ picks }: { picks: number }) {
     return () => clearInterval(timer);
   }, [walking]);
 
-  // Nervous eye darting: flick the pupils left/right while she peeks for Gyarados.
+  // Nervous eye darting: flick the pupils left/right while she peeks for a serpent.
   useEffect(() => {
     if (!peeking) return;
     const timer = setInterval(() => setDartFrame((frame) => frame ^ 1), 240);
@@ -892,7 +921,7 @@ export default function Clefairy({ picks }: { picks: number }) {
 
   // Mid-glide the stepping frames take over (they trump the blink: eyes stay open
   // while she watches where she's going); at rest the usual stand/blink pair shows.
-  // Peeks only happen while Gyarados prowls, so they always wear the nervous eyes.
+  // Peeks only happen while a serpent prowls, so they always wear the nervous eyes.
   const rows = peeking
     ? NERVOUS_PEEK[dartFrame]
     : walking
@@ -954,48 +983,61 @@ export default function Clefairy({ picks }: { picks: number }) {
         </div>
       </div>
 
-      {/* Gyarados, while visiting: same bottom-center anchor and glide scheme as
-          her positioner. The strip of pieces (tail first, head last) lies along
-          +x; the rotator turns it to the travel heading on its own transition,
-          and every piece runs the shared undulate keyframe with a staggered
-          delay, so a slow wave travels head-to-tail while he glides. */}
-      {gyarados && (
+      {/* The visiting serpent: same bottom-center anchor and glide scheme as
+          her positioner. It enters face-first (the symmetric front sprite needs
+          no rotation), then rolls into the top-down strip: pieces (tail first,
+          head last) lie along +x; the rotator turns the strip to the travel
+          heading on its own transition, and every piece runs the shared
+          undulate keyframe with a staggered delay, so a slow wave travels
+          head-to-tail while it glides. */}
+      {serpent && (
         <div className="absolute bottom-6 left-1/2">
           <div
             style={{
-              transform: `translate(${gyarados.x}px, ${gyarados.y}px)`,
-              transition: `transform ${gyarados.ms}ms ease-in-out`,
+              transform: `translate(${serpent.x}px, ${serpent.y}px)`,
+              transition: `transform ${serpent.ms}ms ease-in-out`,
             }}
           >
-            <div
-              className="flex items-center"
-              style={{
-                transform: `rotate(${gyarados.angle}deg)`,
-                transition: "transform 600ms ease-in-out",
-              }}
-            >
-              {GYARADOS_PIECES.map((piece, i) => (
-                <div
-                  key={i}
-                  className="gyarados-piece"
-                  style={
-                    {
-                      "--amp": `${piece.amp}px`,
-                      // Negative delay = phase advance; the head (largest i)
-                      // leads and the wave ripples back toward the tail.
-                      animationDelay: `${-i * WAVE_LAG_MS}ms`,
-                      marginLeft: i === 0 ? 0 : -OVERLAP_PX,
-                    } as CSSProperties
-                  }
-                >
-                  <PixelArt
-                    rows={piece.rows}
-                    scale={DISPLAY_SCALE}
-                    palette={GYARADOS_PALETTE}
-                  />
+            {serpent.form === "face" ? (
+              <PixelArt
+                rows={SERPENTS[serpent.kind].face}
+                scale={DISPLAY_SCALE}
+                palette={SERPENTS[serpent.kind].palette}
+              />
+            ) : (
+              <div
+                style={{
+                  transform: `rotate(${serpent.angle}deg)`,
+                  transition: "transform 600ms ease-in-out",
+                }}
+              >
+                {/* the belly-roll squash lives on its own layer (it mounts
+                    fresh with the form swap) so it can't fight the rotate */}
+                <div className="serpent-flip flex items-center">
+                {SERPENTS[serpent.kind].pieces.map((piece, i) => (
+                  <div
+                    key={i}
+                    className="serpent-piece"
+                    style={
+                      {
+                        "--amp": `${piece.amp}px`,
+                        // Negative delay = phase advance; the head (largest i)
+                        // leads and the wave ripples back toward the tail.
+                        animationDelay: `${-i * WAVE_LAG_MS}ms`,
+                        marginLeft: i === 0 ? 0 : -OVERLAP_PX,
+                      } as CSSProperties
+                    }
+                  >
+                    <PixelArt
+                      rows={piece.rows}
+                      scale={DISPLAY_SCALE}
+                      palette={SERPENTS[serpent.kind].palette}
+                    />
+                  </div>
+                ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       )}

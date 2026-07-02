@@ -45,6 +45,14 @@
 
 # LEARNING
 
+## face-first entries, Rayquaza, connected tails, continuous flee
+
+- [ ] The "teleport to the top of the card" was a sequencing bug, not a motion bug: the peeks were scheduled at fixed offsets from the episode START, so a long flee let `nervousPeek`'s `setWalkMs(350); setY(card.top + 2)` fire mid-run and override the glide. Why does chaining the first peek onto `walkTo`'s `onArrive` fix every flee distance at once, and what NEW race did that introduce that the `episodeRef` guard inside `nervousPeek` now closes?
+
+- [ ] Tails disconnected because adjacent pieces' relative offset — sqrt(A_i² + A_j² − 2·A_i·A_j·cos Δφ) — exceeded the tube thickness at the fan/stem joint. The fix kept the big amplitudes but shrank Δφ (WAVE_LAG_MS 380→120) and split the body into 8-cell slices. Work through why many small phase steps preserve the whole-body S (the lag SUM is what shapes the curve) while bounding each joint's gap, and what the same reasoning says about vertex counts when approximating any curve with rigid segments.
+
+- [ ] The face sprites are mirrored about the VERTICAL axis (`mirrorCols`) while the strips mirror about the HORIZONTAL (`mirrorRows`) — and the face renders outside the rotator while the strip renders inside it. Connect the two facts: which symmetry does each rendering context demand, and why would putting the face inside the rotator have turned a right-edge entrance upside down?
+
 ## detailed Gyarados + airtight card avoidance
 
 - [ ] Both behind-the-board sightings traced to geometry the AABB checks silently ignored: the entry dive started OFF-SCREEN on the far side (path never checked), and turns rotate the strip about its center so the head/tail sweep an arc the resting box doesn't cover. Why does `gyaradosClear` clearing a LENGTH-sided square fix the rotation case for every heading at once, and what does it cost him on narrow screens where that square fits nowhere?
