@@ -254,6 +254,9 @@ export default function Clefairy({ picks }: { picks: number }) {
   const areaRef = useRef<HTMLDivElement | null>(null);
   // Her on-screen box (transforms applied), for hit-testing clicks against her.
   const spriteBoxRef = useRef<HTMLDivElement | null>(null);
+  // The gliding positioner div, for reading her live mid-walk position when a
+  // new walk interrupts one in flight.
+  const posRef = useRef<HTMLDivElement | null>(null);
 
   // The wander brain. Rough action weights: wander 50% (detouring into a peek when
   // the path crosses a card), wrap 8%, emote 17%, glance 10%, stand 15%.
@@ -323,12 +326,25 @@ export default function Clefairy({ picks }: { picks: number }) {
 
     // Walk to (tx, ty): look where you're going first — face the target, turning
     // around (back view) only when the trek climbs the screen, with a longer beat
-    // when the orientation actually changes — then glide there at the constant
-    // toddle. Returns the full look+walk duration so callers can schedule past it.
-    function walkTo(tx: number, ty: number, onArrive?: () => void): number {
+    // when the orientation actually changes — then glide there at `speed`.
+    // Returns the full look+walk duration so callers can schedule past it.
+    function walkTo(tx: number, ty: number, onArrive?: () => void, speed = WALK_SPEED): number {
+      // A click can interrupt a glide in flight, and the refs hold that walk's
+      // TARGET, not where she visually is — so a downward click mid-descent would
+      // read as "upward" against the stale target and wrongly show her back.
+      // Read her actual mid-glide position off the animating transform instead.
+      const pos = posRef.current;
+      if (pos) {
+        const t = getComputedStyle(pos).transform;
+        if (t && t !== "none") {
+          const m = new DOMMatrixReadOnly(t);
+          xRef.current = m.m41;
+          yRef.current = m.m42;
+        }
+      }
       const dx = tx - xRef.current;
       const dy = ty - yRef.current;
-      const ms = Math.max(500, (Math.hypot(dx, dy) / WALK_SPEED) * 1000);
+      const ms = Math.max(500, (Math.hypot(dx, dy) / speed) * 1000);
       const dir: 1 | -1 = dx >= 0 ? 1 : -1;
       const back = dy < -BACK_DY; // negative y is up-screen; downward walks stay front-facing
       const turning = dir !== facingRef.current || back !== backRef.current;
@@ -360,8 +376,8 @@ export default function Clefairy({ picks }: { picks: number }) {
     }
 
     // Duck fully behind `card`, then rise so just her face and fingers clear its
-    // top border (the card hides the rest), hold the peek 1-3s, sink back down,
-    // and hand control to `andThen`.
+    // top border (the card hides the rest), hold the peek ~0.75-2.25s, sink back
+    // down, and hand control to `andThen`.
     function peekBehind(card: CardRect, andThen: () => void) {
       const { xMin, xMax } = bounds();
       const hideX = Math.min(
@@ -369,7 +385,7 @@ export default function Clefairy({ picks }: { picks: number }) {
         Math.max(xMin, (card.left + card.right) / 2 - SPRITE_W / 2),
       );
       const hideY = Math.min(card.bottom - 8, card.top + SPRITE_H + 24);
-      const hold = 1000 + Math.random() * 2000;
+      const hold = 750 + Math.random() * 1500;
       walkTo(hideX, hideY, () => {
         setPeeking(true);
         // Rise: the peek sprite's bottom to just below the card's top edge, so
@@ -463,7 +479,8 @@ export default function Clefairy({ picks }: { picks: number }) {
       setShowQmark(false);
       const cx = Math.min(xMax, Math.max(xMin, tx));
       const cy = Math.min(0, Math.max(yMin, ty));
-      schedule(walkTo(cx, cy) + 600 + Math.random() * 1400);
+      // Commanded walks hustle at double the idle-wander toddle.
+      schedule(walkTo(cx, cy, undefined, WALK_SPEED * 2) + 600 + Math.random() * 1400);
     }
     const screen = areaRef.current?.parentElement;
     screen?.addEventListener("click", onClick);
@@ -511,6 +528,7 @@ export default function Clefairy({ picks }: { picks: number }) {
       <div className="absolute bottom-6 left-1/2">
         {/* wander positioner: glides to the target at a constant toddle */}
         <div
+          ref={posRef}
           style={{
             transform: `translate(${x}px, ${y}px)`,
             transition: `transform ${walkMs}ms ease-in-out`,
@@ -521,9 +539,9 @@ export default function Clefairy({ picks }: { picks: number }) {
             <div
               key={qmark}
               className="critter-hop absolute left-1/2 -translate-x-1/2"
-              style={{ top: -34 }}
+              style={{ top: -20 }}
             >
-              <PixelArt rows={QMARK} scale={1.4} />
+              <PixelArt rows={QMARK} scale={0.7} />
             </div>
           )}
           {/* facing flip (instant), separate from the glide so the transforms don't fight.

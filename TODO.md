@@ -49,6 +49,12 @@
 
 # LEARNING
 
+## Clefairy tuning + 1200 starting rating
+
+- [ ] The butt-first-descent bug: `xRef`/`yRef` always hold the current walk's TARGET, so a click that interrupts a glide computed its direction from where she was GOING, not where she visually was — fixed by reading `DOMMatrixReadOnly(getComputedStyle(pos).transform)` at the top of `walkTo`. Why does reading the computed transform mid-transition return the interpolated in-flight value rather than the destination the inline style declares?
+
+- [ ] Changing the starting rating to 1200 touched exactly one line because every seed site (both API routes, the dial fallback, the client-side delta calc) imports `DEFAULT_RATING`, while the 1500 anchor inside `toGlickoScale` deliberately stayed. What distinguishes a "single source of truth" constant from an arbitrary-but-shared anchor constant, and why would changing the anchor to 1200 too have been wrong for already-stored ratings?
+
 ## nav: centered Play/Rankings, Login placeholder, How-it-works modal
 
 - [ ] In `NavBar.tsx`, Play/Rankings are centered with `md:absolute md:left-1/2 md:-translate-x-1/2` instead of flex spacers, falling back to `ml-auto` (right-aligned) below `md`. Why can't plain flex centering (`justify-center` or twin `flex-1` spacers) give a TRUE center here, and what collision does the phone fallback avoid?
