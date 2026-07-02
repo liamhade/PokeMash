@@ -45,6 +45,14 @@
 
 # LEARNING
 
+## Gyarados visits: chase, hide, nervous peeks
+
+- [ ] The visit is scheduled on a dedicated `visitTimer` handle while everything INSIDE the visit runs on the interruptible `timers` pool, and `onClick` early-returns while `episodeRef.current` is true. Trace what would break under each alternative: the visit scheduled in the pool, or clicks left enabled mid-episode — which one loses Gyarados forever and which one strands Clefairy hidden with `episodeRef` stuck true?
+
+- [ ] `openWater()` rejection-samples a spot whose box AND path-midpoint clear every card rect, giving up after 30 tries by returning his current position. Why is "hold position for a beat" the right degenerate behavior here (vs. relaxing the margin or teleporting), and why does checking only the midpoint — not 24 path samples like the old `cardOnPath` — suffice for his glides when it wouldn't have for her walk detours?
+
+- [ ] The tail sweep is a CSS rotation of a second `PixelArt` stacked `absolute inset-0` over the body, hinged at `GYARADOS_TAIL_ORIGIN` percentages — but the whole stack sits inside the `scaleX(${-facing})` flip div. Why do the origin percentages need no adjustment when he turns around, and what WOULD have broken if the origin were expressed in pixels from the left edge instead?
+
 ## click dance replaces the scare
 
 - [ ] The dance's three bars live in ONE CSS animation (`clefairy-dance ... 3` iterations) while the twirls are two JS `after(DANCE_BEAT_MS * n, flip)` timers, coupled only by the 800ms constant appearing in both files. What visual artifact appears if the CSS duration is edited without `DANCE_BEAT_MS` (or vice versa), and why was the facing flip not expressible inside the keyframes themselves (think: which element owns `scaleX`)?
