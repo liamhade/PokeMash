@@ -45,6 +45,12 @@
 
 # LEARNING
 
+## chained refills: the queue keeps up with rapid picks
+
+- [ ] The catch-up call in `preloadNext`'s `.finally` had to become `preloadNextInner()` — a named function expression calling itself — because ESLint rejected `preloadNext()` inside its own `useCallback` initializer. Why is the `const` binding not referenceable there while the function's own name is, and why must the in-flight delete happen BEFORE the recursive call for the catch-up to do anything?
+
+- [ ] Before this fix the queue drained ~1 card per 2 rapid picks (skipped top-offs never retried until the next pick), producing a periodic fast-fast-slow rhythm. Why does recomputing `need` at fetch-COMPLETION time (rather than fetch-LAUNCH time) make the refill rate track the consumption rate, and what click pattern can still outrun any finite queue no matter the depth?
+
 ## batched challenger queue with image-decode gating
 
 - [ ] `preloadNext` now fires each side's queue top-off as an independent `.then` chain instead of the old `await Promise.all(...)`, and validates on resolve with `preloadRef.current !== store` plus "is the winner still on board" — why did the single `Promise.all` make a click before the *slower* fetch a total miss even when the *relevant* challenger had already arrived, and what does comparing the store by object identity catch that re-computing a key string wouldn't?

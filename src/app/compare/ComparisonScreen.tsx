@@ -233,7 +233,10 @@ export default function ComparisonScreen() {
   // is served twice); each side's fetch lands independently — a click between the two
   // still gets whichever queue already arrived. Off: a whole fresh pair. Results are
   // dropped if the mode/filters changed (store replaced) or the winner left the board.
-  const preloadNext = useCallback(async () => {
+  // Named function expression (not an arrow) so the refill chaining below can call
+  // itself by name — the `const preloadNext` binding isn't referenceable from inside
+  // its own initializer.
+  const preloadNext = useCallback(async function preloadNextInner() {
     const current = cardsRef.current;
     if (!current || current.length < 2) return;
     const keep = keepWinnerRef.current;
@@ -277,7 +280,14 @@ export default function ComparisonScreen() {
             queue.slice(0, WARM_DEPTH).forEach((card) => warmImage(card.image_url));
           })
           .catch(() => {}) // preload is best-effort; a pick just falls back to fetching
-          .finally(() => preloadInFlightRef.current.delete(winner.card_id));
+          .finally(() => {
+            preloadInFlightRef.current.delete(winner.card_id);
+            // Picks made while this fetch was in flight were skipped by the guard above,
+            // so the queue may have fallen behind. Re-run the top-off with `need`
+            // recomputed NOW (a lagging refill asks for 2+ in one request); once the
+            // queue is full this recursion no-ops, so it can't loop.
+            preloadNextInner();
+          });
       }
     } else {
       const key = pairKey(current, false, filters);
@@ -296,9 +306,8 @@ export default function ComparisonScreen() {
 
   // On mount, restore the previously-saved pair (settled at center, immediately
   // pickable) so navigating away and back doesn't reshuffle the board. With nothing
-  // saved, fetch the first pair instead. Both paths set state on mount, which the lint
-  // rule flags but is the intent here (the fetch path is async, so no sync cascade).
-  /* eslint-disable react-hooks/set-state-in-effect */
+  // saved, fetch the first pair instead. Both paths set state on mount deliberately
+  // (the fetch path is async, so no sync cascade).
   useEffect(() => {
     const saved = readSavedComparison();
     if (saved) {
@@ -311,7 +320,6 @@ export default function ComparisonScreen() {
     }
     loadNextPair();
   }, [loadNextPair]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Persist the current settled pair (and its streak) whenever it changes. We only save
   // when `ready` — both cards are at center — so transient null/mid-animation states
