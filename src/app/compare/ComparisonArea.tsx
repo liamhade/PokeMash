@@ -25,6 +25,11 @@ export type Position = "below" | "center" | "above";
 // resident cards do — it has to be told both endpoints.
 export type Exit = { card: Card; overId: string; dial: { from: number; to: number } };
 
+// Rendered card size, shared with ComparisonScreen's warmImage: next/image derives the
+// /_next/image request URL from these, so the preloader must use the exact same values
+// or it warms a URL the mounted <Image> never asks for.
+export const CARD_IMAGE = { width: 325, height: 450 };
+
 const POSITION_CLASS: Record<Position, string> = {
   below: "translate-y-[120vh]",
   center: "translate-y-0",
@@ -123,8 +128,7 @@ export default function ComparisonArea({
               <Image
                 src={card.image_url}
                 alt={card.name}
-                width={325}
-                height={450}
+                {...CARD_IMAGE}
                 // Two cards side by side on a phone (44vw each + gap); md and up pins
                 // the original fixed 325px so desktop is unchanged.
                 className="relative z-10 h-auto w-[44vw] md:w-[325px] rounded-xl"
@@ -167,8 +171,7 @@ export default function ComparisonArea({
                   <Image
                     src={exit.card.image_url}
                     alt=""
-                    width={325}
-                    height={450}
+                    {...CARD_IMAGE}
                     className="relative z-10 h-auto w-[44vw] md:w-[325px] rounded-xl"
                   />
                 </button>
