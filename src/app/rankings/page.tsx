@@ -26,9 +26,10 @@ type RankingsResponse = {
 };
 
 // The card image dimensions; the flip container is locked to this so flipping to the
-// detail table doesn't reflow the list.
-const CARD_WIDTH = 220;
-const CARD_HEIGHT = 305;
+// detail table doesn't reflow the list. Sized a touch larger than the raw 220×305 (same
+// ~0.72 aspect ratio, so the art isn't distorted) to fit the back's button + disclosure.
+const CARD_WIDTH = 238;
+const CARD_HEIGHT = 330;
 
 // Hover this long before the wiggle hint fires (ms). One-shot per hover.
 const WIGGLE_DELAY_MS = 6000;
@@ -41,6 +42,17 @@ function orDash(value: string | null): string {
 // market_price is 0 when there's no sales data; treat that (and null) as "no price".
 function formatPrice(price: number | null): string {
   return price ? `$${price.toFixed(2)}` : "—";
+}
+
+// Pack values carry a trailing abbreviation, e.g. "Base Set (BS)"; drop it for display.
+function packName(pack: string | null): string {
+  return orDash(pack ? pack.replace(/\s*\([^)]*\)\s*$/, "") : null);
+}
+
+// Placeholder referral link — a TCGplayer name search for now. Swap to an affiliate
+// product link (partner code + tcgplayer_product_id) once those are backfilled.
+function tcgplayerSearchUrl(name: string): string {
+  return `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(name)}`;
 }
 
 // One ranked card: click to flip between the image and a details table, and — as a hint
@@ -73,9 +85,8 @@ function RankingCard({ card }: { card: RankedCard }) {
 
   const details: [string, string][] = [
     ["Name", orDash(card.name)],
-    ["Number", orDash(card.collector_number)],
     ["Set", orDash(card.set)],
-    ["Pack", orDash(card.pack)],
+    ["Pack", packName(card.pack)],
     ["Released", orDash(card.release_date)],
     ["Market Price", formatPrice(card.market_price)],
   ];
@@ -85,17 +96,27 @@ function RankingCard({ card }: { card: RankedCard }) {
       <span className="w-12 text-right text-3xl font-bold text-neutral-400">
         {card.rank}
       </span>
-      {/* Wiggle lives on this outer button; the flip's rotateY lives on the inner element,
-          so the two transforms don't fight. onAnimationEnd resets so it can hint again. */}
-      <button
-        type="button"
+      {/* Flip toggle. A role=button div (not a <button>) so the back face's referral <a>
+          isn't an invalid interactive-in-interactive nesting. Wiggle lives here; the flip's
+          rotateY lives on the inner element so the two transforms don't fight. */}
+      <div
+        role="button"
+        tabIndex={0}
         aria-pressed={flipped}
         onClick={() => setFlipped((on) => !on)}
+        onKeyDown={(event) => {
+          // Ignore keys from the inner link so activating "Buy" doesn't also flip the card.
+          if (event.currentTarget !== event.target) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setFlipped((on) => !on);
+          }
+        }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onAnimationEnd={() => setWiggling(false)}
         style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
-        className={["[perspective:1000px]", wiggling ? "wiggle" : ""].join(" ")}
+        className={["cursor-pointer [perspective:1000px]", wiggling ? "wiggle" : ""].join(" ")}
       >
         <div
           className={[
@@ -114,8 +135,9 @@ function RankingCard({ card }: { card: RankedCard }) {
             />
           </div>
 
-          {/* Back: two-column detail table, labels left / values right. */}
-          <div className="absolute inset-0 flex flex-col justify-center rounded-xl bg-white p-4 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
+          {/* Back: detail table + a placeholder TCGplayer referral button. Rows use tight
+              padding so the table and button both fit without enlarging the card. */}
+          <div className="absolute inset-0 flex flex-col justify-center gap-2 rounded-xl bg-white p-4 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
             <table className="w-full text-sm">
               <tbody>
                 {details.map(([label, value]) => (
@@ -133,9 +155,26 @@ function RankingCard({ card }: { card: RankedCard }) {
                 ))}
               </tbody>
             </table>
+
+            {/* Placeholder referral link (name search until the affiliate product link
+                lands). stopPropagation so a buy click doesn't also flip the card back. */}
+            <a
+              href={tcgplayerSearchUrl(card.name)}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              onClick={(event) => event.stopPropagation()}
+              className="rounded-lg bg-blue-600 px-3 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+            >
+              Buy on TCGplayer
+            </a>
+
+            {/* FTC affiliate disclosure — required wherever a referral link appears. */}
+            <span className="text-center text-[9px] leading-tight text-neutral-400">
+              As a TCGplayer affiliate, PokeMash earns from qualifying purchases.
+            </span>
           </div>
         </div>
-      </button>
+      </div>
     </div>
   );
 }

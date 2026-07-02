@@ -41,29 +41,35 @@ export async function POST(request: NextRequest) {
   const newWinnerRating = updateRating(winnerRating, loserRating, isDraw ? 0.5 : 1);
   const newLoserRating = updateRating(loserRating, winnerRating, isDraw ? 0.5 : 0);
 
-  const { error: upsertError } = await supabase.from("card_ranks").upsert(
-    [
-      { player_id: playerId, card_id: winnerCardId, ...newWinnerRating, last_updated: new Date().toISOString() },
-      { player_id: playerId, card_id: loserCardId, ...newLoserRating, last_updated: new Date().toISOString() },
-    ],
-    { onConflict: "player_id,card_id" },
-  );
+  // The rating upsert and the history insert don't read each other, so they go out
+  // together. PostgREST offers no transaction across the two anyway: a failure between
+  // them could always leave partial state, and issuing them concurrently doesn't
+  // change that — it just halves the write latency.
+  const [{ error: upsertError }, { error: insertError }] = await Promise.all([
+    supabase.from("card_ranks").upsert(
+      [
+        { player_id: playerId, card_id: winnerCardId, ...newWinnerRating, last_updated: new Date().toISOString() },
+        { player_id: playerId, card_id: loserCardId, ...newLoserRating, last_updated: new Date().toISOString() },
+      ],
+      { onConflict: "player_id,card_id" },
+    ),
+    supabase.from("comparisons").insert({
+      player_id: playerId,
+      winner_card: winnerCardId,
+      loser_card: loserCardId,
+      is_draw: isDraw,
+    }),
+  ]);
   if (upsertError) {
     return NextResponse.json({ error: upsertError.message }, { status: 500 });
   }
-
-  const { error: insertError } = await supabase.from("comparisons").insert({
-    player_id: playerId,
-    winner_card: winnerCardId,
-    loser_card: loserCardId,
-    is_draw: isDraw,
-  });
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
-  // Whole-point rating changes, for the floating "+X / -Y" the Play screen shows
-  // after a pick. winnerDelta is normally positive, loserDelta negative.
+  // Whole-point rating changes. The Play screen now computes these client-side (its
+  // Rating dials can't wait on this round trip), but they're kept in the response for
+  // debugging and any other consumer. winnerDelta is normally positive, loserDelta negative.
   return NextResponse.json({
     ok: true,
     winnerDelta: Math.round(newWinnerRating.r - winnerRating.r),

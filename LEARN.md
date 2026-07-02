@@ -444,3 +444,91 @@
   (market_price's "no sales data" sentinel) when the column switched. Why is the junk value
   column-specific, and what filter bug appears if a `maxPrice`-only filter forgets to
   exclude it?
+
+- [ ] Adding the referral `<a>` to the card back forced the outer flip element from a
+  `<button>` to a `<div role="button">`. Why is an `<a>` nested inside a `<button>` invalid,
+  and what breaks (semantically or at hydration) if we'd left the native button?
+
+- [ ] The div's `onKeyDown` bails when `event.currentTarget !== event.target`, and the `<a>`
+  calls `stopPropagation()` on click. Trace the keyboard and mouse paths that would otherwise
+  make activating "Buy" *also* flip the card, and why each guard is needed for its own event.
+
+- [ ] The referral button was fit onto the back by tightening the table rows (`py-2` →
+  `py-1.5`) instead of enlarging the card. Why is resizing the front image the *last* resort
+  here — what does changing `CARD_WIDTH`/`CARD_HEIGHT` do to the card's aspect ratio and the
+  list layout that a padding tweak doesn't?
+
+- [ ] The Impact verification `<meta>` is written as raw JSX (with a `@ts-expect-error`)
+  rather than via Next's `metadata` export. What attribute does the metadata API force that
+  Impact rejects, and what React 19 behavior moves a `<meta>` from `<body>` into `<head>`?
+
+- [ ] Preloading the Keep-Winner challenger needs the new `excludeId` API param. Since the
+  challenger normally excludes the loser via saved `comparisons` history, why does fetching
+  it *before* the pick (and before the POST that records the result) risk re-serving the
+  current opponent, and how does `excludeId` reproduce the post-pick guarantee?
+
+- [ ] `preloadNext` captures `key = pairKey(...)` up front and re-checks `stale()` after the
+  `await` before storing into `preloadRef`. What race does that guard close if the user picks
+  (or changes filters) while the two speculative fetches are still in flight?
+
+- [ ] The preload is designed so every mismatch (`preloadRef.current?.key !== key`, missing
+  challenger, collision with the loser) falls back to the original fetch path. Why is
+  "optimization that can only ever be as slow as before, never wrong" the right invariant for
+  a change to the core play loop — and what did that let us skip worrying about?
+
+- [ ] Keep-Winner preload issues *two* speculative `/api/comparison/next` calls per settled
+  pair (one per possible winner), of which at most one is used. What's the cost/benefit of
+  that, and when would the wasted call be most expensive (think pool size, DB sampling)?
+
+- [ ] Preload alone "didn't feel faster." Break the post-pick timeline into (a) the awaited
+  `POST /api/comparison`, (b) the challenger fetch, (c) the fixed slide animation. Which one
+  did preload remove, and why did the other two mask the win?
+
+- [ ] `handlePick` no longer `await`s the POST — it fires it in the background and floats the
+  deltas from `.then`. The old code awaited it specifically so the just-beaten loser wasn't
+  re-served. Why is that now safe without the await (what do `excludeId` + the preloaded
+  challenger guarantee), and what minor quality regression remains if the POST is very slow?
+
+- [ ] `SLIDE_MS` in `ComparisonScreen` and `duration-[350ms]` in `ComparisonArea` must stay
+  equal. What visual glitch happens if the `setTimeout` fires *shorter* than the CSS
+  transition — and why is that coupling across two files a smell worth a shared source?
+
+- [ ] Backgrounding the POST broke the loser's `-Y` float: the card was swapped out at
+  `SLIDE_MS` before the delta arrived, so the number landed on a card that no longer
+  existed. The fix `await postDone` (and a `FLOAT_MIN_MS` beat) before removing the loser.
+  Why does the float live or die with whether the loser is still in the `cards` array, and
+  how does the wrapper "stays put" comment relate to the number still showing off-screen?
+
+- [ ] The loser now starts sliding in `handlePick` (before `swapLoserForFresh` resolves the
+  challenger) rather than after the fetch. Trace why that one move removes the "cards paused
+  for a moment" stutter specifically on the preload-miss (fallback fetch) path.
+
+- [ ] The +X/-Y is now computed on the client with `updateRating` (from `/next`'s r/rd/mu)
+  and shown instantly, while the POST just persists. Why is the client number guaranteed to
+  equal the server's — what two things must be identical for that, and where could they drift
+  if `/next` and the POST read the ratings at different moments?
+
+- [ ] For a held winner on a streak, `swapLoserForFresh` folds `newWinnerRating` back into the
+  card via `{ ...card, ...newWinnerRating }`. What goes wrong with the *next* pick's delta if
+  we skip that and keep using the winner's original fetched rating across a 10-win streak?
+
+- [ ] Making the deltas client-side let us delete the `postDone`/`FLOAT_MIN_MS` gating and
+  advance the board on pure animation timing. Why did moving the number's *source* off the
+  network also fix the "new card enters too late" delay — i.e. what was the entrance actually
+  waiting on before?
+
+- [ ] The old swap was two *sequential* slides (loser fully out, THEN card in) with a dead
+  gap. `overlapSwap` runs them together by rendering the loser as an `absolute inset-0`
+  overlay inside the *incoming* card's wrapper. Why does `inset-0` inside that wrapper place
+  the overlay exactly over the slot without any coordinate math, and why does making it
+  absolute avoid a 3-card flex shift?
+
+- [ ] The overlap only runs on a preload HIT (`preChallenger` known synchronously); a miss
+  falls back to the sequential `swapLoserForFresh` fetch. Why can't the overlap start without
+  the challenger already in hand, and what would the board do if we tried to overlap while
+  still fetching?
+
+- [ ] `FloatNumber` was extracted so the exit overlay can show the departing card's `-Y`
+  even though that card is no longer in the `cards` array. Where does the overlay read its
+  float from, and why would the number vanish if we'd left the float markup inlined in the
+  `cards.map` only?

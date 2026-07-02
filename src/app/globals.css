@@ -19,32 +19,22 @@ body {
   font-family: var(--font-sans), monospace;
 }
 
-/* The "+X / -Y" rating change after a pick: it scales in while darting off the card
-   into the white margin (--float-x / --float-y, set inline), HOLDS there fully opaque
-   so it stays readable while the losing card slides away (~500ms), then fades. Used
-   by .elo-float in ComparisonScreen. */
-@keyframes elo-float {
+/* The ▲/▼ delta badge beside a Rating dial: pops in as the dial starts spinning. It
+   leaves by conditional render (RatingDial drops it after the hold), so there's no
+   exit animation. */
+@keyframes dial-pop {
   0% {
     opacity: 0;
-    transform: translate(0, 0) scale(0.6);
-  }
-  25% {
-    opacity: 1;
-    transform: translate(var(--float-x), var(--float-y)) scale(1.1);
-  }
-  60% {
-    opacity: 1;
-    transform: translate(var(--float-x), var(--float-y)) scale(1);
+    transform: translateY(4px) scale(0.7);
   }
   100% {
-    opacity: 0;
-    transform: translate(var(--float-x), var(--float-y)) scale(1);
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
-.elo-float {
-  animation: elo-float 1300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  will-change: transform, opacity;
+.dial-pop {
+  animation: dial-pop 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Winning-streak glow. `.flame` sits just behind the card as a solid colored backing
@@ -71,6 +61,87 @@ body {
     0 0 46px 18px rgb(var(--flame-color) / 0.5);
   animation: flame-pulse 1.8s ease-in-out infinite;
   will-change: opacity;
+}
+
+/* Winner flash: a quick pure glow (no hard ring) around the picked card, played once
+   per pick (the span is remounted with a fresh key each click). Starts at full opacity
+   so it registers the instant of the click, holds, then fades. Ends transparent and
+   stays there (`forwards`), so the span lingering in the DOM shows nothing. */
+@keyframes pick-flash {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.pick-flash {
+  inset: -2px;
+  border-radius: 0.9rem;
+  /* the span has no background — only the outward shadow renders, so it's glow-only */
+  box-shadow:
+    0 0 24px 8px rgb(34 197 94 / 0.9),
+    0 0 56px 22px rgb(34 197 94 / 0.45);
+  animation: pick-flash 500ms ease-out forwards;
+  will-change: opacity;
+}
+
+/* The Clefairy mascot's motion, split across nested elements so the transforms don't
+   collide: critter-hop is the one-shot hop (crouch → jump → land-squash) replayed by
+   remount (pick celebration or wander emote), critter-idle is the endless standing
+   bob, and clefairy-waddle is the side-to-side rock while walking. */
+@keyframes critter-hop {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  15% {
+    transform: translateY(2px) scale(1.1, 0.85);
+  }
+  45% {
+    transform: translateY(-16px) scale(0.95, 1.05);
+  }
+  75% {
+    transform: translateY(0) scale(1.05, 0.9);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+.critter-hop {
+  animation: critter-hop 550ms ease-out;
+}
+
+@keyframes critter-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.critter-idle {
+  animation: critter-bob 2.6s ease-in-out infinite;
+}
+
+@keyframes clefairy-waddle {
+  0%,
+  100% {
+    transform: rotate(-4deg) translateY(0);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-2px);
+  }
+}
+
+.clefairy-waddle {
+  animation: clefairy-waddle 0.5s ease-in-out infinite;
+  /* rock about the feet, not the center, so it reads as steps rather than a sway */
+  transform-origin: 50% 85%;
 }
 
 /* One-shot hover hint on ranked cards: a brief clockwise/counter-clockwise wiggle to

@@ -49,6 +49,78 @@
 
 # LEARNING
 
+## fix Clefairy's flipped facing
+
+- [ ] The fix negates `facing` at the render (`scaleX(${-facing})`) instead of swapping the `dir` assignment in the wander brain. Why is "state keeps movement semantics, the view layer absorbs the art's native orientation" the more maintainable split — what would a future emote that depends on movement direction look like under each choice?
+
+- [ ] The old hand-drawn sprite was symmetric, so this bug was invisible until the asymmetric extracted sprite landed. What does that say about how orientation conventions should be pinned down (or tested) when an asset is a black box swapped in later?
+
+## Clefairy looks before she walks
+
+- [ ] The look-then-move needed a `facingRef` mirror even though `facing` state already existed. Why does the wander loop's closure (an effect with `[]` deps) always see `facing`'s initial value, and why is a ref the fix rather than adding `facing` to the deps array?
+
+- [ ] The look pause is 150ms when already facing the target but 300-650ms for a turn-around. What principle of believable character motion does scaling anticipation time to the size of the direction change reflect, and where else in this app's animations does an "anticipation beat" already exist?
+
+## glow-only winner flash + Clefairy shrink
+
+- [ ] The flash keyframes changed from a 12% opacity ramp-in to starting at `opacity: 1` at 0%. Given the click also kicks off card slides and a dial spin in the same instant, why does even a ~50ms ramp make a feedback cue feel like it "didn't happen", and what does this say about ordering feedback vs. consequence animations?
+
+- [ ] Clefairy shrinks via `viewBox` + a 0.75 display scale instead of setting `PX = 1.5`. What rendering artifact do fractional rect coordinates risk under `shape-rendering: crispEdges`, and why does scaling the whole vector sidestep it?
+
+## winner flash on every pick
+
+- [ ] The flash is a `key={picks}`-remounted span with a `forwards` one-shot animation, and `pickedId` is now deliberately never cleared mid-swap. Why did the old static `isPicked` shadow show nothing on the overlap paths, and why is it safe for `pickedId` to point at a card that's no longer on the board?
+
+- [ ] The flash animates only `opacity` on a span whose ring/glow is a static `box-shadow`, mirroring the `.flame` approach. What does animating opacity (vs. animating box-shadow itself) buy on the compositor, and when would that shortcut stop being available?
+
+## extract Clefairy from the reference chart
+
+- [ ] The extractor brute-forces the chart's cell size/offset by minimizing mean brightness along candidate gridline positions, then takes each cell's per-channel MEDIAN over its center region. Why median instead of mean here (what do JPG artifacts and gridline bleed do to each), and why sample only the center 40% of the cell?
+
+- [ ] Background removal flood-fills 'W' cells from the image border instead of mapping all white to transparent. What feature of this specific sprite (look at rows 14, 18, 36-38) would plain white-keying have destroyed, and what's the general name/idea of this inside/outside distinction?
+
+## pixel-art Clefairy sprite
+
+- [ ] The sprite is a string map rendered as one SVG `<rect>` per pixel with `shapeRendering="crispEdges"`, and `BLINK_SPRITE` is derived by rewriting four columns in the two eye rows. What breaks silently if a future sprite edit shifts the eyes off rows 10–11, and how could the blink transform locate the eyes robustly instead?
+
+- [ ] The sprite was authored by generating the silhouette geometrically (ellipse + triangles + auto-outline pass) and then eyeballing PNG renders, rather than hand-typing the grid. When is "build a tiny toolchain to see your output" worth it over editing blind, and what did the auto-outline pass guarantee that hand-pixeling kept getting wrong?
+
+## Clefairy wanderer
+
+- [ ] `Clefairy` stacks five nested divs (positioner → facing flip → pick hop → wander emote → waddle/bob), each owning one transform. Which pairs would visibly break if merged onto one element, and why does the pick hop need a layer separate from the wander emote specifically?
+
+- [ ] The wander brain is one self-rescheduling `setTimeout` chain with `xRef` mirroring the `x` state. Why can't the loop read `x` directly (what would the `[]`-deps closure see), and what alternative designs (setInterval tick, useReducer machine, rAF loop) were rejected and at what cost/benefit?
+
+## kill the blank beat on preload misses
+
+- [ ] `swapLoserForFresh` now waits `Math.max(0, SLIDE_MS - (performance.now() - slideStart))` instead of a fixed `SLIDE_MS` after the fetch. Draw the two timelines (fetch faster vs. slower than the slide) — in each, when does the challenger start rising, and why was the old code's blank always `fetch + SLIDE_MS`?
+
+- [ ] The preload effect dropped `ready` from its condition, firing at swap START. Why does this NOT re-preload for the outgoing pair at pick time (think: which dependency actually changes and when), and what does this trade against showing the user a slightly staler challenger choice?
+
+## parallelize the comparison API's Supabase round trips
+
+- [ ] In `/api/comparison/next`, the count, `fetchAllRanks`, and the history query now share one `Promise.all`, but `sampleEligible` still waits for the count. Supabase query builders are lazy thenables — what actually starts each request, and why does `fetchAllRanks` paginating with `.order("card_id")` matter for pages not overlapping?
+
+- [ ] The POST's upsert+insert were serialized, implying an ordering guarantee that never existed (PostgREST has no cross-table transaction). What failure states were possible before vs. after parallelizing, and what's the general lesson about sequential `await`s implying dependencies to readers?
+
+## add the Critter mascot
+
+- [ ] `Critter` replays its hop by putting `key={picks}` on the hop wrapper rather than toggling the `critter-hop` class on and off. Why doesn't removing-then-re-adding a class restart a finished CSS animation within the same frame, and what does the remount give you that `animation-iteration-count` can't?
+
+- [ ] The hop and the idle bob animate `transform` on two nested divs instead of one. Relate this to the existing `RankingCard` wiggle/flip question in this file: what is the general rule for when two CSS animations need separate elements?
+
+## overlap the pair swap with Keep Winner off
+
+- [ ] `overlapFresh` only runs when the preloaded pair shares no `card_id` with the outgoing pair (`disjoint`), falling back to the sequential slide otherwise. Walk through what `pos` (a `Record<card_id, Position>`) would have to hold if one card appeared in both pairs — which of the two motions wins, and what would the user see?
+
+- [ ] `exiting` went from `Exit | null` to `Exit[]` so one mechanism covers both the single-loser overlay and the whole-pair overlay. When is generalizing a state shape like this justified versus adding a parallel second state (`exitingPair`), and how does YAGNI cut in this specific case?
+
+## replace ELO floats with Rating dials
+
+- [ ] `RatingDial` reads its animation start from `shownRef` instead of the `shown` state inside the `useEffect`. Why would depending on `shown` directly break the tween loop, and what does mounting the exit overlay's dial with `from` solve that keying by `card_id` alone can't?
+
+- [ ] `handlePick` now folds BOTH cards' new ratings into `cards` state at pick time, which let `overlapSwap`/`swapLoserForFresh` drop their winner-fold and every `clearFloat` guard. What general principle about "derive UI from one source of state vs. imperatively triggering effects" does this illustrate, and which stale-float bug class disappeared for free?
+
 ## flip card over in `See Rankings`
 
 - [ ] In `RankingCard`, the flip's `rotateY` is on the inner `[transform-style:preserve-3d]` div while `.wiggle` (a `rotate`) is on the outer button — what visually breaks if you instead put both on the same element, and why does `preserve-3d` make that collision worse than for a 2D-only card?
