@@ -45,6 +45,12 @@
 
 # LEARNING
 
+## faithful serpent portraits, no more belly-roll
+
+- [ ] Every serpent piece now keeps its rightmost 3 columns plain tube — and `RS_RING` additionally backs its ring with solid green instead of transparent cells. Trace how the 3-cell overlap's paint order (head-ward neighbor on top) turned the first draft's rings into "C" shapes, and which 1px seam holes the solid backing closes that the overlap alone couldn't.
+
+- [ ] The heads, face and fin grids are frozen output of a scratch painter script (shape bands + an auto-outline pass that treats off-canvas as FILLED) rather than hand-typed rows. Why is "off-canvas = filled" exactly the outline rule a piece that must seam into its neighbor needs, and when does freezing generated art into the source beat checking the generator itself into the repo?
+
 ## 3x side-view serpents: crossing Gyarados, prowling Rayquaza
 
 - [ ] Switching from top-down to side profiles let the whole rotation subsystem (cumulative shortest-turn angles, the length-sided square clearance) collapse into a `scaleX` flip and a plain box check. Why does a side view make arbitrary-heading rotation WRONG rather than merely unnecessary (what happens to "up" when a side profile rotates 180°?), and what did the clearance box get back by no longer having to cover a turning arc?
