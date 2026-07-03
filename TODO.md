@@ -45,6 +45,16 @@
 
 # LEARNING
 
+## cut the neck clutter exactly where the clean tube ends
+
+- [ ] Keeping the body tube under the neck (cut_x 1230) left mangled unroll
+  clutter protruding above the neck. The fix found the exact cut point by
+  scanning each column's opaque vertical EXTENT: the clean tube held a steady
+  ~66px thickness up to x=1165, then jumped to 80→171 where the mangled head
+  began. Why is "thickness suddenly balloons" a reliable, geometry-only signal
+  for where a straightened tube ends and unroll garbage starts — no image
+  understanding needed?
+
 ## SMIL for WebKit, a solid neck graft + arm, and a low U-turn
 
 - [ ] The snake wave went invisible in Safari because WebKit won't animate a CSS
