@@ -3,11 +3,11 @@
 // quantized, white background flood-filled away), NOT hand-drawn: Gyarados from
 // a side illustration (gyrados side.png), Rayquaza from a model-kit photo
 // (ray_side.webp). Each is one whole sprite that natively faces right and
-// mirrors with scaleX for leftward travel, and WAGS as one body (see the
-// .serpent-wag class, hinged at each serpent's head) rather than snaking, since
-// a photographed pose can't be cut into a uniform tube of undulating segments.
-// The palettes are machine-derived from the photos, so their letters carry no
-// fixed meaning; they are just the traced colors.
+// mirrors with scaleX for leftward travel. To swim, it's sliced into thin
+// vertical columns at render time and a traveling sine runs down them (see
+// .serpent-slice), so the body SNAKES like a fish — head steady, amplitude
+// growing toward the tail. The palettes are machine-derived from the photos, so
+// their letters carry no fixed meaning; they are just the traced colors.
 
 const GY_IMAGE_HEX: Record<string, string> = {
   k: "#50ADDB", B: "#616564", L: "#FCFCFC", N: "#2B5266",
@@ -181,12 +181,13 @@ export type SerpentSprite = {
   // "cross": swims straight across at a fixed height, alternating direction.
   // "prowl": slithers in from a side edge, dives, then wanders the open water.
   behavior: "cross" | "prowl";
-  // An exact traced sprite (tail-to-head, natively facing right), rendered whole
-  // and wagged as one body — the model art can't be cut into a snaking tube.
+  // An exact traced sprite (tail-to-head, natively facing right). At render time
+  // it's sliced into thin vertical columns and a traveling sine runs down them,
+  // so the whole body SNAKES like a swimming fish (head steady, tail sweeping).
   image: string[];
-  // CSS transform-origin for the wag rotation, placed at each serpent's HEAD so
-  // the long tail sweeps: Gyarados' head sits mid-right, Rayquaza's up-right.
-  wagOrigin: string;
+  // Peak wave amplitude at the tail, in DESIGN px (the head barely moves). Tune
+  // per serpent to its girth so the snake reads without tearing the silhouette.
+  waveAmp: number;
 };
 
 export const SERPENTS: SerpentSprite[] = [
@@ -195,13 +196,13 @@ export const SERPENTS: SerpentSprite[] = [
     palette: GY_IMAGE_HEX,
     behavior: "cross",
     image: GY_IMAGE,
-    wagOrigin: "86% 44%",
+    waveAmp: 6,
   },
   {
     name: "rayquaza",
     palette: RAY_IMAGE_HEX,
     behavior: "prowl",
     image: RAY_IMAGE,
-    wagOrigin: "82% 24%",
+    waveAmp: 6,
   },
 ];

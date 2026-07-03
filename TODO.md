@@ -45,7 +45,22 @@
 
 # LEARNING
 
-## Gyarados traced too; the segmented serpent subsystem deleted
+## snaking the traced serpents with a column-band traveling wave
+
+- [ ] `SnakeSprite` slices the traced sprite into vertical `<g>` bands and each
+  animates `translateY(var(--amp))`, where `--amp` is in svg USER units (design
+  px * PX) rather than screen px. Why does using user units make the wave scale
+  correctly with `SERPENT_IMAGE_SCALE` for free, and why did that let the bands
+  live in ONE `<svg>` (with `overflow: visible`) without the subpixel seams that
+  separate per-band `<svg>`s at a fractional scale would have produced?
+
+- [ ] Each band's `animationDelay` is `-SNAKE_PERIOD_MS * SNAKE_WAVES * xc` (xc =
+  0 at the tail, 1 at the head) and its amplitude ramps from `SNAKE_HEAD_AMP` at
+  the head to full `waveAmp` at the tail. Work through why a delay that's LINEAR
+  in position produces a crest that travels head→tail at constant speed, and why
+  this column-wave snakes an elongated body (Gyarados) convincingly but only
+  wiggles Rayquaza — what property of the *source pose*, not the code, is the
+  limit?
 
 - [ ] The Gyarados source (`gyrados side.png`) has its head on the LEFT, but it's
   traced from a horizontally-FLIPPED copy so `GY_IMAGE` natively faces right.

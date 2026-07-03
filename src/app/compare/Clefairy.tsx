@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { SERPENTS } from "./serpentSprites";
 
 // A relaxed toddle, in px/s. Walk duration scales with distance so speed stays constant.
@@ -232,18 +232,52 @@ const DISPLAY_SCALE = 0.75;
 const SPRITE_W = SPRITE[0].length * PX * DISPLAY_SCALE;
 const SPRITE_H = SPRITE.length * PX * DISPLAY_SCALE;
 
-// Each serpent is one big traced sprite — a screen-dominating legendary — drawn
-// at SERPENT_IMAGE_SCALE. It wags as a whole body rather than snaking, so
-// WAG_SWING_PX pads its card-avoidance box for the side-to-side sweep (the wag
-// is a whole-sprite rotation, so the far tail traces an arc past the box edge).
+// Each serpent is one big traced sprite — a screen-dominating legendary. To make
+// it swim, the sprite is sliced into vertical columns SNAKE_SLICE_W design-px
+// wide, rendered as <g> bands of ONE svg, and each band oscillates vertically
+// (translateY, in svg user units so it scales with the art and the bands never
+// seam apart). A per-column phase delay sends a traveling sine down the body,
+// and the amplitude ramps from ~0 at the head to the full waveAmp at the tail.
+// SNAKE_WAVES is how many sine wavelengths span the body at once; SNAKE_PERIOD_MS
+// (must match the CSS .serpent-slice duration) is one oscillation.
 const SERPENT_IMAGE_SCALE = 1.2;
-const WAG_SWING_PX = 32;
+const SNAKE_SLICE_W = 3; // design px per column slice
+const SNAKE_WAVES = 1.25;
+const SNAKE_PERIOD_MS = 1800;
+const SNAKE_HEAD_AMP = 0.12; // fraction of waveAmp the head still keeps
+// Precompute each serpent's column bands: the starting column, its cells, and
+// the per-band amplitude (in svg user units = design px * PX) and phase delay.
+const SERPENT_SLICES = SERPENTS.map((serpent) => {
+  const rows = serpent.image;
+  const w = rows[0].length;
+  const maxAmpUnits = serpent.waveAmp * PX;
+  const bands = [];
+  for (let x0 = 0; x0 < w; x0 += SNAKE_SLICE_W) {
+    const xEnd = Math.min(x0 + SNAKE_SLICE_W, w);
+    const cells: { x: number; y: number; ch: string }[] = [];
+    for (let y = 0; y < rows.length; y++) {
+      for (let x = x0; x < xEnd; x++) {
+        const ch = rows[y][x];
+        if (ch !== ".") cells.push({ x, y, ch });
+      }
+    }
+    const xc = Math.min(1, (x0 + SNAKE_SLICE_W / 2) / w); // 0 tail (left) .. 1 head
+    bands.push({
+      cells,
+      ampUnits: maxAmpUnits * (SNAKE_HEAD_AMP + (1 - SNAKE_HEAD_AMP) * (1 - xc)),
+      // Head (large xc) leads; the crest then travels head -> tail.
+      delayMs: -SNAKE_PERIOD_MS * SNAKE_WAVES * xc,
+    });
+  }
+  return bands;
+});
 // Per-serpent footprint for card avoidance: its own pixel box, padded above and
-// below by the wag swing.
+// below by the full tail wave swing.
 const SERPENT_DIMS = SERPENTS.map((serpent) => {
+  const maxAmp = serpent.waveAmp * PX * SERPENT_IMAGE_SCALE;
   const w = serpent.image[0].length * PX * SERPENT_IMAGE_SCALE;
   const stripH = serpent.image.length * PX * SERPENT_IMAGE_SCALE;
-  return { w, h: stripH + 2 * WAG_SWING_PX, stripH, maxAmp: WAG_SWING_PX };
+  return { w, h: stripH + 2 * maxAmp, stripH, maxAmp };
 });
 type SerpentDim = (typeof SERPENT_DIMS)[number];
 // A slow menacing swim (she toddles at 41), a faster dive/exit lunge, how high
@@ -294,6 +328,46 @@ function PixelArt({
           ),
         ),
       )}
+    </svg>
+  );
+}
+
+// A traced serpent, drawn as one svg whose vertical column-bands each oscillate
+// (a traveling sine down the body, amplitude growing tailward) so it snakes like
+// a swimming fish. overflow:visible lets the bands ride outside the box as they
+// wave; the bands are precomputed in SERPENT_SLICES.
+function SnakeSprite({ kind }: { kind: number }) {
+  const spec = SERPENTS[kind];
+  const w = spec.image[0].length * PX;
+  const h = spec.image.length * PX;
+  return (
+    <svg
+      width={w * SERPENT_IMAGE_SCALE}
+      height={h * SERPENT_IMAGE_SCALE}
+      viewBox={`0 0 ${w} ${h}`}
+      shapeRendering="crispEdges"
+      style={{ overflow: "visible" }}
+    >
+      {SERPENT_SLICES[kind].map((band, bi) => (
+        <g
+          key={bi}
+          className="serpent-slice"
+          style={
+            { "--amp": `${band.ampUnits}px`, animationDelay: `${band.delayMs}ms` } as CSSProperties
+          }
+        >
+          {band.cells.map((c) => (
+            <rect
+              key={`${c.x}-${c.y}`}
+              x={c.x * PX}
+              y={c.y * PX}
+              width={PX}
+              height={PX}
+              fill={spec.palette[c.ch]}
+            />
+          ))}
+        </g>
+      ))}
     </svg>
   );
 }
@@ -995,35 +1069,22 @@ export default function Clefairy({ picks }: { picks: number }) {
 
       {/* The visiting serpent: same bottom-center anchor and glide scheme as
           her positioner. One traced sprite that natively faces right (mirrored
-          with scaleX for leftward travel) and wags as a whole body via
-          `serpent-wag`, hinged at its head (`wagOrigin`) so the tail sweeps. */}
-      {serpent &&
-        (() => {
-          const spec = SERPENTS[serpent.kind];
-          return (
-            <div className="absolute bottom-6 left-1/2">
-              <div
-                style={{
-                  transform: `translate(${serpent.x}px, ${serpent.y}px)`,
-                  transition: `transform ${serpent.ms}ms ease-in-out`,
-                }}
-              >
-                <div style={{ transform: `scaleX(${serpent.dir})` }}>
-                  <div
-                    className="serpent-wag"
-                    style={{ transformOrigin: spec.wagOrigin }}
-                  >
-                    <PixelArt
-                      rows={spec.image}
-                      scale={SERPENT_IMAGE_SCALE}
-                      palette={spec.palette}
-                    />
-                  </div>
-                </div>
-              </div>
+          with scaleX for leftward travel) and snakes as it swims — its vertical
+          column-bands run a traveling sine (see SnakeSprite). */}
+      {serpent && (
+        <div className="absolute bottom-6 left-1/2">
+          <div
+            style={{
+              transform: `translate(${serpent.x}px, ${serpent.y}px)`,
+              transition: `transform ${serpent.ms}ms ease-in-out`,
+            }}
+          >
+            <div style={{ transform: `scaleX(${serpent.dir})` }}>
+              <SnakeSprite kind={serpent.kind} />
             </div>
-          );
-        })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
