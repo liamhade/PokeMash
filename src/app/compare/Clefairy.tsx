@@ -239,8 +239,8 @@ const SPRITE_H = SPRITE.length * PX * DISPLAY_SCALE;
 // seam apart). A per-column phase delay sends a traveling sine down the body,
 // and the amplitude ramps from ~0 at the head to the full waveAmp at the tail.
 // SNAKE_WAVES is how many sine wavelengths span the body at once; SNAKE_PERIOD_MS
-// (must match the CSS .serpent-slice duration) is one oscillation.
-const SERPENT_IMAGE_SCALE = 1.2;
+// (must match the CSS .serpent-slice duration) is one oscillation. On-screen size
+// is per serpent (serpent.renderScale), since the unrolled Rayquaza is far longer.
 const SNAKE_SLICE_W = 3; // design px per column slice
 const SNAKE_WAVES = 1.25;
 const SNAKE_PERIOD_MS = 1800;
@@ -274,9 +274,9 @@ const SERPENT_SLICES = SERPENTS.map((serpent) => {
 // Per-serpent footprint for card avoidance: its own pixel box, padded above and
 // below by the full tail wave swing.
 const SERPENT_DIMS = SERPENTS.map((serpent) => {
-  const maxAmp = serpent.waveAmp * PX * SERPENT_IMAGE_SCALE;
-  const w = serpent.image[0].length * PX * SERPENT_IMAGE_SCALE;
-  const stripH = serpent.image.length * PX * SERPENT_IMAGE_SCALE;
+  const maxAmp = serpent.waveAmp * PX * serpent.renderScale;
+  const w = serpent.image[0].length * PX * serpent.renderScale;
+  const stripH = serpent.image.length * PX * serpent.renderScale;
   return { w, h: stripH + 2 * maxAmp, stripH, maxAmp };
 });
 type SerpentDim = (typeof SERPENT_DIMS)[number];
@@ -342,8 +342,8 @@ function SnakeSprite({ kind }: { kind: number }) {
   const h = spec.image.length * PX;
   return (
     <svg
-      width={w * SERPENT_IMAGE_SCALE}
-      height={h * SERPENT_IMAGE_SCALE}
+      width={w * spec.renderScale}
+      height={h * spec.renderScale}
       viewBox={`0 0 ${w} ${h}`}
       shapeRendering="crispEdges"
       style={{ overflow: "visible" }}

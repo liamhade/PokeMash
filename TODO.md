@@ -45,7 +45,21 @@
 
 # LEARNING
 
-## snaking the traced serpents with a column-band traveling wave
+## unroll Rayquaza's S-pose into a straight snaking serpent
+
+- [ ] `unroll.py` finds the body centerline as the skeleton's LONGEST path via
+  two BFS passes (farthest node from an arbitrary start, then farthest from
+  THAT) — the classic tree-diameter trick. Why does that reliably return the
+  tail-tip→head-tip spine and ignore the shorter arm/fin/crest branches, and
+  where would it break if the skeleton had a big loop rather than being tree-like?
+
+- [ ] The perpendicular resampling walks outward from each spine point and STOPS
+  at the first background pixel in each direction, instead of sampling a fixed
+  half-width. Work through why that rule prevents a normal ray at the inside of a
+  tight S-bend from bleeding into the adjacent coil — and why "elongate the source
+  pose" (not a change to the wave code) is what finally made Rayquaza snake, given
+  the previous note said the limit was the source pose. Also: why did the unrolled
+  sprite need its own smaller `renderScale` rather than sharing Gyarados'?
 
 - [ ] `SnakeSprite` slices the traced sprite into vertical `<g>` bands and each
   animates `translateY(var(--amp))`, where `--amp` is in svg USER units (design
