@@ -45,7 +45,23 @@
 
 # LEARNING
 
-## match the reference photos + side-on entrance for both serpents
+## Rayquaza as an exact traced sprite that wags
+
+- [ ] The tracer quantized the model with `MEDIANCUT` first and the red fin
+  plates collapsed into one brown (`#976446`); switching to `FASTOCTREE` split
+  out a real red (`#E66852`). Given the source genuinely had ~7700 red pixels,
+  why did median-cut still starve them while octree didn't — what does each
+  algorithm optimize, and why does a big smooth green gradient punish median-cut
+  here? And why must the white-background removal be a border flood-fill rather
+  than "map white -> transparent" (think: the white claws/teeth)?
+
+- [ ] `SerpentSprite` now has optional `pieces?` XOR `image?`: Gyarados stays a
+  segmented strip that snakes via per-piece `serpent-undulate`, while Rayquaza
+  is one `RAY_IMAGE` grid rotated by `.serpent-wag`. Why can a hand-authored
+  tube be sliced-and-undulated without seams but a traced photo can't (what did
+  the uniform-thickness pieces guarantee that the trace doesn't)? And why is a
+  whole-sprite rotation hinged at `transform-origin: 82% 24%` the right way to
+  fake swimming for a rigid S-posed image?
 
 - [ ] Both `GS_FIN`'s white prongs and `RS_FIN`'s red plates sit in rows the
   neighboring segments leave `.` (empty), yet `RS_RING`'s yellow oval still has

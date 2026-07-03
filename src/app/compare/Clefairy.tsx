@@ -246,17 +246,29 @@ const WAVE_LAG_MS = 120;
 const SERPENT_SCALE = DISPLAY_SCALE * 3;
 const AMP_SCALE = 3;
 const SERPENT_OVERLAP_PX = 3 * PX * SERPENT_SCALE; // pieces merge into one tube
-// Per-serpent footprint for card avoidance: strip length minus overlaps; strip
-// thickness plus the full wave swing either side of the spine.
+// A traced-image serpent (Rayquaza) is one big sprite rather than a strip, so
+// it gets its own render scale; WAG_SWING_PX pads its clearance box for the
+// side-to-side body wag (a whole-sprite rotation, so the tail sweeps an arc).
+const SERPENT_IMAGE_SCALE = 1.2;
+const WAG_SWING_PX = 32;
+// Per-serpent footprint for card avoidance: for a piece strip, its length minus
+// overlaps and thickness plus the full wave swing; for a traced image, its own
+// pixel box padded by the wag swing.
 const SERPENT_DIMS = SERPENTS.map((serpent) => {
-  const maxAmp = Math.max(...serpent.pieces.map((piece) => piece.amp)) * AMP_SCALE;
+  if (serpent.image) {
+    const w = serpent.image[0].length * PX * SERPENT_IMAGE_SCALE;
+    const stripH = serpent.image.length * PX * SERPENT_IMAGE_SCALE;
+    return { w, h: stripH + 2 * WAG_SWING_PX, stripH, maxAmp: WAG_SWING_PX };
+  }
+  const pieces = serpent.pieces!;
+  const maxAmp = Math.max(...pieces.map((piece) => piece.amp)) * AMP_SCALE;
   return {
     w:
-      serpent.pieces.reduce(
+      pieces.reduce(
         (total, piece) => total + piece.rows[0].length * PX * SERPENT_SCALE,
         0,
       ) -
-      (serpent.pieces.length - 1) * SERPENT_OVERLAP_PX,
+      (pieces.length - 1) * SERPENT_OVERLAP_PX,
     h: 24 * PX * SERPENT_SCALE + 2 * maxAmp,
     stripH: 24 * PX * SERPENT_SCALE,
     maxAmp,
@@ -1011,47 +1023,62 @@ export default function Clefairy({ picks }: { picks: number }) {
       </div>
 
       {/* The visiting serpent: same bottom-center anchor and glide scheme as
-          her positioner, at 3x her scale. Always drawn in side profile; the
-          strip (tail first, head last) natively faces right and mirrors with
-          scaleX for leftward travel. Every piece runs the shared undulate
-          keyframe with a staggered delay, so a slow wave travels head-to-tail
-          while it glides. */}
-      {serpent && (
-        <div className="absolute bottom-6 left-1/2">
-          <div
-            style={{
-              transform: `translate(${serpent.x}px, ${serpent.y}px)`,
-              transition: `transform ${serpent.ms}ms ease-in-out`,
-            }}
-          >
-            <div style={{ transform: `scaleX(${serpent.dir})` }}>
-              <div className="flex items-center">
-                {SERPENTS[serpent.kind].pieces.map((piece, i) => (
-                  <div
-                    key={i}
-                    className="serpent-piece"
-                    style={
-                      {
-                        "--amp": `${piece.amp * AMP_SCALE}px`,
-                        // Negative delay = phase advance; the head (largest
-                        // i) leads and the wave ripples back to the tail.
-                        animationDelay: `${-i * WAVE_LAG_MS}ms`,
-                        marginLeft: i === 0 ? 0 : -SERPENT_OVERLAP_PX,
-                      } as CSSProperties
-                    }
-                  >
-                    <PixelArt
-                      rows={piece.rows}
-                      scale={SERPENT_SCALE}
-                      palette={SERPENTS[serpent.kind].palette}
-                    />
-                  </div>
-                ))}
+          her positioner. Two render paths. Gyarados is a strip of pieces (tail
+          first, head last) that natively faces right; each piece runs the
+          shared undulate keyframe with a staggered delay, so a slow wave
+          travels head-to-tail while it glides. Rayquaza is a single traced
+          sprite that wags as one body (`serpent-wag`). Both mirror with scaleX
+          for leftward travel. */}
+      {serpent &&
+        (() => {
+          const spec = SERPENTS[serpent.kind];
+          return (
+            <div className="absolute bottom-6 left-1/2">
+              <div
+                style={{
+                  transform: `translate(${serpent.x}px, ${serpent.y}px)`,
+                  transition: `transform ${serpent.ms}ms ease-in-out`,
+                }}
+              >
+                <div style={{ transform: `scaleX(${serpent.dir})` }}>
+                  {spec.image ? (
+                    <div className="serpent-wag">
+                      <PixelArt
+                        rows={spec.image}
+                        scale={SERPENT_IMAGE_SCALE}
+                        palette={spec.palette}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      {spec.pieces!.map((piece, i) => (
+                        <div
+                          key={i}
+                          className="serpent-piece"
+                          style={
+                            {
+                              "--amp": `${piece.amp * AMP_SCALE}px`,
+                              // Negative delay = phase advance; the head
+                              // (largest i) leads and the wave ripples back.
+                              animationDelay: `${-i * WAVE_LAG_MS}ms`,
+                              marginLeft: i === 0 ? 0 : -SERPENT_OVERLAP_PX,
+                            } as CSSProperties
+                          }
+                        >
+                          <PixelArt
+                            rows={piece.rows}
+                            scale={SERPENT_SCALE}
+                            palette={spec.palette}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          );
+        })()}
     </div>
   );
 }

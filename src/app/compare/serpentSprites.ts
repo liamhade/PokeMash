@@ -12,20 +12,21 @@
 // original Clefairy silhouette) and checked against PNG renders; the grids
 // below are its frozen output.
 //
+// NOTE: only GYARADOS is hand-authored segmented pieces (below); RAYQUAZA is an
+// EXACT pixel trace of the reference model kit (ray_side.webp: trimmed,
+// downsampled, octree-quantized, background flood-filled away). It's a single
+// sprite kept whole and wagged as one body (see the .serpent-wag class), since
+// the model's S-pose can't be cut into a snaking tube.
+//
 // Gyarados legend: k outline | B body blue | L highlight | N crest navy |
 // W fin/fang white | c belly cream | d cream shade | R maw dark red.
-// Rayquaza legend: k outline | G body green | E lime highlight | D dark green |
-// Y ring yellow | R accent red | O fin orange | W fang white | m maw dark red.
+// (Rayquaza's palette is machine-derived from the photo — its letters carry no
+// fixed meaning, they're just the traced colors.)
 
 const GY_HEX: Record<string, string> = {
   k: "#101820", B: "#4098D0", L: "#78C8E8", N: "#1B4E74",
   W: "#F8F8F8", c: "#F0DCA8", d: "#C89860", R: "#8E1C1C",
 };
-const RAY_HEX: Record<string, string> = {
-  k: "#101820", G: "#2FA04A", E: "#66C868", D: "#1C6430",
-  Y: "#F8D030", R: "#E03828", O: "#F07830", W: "#F8F8F8", m: "#8E1C1C",
-};
-
 // Gyarados body segment: a rounded blue back over a cream belly, with a navy
 // seam on the tail-ward edge dividing it from its neighbor. No dorsal fin — in
 // the reference the big three-pronged crests sit only at intervals, so those
@@ -144,149 +145,105 @@ const GS_HEAD = [
   "...........kWk......................",
 ];
 
-// Rayquaza body slice: lime top light, green tube, dark keel.
-const RS_SLICE = [
-  "........",
-  "........",
-  "........",
-  "........",
-  "........",
-  "kkkkkkkk",
-  "EEEEEEEE",
-  "GGGGGGGG",
-  "GGGGGGGG",
-  "GGGGGGGG",
-  "GGGGGGGG",
-  "GGGGGGGG",
-  "GGGGGGGG",
-  "GGGGGGGG",
-  "GGGGGGGG",
-  "GGGGGGGG",
-  "DDDDDDDD",
-  "DDDDDDDD",
-  "kkkkkkkk",
-  "........",
-  "........",
-  "........",
-  "........",
-  "........",
-];
+const RAY_IMAGE_HEX: Record<string, string> = {
+  k: "#1FA85E", B: "#53B16D", L: "#E66852", N: "#94CEA8",
+  W: "#72C38E", c: "#FEFEFE", d: "#65BB86", R: "#DDCC17",
+  p: "#1A5A33", G: "#F4A29C", E: "#95985B", D: "#B3DDC6",
+  Y: "#9FB728", O: "#AEC42B", m: "#266A48", a: "#9EC557",
+  b: "#A86035", e: "#D9D552", f: "#A5744B", g: "#1B2D21",
+};
 
-// Rayquaza ring slice: the bold black-edged yellow ring marking on the flank,
-// over a solid tube so no hole can peek through at the piece seams.
-const RS_RING = [
-  "..........",
-  "..........",
-  "..........",
-  "..........",
-  "..........",
-  "kkkkkkkkkk",
-  "EEEEEEEEEE",
-  "GkkkkkGGGG",
-  "kYYYYYkGGG",
-  "kYkkkYkGGG",
-  "kYkGkYkGGG",
-  "kYkGkYkGGG",
-  "kYkGkYkGGG",
-  "kYkkkYkGGG",
-  "kYYYYYkGGG",
-  "GkkkkkGGGG",
-  "DDDDDDDDDD",
-  "DDDDDDDDDD",
-  "kkkkkkkkkk",
-  "..........",
-  "..........",
-  "..........",
-  "..........",
-  "..........",
-];
-
-// Rayquaza fin segment: the flat red paddle plates that jut off his back and
-// belly (orange-cored, black-edged), on a green stalk — the signature fins from
-// the reference. Plates sit in the neighbors' empty rows so the overlap can't clip them.
-const RS_FIN = [
-  "kkkkkkkkkkkk",
-  "kRRRRRRRRRRk",
-  "kROOOOOOOORk",
-  "kRRRRRRRRRRk",
-  ".kGGGGGGGGk.",
-  "kkkkkkkkkkkk",
-  "EEEEEEEEEEEE",
-  "GGGGGGGGGGGG",
-  "GGGGGGGGGGGG",
-  "GGGGGGGGGGGG",
-  "GGGGGGGGGGGG",
-  "GGGGGGGGGGGG",
-  "GGGGGGGGGGGG",
-  "GGGGGGGGGGGG",
-  "GGGGGGGGGGGG",
-  "GGGGGGGGGGGG",
-  "DDDDDDDDDDDD",
-  "DDDDDDDDDDDD",
-  "kkkkkkkkkkkk",
-  ".kGGGGGGGGk.",
-  "kRRRRRRRRRRk",
-  "kROOOOOOOORk",
-  "kRRRRRRRRRRk",
-  "kkkkkkkkkkkk",
-];
-
-// Rayquaza tail tip: taper, yellow ring band near the end, twin end blades.
-const RS_TIP = [
-  "................",
-  "................",
-  "kk..............",
-  "kGGk............",
-  ".kGGGk..........",
-  "..kkGGkkkkkkkkkk",
-  "....kGGGYkEEEEEE",
-  "..kkGGGGYkGGGGGG",
-  ".kGGGGGGYkGGGGGG",
-  "kGGGGGGkYkGGGGGG",
-  "kGGGGGGkYkGGGGGG",
-  ".kGGGGGGYkGGGGGG",
-  "..kkGGGGYkGGGGGG",
-  "....kGGGYkGGGGGG",
-  "..kkGGkkkkGGGGGG",
-  ".kGGGk....DDDDDD",
-  "kGGk......DDDDDD",
-  "kk........kkkkkk",
-  "................",
-  "................",
-  "................",
-  "................",
-  "................",
-  "................",
-];
-
-// Rayquaza head: flat blunt snout, two crest blades swept back over the neck,
-// big slit-pupil yellow eye, the thin red lip rim with its upswept corner,
-// white fangs over the dark maw, stout chin crest.
-const RS_HEAD = [
-  "......kkkkkkkkkkkk..................",
-  "....kkGGGGGGGGGGGG..................",
-  "..kkkkkkkkkkkkkkkkkk................",
-  "kkGGGGGGGGGGGGGGGGkkkkkkkk..........",
-  "..kkkkkkkkkkkkkkGGkYYYkkYGkk........",
-  "kkkkkkGGGGGGGGGGGGGYYYkkYGGGkkk.....",
-  "EEEEEEGGGGGGGGGGGGGYYYkkYGGGGGGkkkk.",
-  "GGGGGGGGGGGGGGGGGGRGGGGGGGGGGGGGGGk.",
-  "GGGGGGGGGGGGGGGGGGGRGGGGGGGGGGGGGGk.",
-  "GGGGGGGGGGGGGGGGGGGGRRRRRRRRRRRRRRk.",
-  "GGGGGGGGGGGGGGGGGGkkkkkkkkkkkkkkkkk.",
-  "GGGGGGGGGGGGGGGGGGGGGGmmmWmmmmWmmmk.",
-  "GGGGGGGGGGGGGGGGGGGGGGmmmWmmmmWmmmk.",
-  "GGGGGGGGGGGGGGGGGGGGGkkkkkkkkkkkkkk.",
-  "GGGGGGDDDDDDDDDDDDDDDDDDDDDkkkk.....",
-  "GGGGGGkkkkkkkkDDDDDDDDDkkkk.........",
-  "DDDDDD........kDDDDDkkk.............",
-  "DDDDDD......kkDDkkkk................",
-  "kkkkkk....kkDkkk....................",
-  "........kkkkk.......................",
-  "....................................",
-  "....................................",
-  "....................................",
-  "....................................",
+// Rayquaza: an exact pixel trace of the reference model kit (ray_side.webp,
+// downsampled + octree-quantized), kept whole and wagged as one body.
+const RAY_IMAGE = [
+  "...................................................................................................................dWN...................................",
+  "...................................................................................................................Bkkd..................................",
+  "...................................................................................................................NkkkB.................................",
+  "....................................................................................................................kkkkB................................",
+  "....................................................................................................................WkkkkB...............................",
+  "....................................................................................................................DkkkkkB..............................",
+  ".....................................................................................................................kkkkkkB.............................",
+  ".....................................................................................................................NkkkkkkB............................",
+  "......................................................................................................................kkkkkkkB...........................",
+  "......................................................................................................................BkkkkkkkB..........................",
+  "......................................................................................................................NkkkkkkkkW.........................",
+  ".......................................................................................................................BkkkkkkkkW........................",
+  ".........................................................................................................................BkkkkkkkN.......................",
+  "..........................................................................................................................NWkkkkkkN......................",
+  ".............................................................................................................................kkkkkkN.....................",
+  "..............................................................................................................................kkkkkkD....................",
+  "..............................................................................................................................NkkkkkBNNND................",
+  "...........................................................................................................................NBkkkkkkkkBaEaaNNN............",
+  "........................................................................................................................eEkkkkkkkkkkkkkkBBkkkBD..........",
+  "......................................................................................................................DBRBkkkkkkkkkkkkkkkkkBBkBD.........",
+  ".....................................................................................................................WkaRBBBBkkkkkkkkkkkkkkkkBBBN........",
+  "....................................................................................................................dBdaakkkkkBBBBBkkkkkkkkmpkkBd........",
+  "...................................................................................................................BBWBRakkkkkkBkkkkkkkkkkkkmgkkBd.......",
+  ".............................GLL..................................................................................BdWBBREkkkkkkBkkkBBkkkkkkkBggmkBW......",
+  "..........................G.LfBLG................................................................................BWWBBkRBkkkkkkBBkkfcfBBkkkkBmggmkcN.....",
+  "........................GLbBkkkBL...............................................................................ddWBBkORkkkkkkkBBBkccccLffBkkBmcYpkBN....",
+  ".....................GLbckkkkkkkfL.............................................................................NdWdBkORBkkkkkkBBBBckLLL..GLLEBBBBckBBN...",
+  "....................GbkkkkkkkkkkkL.WD.........................................................................DBWdBkORkkkkkkkBBBBWkkBLLG....LLLEBWWBBBN..",
+  ".....................fkkkkkkkkkkBBBkBNBkBBBBdWN...............................................................dWWBkORBkkkkkkBBBBcBdkkBcL....GLGLLLEBBdBD.",
+  ".....................LkkkkkkkBBBBBBcpmcBkBBkkkkBWD...........................................................NdWBBaRBkkkkdcWBBBckN..kkEGL......GG.GGEBcd.",
+  ".....................LkkkkBBBBBBBBBcppcBORRROBBBBkBN........................................................DBWdBBRBkkkkWcNBBBBkN...NkkLGL............NBW",
+  "......................BkBBWdddBBBBBcppkRRYBYRROBBBBkd.......................................................WWWBBRYkkkkW.NBBBBk......dkBLLG............NW",
+  "......................BWWWWddBBBBBBBkgRRkkkkkBROBBBBBBN....................................................NdWWBORkkkkd..NkBBB........kkEGLG.............",
+  "....................NWNNWWdBBBkBELLfkgcRBkkkkkBRBBBBBBBN...................................................dWWdaRkkkkk................DkkfGG.............",
+  "....................NNNWddBBBBELLLLLkgmBcckkkkBRRBBEBdBBN.................................................NdWdBRBkkkkD.................dkkLG.............",
+  "...................BdWWdBBBELLLLLLLBkppkkY.YYYRcBRRRReBdBN................................................dWWBOOkkkkd...................kkBL.............",
+  ".................NNBBWBBELLLLLLLfBkkkkgkkk....kkkRYkBeeadBN.............................................dBBBdcRBkkkk....................WkkfL............",
+  "................NNNdcBELLLLLLfckkkkkkkd.NDNd.kkkkcBkkkaeBdB............................................NdWBBmYYkkBkW.....................dWN.............",
+  "...............NNNWWmmELLLLfkkkkkkkkkkN.......dkkYYkkkkeedBW....................................GGGGGGGLBWWcpgpkkkk......................................",
+  "..............NWNaeBcgpLfBkkkkkkkkkkcL..........dkRBkkkBeWdBD................................GLLfEEEEEEcBWWkgBBmpkN......................................",
+  ".............NWeeaYccpgkkkkkkkkkkkkkk............dBRBkkBRNWBW................................GcBBkkkkkkkWBBppBBcBB.......................................",
+  "............NWeeBkkYYkppkkkkkkkkkkkkkbG...........dBROcYRWWBd................................LEkBBBkkkkkBcpgpkBBBBd......................................",
+  "...........NWeeBkkkYckkpBkkkkkkkkkkkkbG............BkYOROkBmcNW..............................LBkBkkkkkkkBBBmgpBBBkN......................................",
+  "..........NWNeBkkkcckkkN..Gbkkkkkkk...G.............kkkpcpBBdBBG............................GLBkBkkkkkkBBBBWmgkBBB.......................................",
+  ".........DWWaRkkkcckkd.......kkkkcbLG...............NmpmmkBNNBcEbbbbL.......................GLkkkkkkkckWdBdWBgkBkN.......................................",
+  ".........WWWBRcccckkN.......Lk.bLG..................DBBkEcEWNBBBkkkkf........................EkkkkkkcpkBBkBdcpkBB........................................",
+  "........NWWBYcYYckk.........G.......................kkkkLLLdWdBBkkkkcG......................LEkkkkkkppkkkkkBBpBBW........................................",
+  ".......NdWBYRkkkkd................................LbkkkkLLLBWdBBkkkkBG......................LBkkkkkkpkmkkkkBkpBBN........................................",
+  ".......dBaYRkkkkW...............................LbcpkkBkfLLBWWBBkkkkkL.....................GLkkkkkkkpkBmmBdBmmpk.........................................",
+  "......NaRRRBkkkN...............................GbkkcckBkELLEWWBBBkkkkL.....................GfkkkkkkkpkBmgBcBBcmk.........................................",
+  ".....DaRBkYckkW.................................bkkcckkkBLLEBdBBBkkkkb.....................LEkkkkkkkckBkpBWBBBBB.........................................",
+  ".....WREkkYckd..................................LckcckkBBLLLBddBBkkkkcG....................LBkkkkkkkkkBkgkcBBBBN.........................................",
+  "....DaekkkRk....................................LpkcckkBBLLLBddBBkkkkBG....................GLEkkkkkkkkBkgkcBBBBN.........................................",
+  "....WeEkkcYk....................................GckcckkBkfLLBBdBBkkkkkL......................GLEkkkkkBBkgkBBBBBD..............NWWN.......................",
+  "....deckYRkD.....................................bkccckBkELLEcdBBkkkkcL........................GLckkkBBkgkBBBBBD...........NWBBBd........................",
+  "...NdERRYkd......................................bkccckBBBLcfBdBBkkcbLG..........................GLckBBmgkBBBBBBddWWNDD...WBBBBkN........................",
+  "..NmBOOkkk.......................................LckcckkBBLcLBdBBBLG...............................bkBkmgkkBkkBBBBBBkkkkBBBBBkkk.........................",
+  "..WkpbkkkN.......................................LcpppkBBBLLLBdBBB.................................kkBkppkkkkkkkkkBBBBBBBBBBdkkdN........................",
+  "..BWkmppk........................................GLLLLBkBkEcbBWWkB.................................dkkkpgkkkkkkkkkkkkkkkBBBBBkkcN........................",
+  ".NBBkkkkB..............................................WBkkppkkmd...................................NpmpgpppmN....DWdkkkkBWBBBBN.........................",
+  ".NBELfkkD...............................................mmmcpmkmd...................................dkBkYckBkN..........NBkkkBBN.........................",
+  ".WBLLEkd...............................................DBWBROcWcB...................................BkaRRRBBBN............BkkkkN.........................",
+  ".BBLLBk.................................................BBYRORaBBD..................................kaRBkOYckD.............NNDD..........................",
+  "DBELLBd.................................................BBRBkBeaBW.................................NBRBkkcRkk............................................",
+  "NBELLkD.................................................WBRBkkEeBB.................................BaakkkERkB............................................",
+  "NBLLEB..................................................NBRBkkBeaBN...........G.......G...........NBeEkkkOakW............................................",
+  "WBLLBN...................................................BOYkkBaeBBD.........GcbbbbbbbcL..........BceBkkBRBkD............................................",
+  "WBLLB....................................................WBRBkkaedBB.........LkkkkkkkkkL.........BBWeBkkROkB.............................................",
+  "WELLd.....................................................kORBkOeWWBBD.......LkkkkkkkkkbG.......ddWdROBRRBkN.............................................",
+  "WfLfN.....................................................WkORRRBdddBkN......bkkkkkkkkkbG.....NBdWdcBRRYBBB..............................................",
+  "NLLED......................................................BkBYREBaaaBkBN...EckkkkkkkkkBfN..NdkaeeRORYkBBkN..............................................",
+  ".LLB.......................................................NkkkBRRRRRRakkkdNkkkkkkkkkkkkkkNkkBeRaEEROkBBBd...............................................",
+  "GcLN........................................................dkBkOOkBBaRaBkpkkkkkkkkkkkkkkkpkBRRBkkkOYkBBB................................................",
+  "GLfN.........................................................BkkYOkBBkERBkpkkkkkkkkkkkkkBkpkaRBkBkkRBkBkD................................................",
+  "DkkD..........................................................BkBRBkkBkOOkpkkkkBBBBBBBkkkBgkRBkkkkORBBkD.................................................",
+  ".kk............................................................BkERBkkkBRkpBBkkkkkkkkkkBEBgcRBkkkORBkkD..................................................",
+  ".kk.............................................................dkBRYcBYRbpfLLLLLLLLLLLLLBpcRRYOROBkB....................................................",
+  ".NN..............................................................NkkYRRYkppfLLLLLLLLLLLLLBmpkcOYBkkW.....................................................",
+  "...................................................................WkkkkkpkBLLLLLLLLLLLLEkkpkkkkkd.......................................................",
+  ".....................................................................NkkkpkkkkkkkkkkkkkkkkkpkkkW.........................................................",
+  "........................................................................NNkkkkkkkkkkkkkkkkkNDD...........................................................",
+  "..........................................................................dkkkkkkkkkkkkkkkkN.............................................................",
+  "............................................................................fkkkkkkkkkkkcG...............................................................",
+  "............................................................................LckkkkkkkkkkbG...............................................................",
+  "............................................................................GBkkkkkkkkkkb................................................................",
+  "............................................................................GfkkkkkkkkkkL................................................................",
+  ".............................................................................fkkkBBBBBkBL................................................................",
+  ".............................................................................LLLLLLLLLLL.................................................................",
 ];
 
 export type SerpentPiece = { rows: string[]; amp: number };
@@ -297,9 +254,12 @@ export type SerpentSprite = {
   // "prowl": slithers in from a side edge, dives, then wanders the open water.
   // Both stay in side profile the whole time.
   behavior: "cross" | "prowl";
-  // tail -> head; amp is each piece's undulation amplitude in DESIGN px
-  // (scaled up with the sprite at render time).
-  pieces: SerpentPiece[];
+  // A serpent is EITHER a segmented hand-art strip OR a single traced sprite.
+  // `pieces` (tail -> head; amp is each piece's undulation amplitude in DESIGN
+  // px, scaled up at render time) snakes via the per-piece wave. `image` is one
+  // exact traced grid that wags as a whole body instead.
+  pieces?: SerpentPiece[];
+  image?: string[];
 };
 
 export const SERPENTS: SerpentSprite[] = [
@@ -322,19 +282,8 @@ export const SERPENTS: SerpentSprite[] = [
   },
   {
     name: "rayquaza",
-    palette: RAY_HEX,
+    palette: RAY_IMAGE_HEX,
     behavior: "prowl",
-    pieces: [
-      { rows: RS_TIP, amp: 26 },
-      { rows: RS_RING, amp: 22 },
-      { rows: RS_FIN, amp: 18 },
-      { rows: RS_RING, amp: 15 },
-      { rows: RS_SLICE, amp: 12 },
-      { rows: RS_RING, amp: 9 },
-      { rows: RS_FIN, amp: 7 },
-      { rows: RS_RING, amp: 5 },
-      { rows: RS_SLICE, amp: 3 },
-      { rows: RS_HEAD, amp: 2 },
-    ],
+    image: RAY_IMAGE,
   },
 ];
