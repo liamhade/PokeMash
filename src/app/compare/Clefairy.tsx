@@ -323,7 +323,7 @@ function PixelArt({
 // off the left edge to reappear from the right, stands around, glances, blinks, and
 // mixes in little hop/wiggle emotes with randomized pauses so the rhythm feels
 // natural, not metronomic. Once in a while a legendary serpent (Gyarados and
-// Rayquaza alternate) looms in face-first, rolls belly-up, and hunts her: she
+// Rayquaza alternate) looms in face-first and hunts her: she
 // bolts behind a card (the only time she hides) and steals nervous peeks —
 // darting eyes, "!" overhead — while it prowls the open water seen from above,
 // body snaking in a slow wave, never crossing behind the board.
@@ -635,7 +635,7 @@ export default function Clefairy({ picks }: { picks: number }) {
     // manner. Gyarados simply cruises straight across the screen at CROSS_HEIGHT
     // (direction alternating visit to visit). Rayquaza looms in face-first from
     // the side edge on HER side of the screen, holds the glare for FACE_MS,
-    // rolls into his side profile, dives at the spot where she stood — never
+    // turns into his side profile, dives at the spot where she stood — never
     // crossing the board — then prowls the open water in beats. Either way she
     // bolts behind the nearest card in one continuous dash, pops up for a first
     // nervous peek the moment she arrives, steals a second one later, and on
@@ -751,7 +751,7 @@ export default function Clefairy({ picks }: { picks: number }) {
         setSerpent((s) => s && { ...s, x: peekX, ms: FACE_MS - 200 });
       });
       after(FACE_MS, () => {
-        // Roll into the side profile, then dive at her old spot — unless the
+        // Turn into the side profile, then dive at her old spot — unless the
         // spot or the way to it touches the board, in which case lunge to open
         // water instead: the serpent never crosses cards.
         setSerpent((s) => s && { ...s, form: "swim" });
@@ -1024,7 +1024,7 @@ export default function Clefairy({ picks }: { picks: number }) {
 
       {/* The visiting serpent: same bottom-center anchor and glide scheme as
           her positioner, at 3x her scale. Rayquaza enters face-first (the
-          symmetric front sprite needs no flip), then rolls into the side
+          symmetric front sprite needs no flip), then swaps to the side
           profile; the strip (tail first, head last) natively faces right and
           mirrors with scaleX for leftward travel. Every piece runs the shared
           undulate keyframe with a staggered delay, so a slow wave travels
@@ -1045,9 +1045,7 @@ export default function Clefairy({ picks }: { picks: number }) {
               />
             ) : (
               <div style={{ transform: `scaleX(${serpent.dir})` }}>
-                {/* the roll-over squash lives on its own layer (it mounts
-                    fresh with the form swap) so it can't fight the flip */}
-                <div className="serpent-flip flex items-center">
+                <div className="flex items-center">
                   {SERPENTS[serpent.kind].pieces.map((piece, i) => (
                     <div
                       key={i}

@@ -189,22 +189,6 @@ body {
   animation: serpent-undulate 3400ms ease-in-out infinite;
 }
 
-/* The roll from the face-first entrance to the side-profile swim: the strip
-   mounts vertically squashed and springs open, reading as the serpent turning
-   through the flat of its body. */
-@keyframes serpent-flip {
-  0% {
-    transform: scaleY(0.12);
-  }
-  100% {
-    transform: scaleY(1);
-  }
-}
-
-.serpent-flip {
-  animation: serpent-flip 320ms ease-out;
-}
-
 /* One-shot hover hint on ranked cards: a brief clockwise/counter-clockwise wiggle to
    suggest the card is interactive (click to flip). Runs once (no `infinite`), so it plays
    a single time each time the class is applied; the caller re-applies it per hover. */
