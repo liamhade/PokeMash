@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SERPENTS } from "./serpentSprites";
 
 // A relaxed toddle, in px/s. Walk duration scales with distance so speed stays constant.
@@ -234,12 +234,13 @@ const SPRITE_H = SPRITE.length * PX * DISPLAY_SCALE;
 
 // Each serpent is one big traced sprite — a screen-dominating legendary. To make
 // it swim, the sprite is sliced into vertical columns SNAKE_SLICE_W design-px
-// wide, rendered as <g> bands of ONE svg, and each band oscillates vertically
-// (translateY, in svg user units so it scales with the art and the bands never
-// seam apart). A per-column phase delay sends a traveling sine down the body,
-// and the amplitude ramps from ~0 at the head to the full waveAmp at the tail.
-// SNAKE_WAVES is how many sine wavelengths span the body at once; SNAKE_PERIOD_MS
-// (must match the CSS .serpent-slice duration) is one oscillation. On-screen size
+// wide, rendered as <g> bands of ONE svg, and each band oscillates vertically via
+// an SMIL <animateTransform> (translate, in svg user units so it scales with the
+// art and the bands never seam apart — and WebKit honors it, unlike a CSS
+// transform on a <g>). A per-band phase delay sends a traveling sine down the
+// body, and the amplitude ramps from ~0 at the head to the full waveAmp at the
+// tail. SNAKE_WAVES is how many sine wavelengths span the body at once;
+// SNAKE_PERIOD_MS is one oscillation (the animateTransform dur). On-screen size
 // is per serpent (serpent.renderScale), since the unrolled Rayquaza is far longer.
 const SNAKE_SLICE_W = 3; // design px per column slice
 const SNAKE_WAVES = 1.25;
@@ -347,13 +348,23 @@ function SnakeSprite({ kind }: { kind: number }) {
       style={{ overflow: "visible" }}
     >
       {SERPENT_SLICES[kind].map((band, bi) => (
-        <g
-          key={bi}
-          className="serpent-slice"
-          style={
-            { "--amp": `${band.ampUnits}px`, animationDelay: `${band.delayMs}ms` } as CSSProperties
-          }
-        >
+        <g key={bi}>
+          {/* SMIL, not a CSS keyframe: WebKit/Safari won't animate a CSS
+              `transform` on an SVG <g>, but it does honor <animateTransform>.
+              Each band oscillates in y; the negative `begin` phase-shifts it so
+              a traveling wave runs down the body. */}
+          <animateTransform
+            attributeName="transform"
+            attributeType="XML"
+            type="translate"
+            values={`0 ${-band.ampUnits};0 ${band.ampUnits};0 ${-band.ampUnits}`}
+            keyTimes="0;0.5;1"
+            calcMode="spline"
+            keySplines="0.42 0 0.58 1;0.42 0 0.58 1"
+            dur={`${SNAKE_PERIOD_MS}ms`}
+            begin={`${band.delayMs}ms`}
+            repeatCount="indefinite"
+          />
           {band.cells.map((c) => (
             <rect
               key={`${c.x}-${c.y}`}
@@ -753,25 +764,24 @@ export default function Clefairy({ picks }: { picks: number }) {
         return;
       }
 
-      // Rayquaza dives in a steep parabola UNDER the cards to a far top corner,
-      // flips around up there, and retraces the same path back out — entering
-      // from an alternating side each visit. Its long body snakes the whole way.
-      // It's a swooping fly-by, so it ignores the board (no card-avoidance).
+      // Rayquaza sweeps low UNDER the cards, does a quick U-turn at the far side,
+      // and sweeps back under and out — entering from an alternating side each
+      // visit. Its long body snakes the whole way. It's a swooping fly-by, so it
+      // ignores the board (no card-avoidance).
       const fromLeftSwoop = swoopFromLeftRef.current;
       swoopFromLeftRef.current = !fromLeftSwoop;
       const s: 1 | -1 = fromLeftSwoop ? 1 : -1; // mirror the path for right entries
       const offX = w / 2 + dim.w + 24;
-      // Dive down and SWEEP along the floor under the cards/rankings to a far top
-      // corner, then the SAME points reversed so it flips around up there and
-      // retraces its trip back out the way it came. The two low points sit just
-      // below the floor line (positive y), so the body sweeps under the board.
+      // Sweep low along the floor UNDER the cards/rankings, do a quick U-turn at
+      // the far side, and retrace back under (control = out + out reversed). It
+      // stays in the bottom band the whole time; the middle points sit just below
+      // the floor line (positive y) so the body sweeps beneath the board.
       const out = [
-        { x: -s * offX, y: -h * 0.85 }, // off-screen entry side, high
-        { x: -s * w * 0.32, y: -h * 0.42 }, // descend
-        { x: -s * w * 0.16, y: h * 0.02 }, // sweep low under the near card...
-        { x: s * w * 0.16, y: h * 0.02 }, // ...and the far card, along the floor
-        { x: s * w * 0.32, y: -h * 0.42 }, // ascend
-        { x: s * w * 0.46, y: -h * 0.85 }, // rise to the far top corner (flip point)
+        { x: -s * offX, y: -h * 0.28 }, // off-screen entry side, low
+        { x: -s * w * 0.25, y: h * 0.02 }, // dive under the near card
+        { x: 0, y: h * 0.04 }, // low center, under the board
+        { x: s * w * 0.25, y: h * 0.02 }, // under the far card
+        { x: s * w * 0.46, y: -h * 0.1 }, // quick U-turn at the far side, still low
       ];
       const control = [...out, ...out.slice(0, -1).reverse()];
       const path = catmullRom(control, 10);

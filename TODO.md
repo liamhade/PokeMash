@@ -45,7 +45,22 @@
 
 # LEARNING
 
-## sweep under the board (positive y) + the cost of halving speed
+## SMIL for WebKit, a solid neck graft + arm, and a low U-turn
+
+- [ ] The snake wave went invisible in Safari because WebKit won't animate a CSS
+  `transform` on an SVG `<g>` (it animates fine in Chrome — which is why the bug
+  hid). Switching each band to a SMIL `<animateTransform type="translate">` with
+  a negative `begin` fixed it everywhere. Why does a negative `begin` reproduce
+  the same per-band phase offset the old `animation-delay` gave, and what's the
+  general lesson about verifying a CSS feature in the *target* engine (WebKit),
+  not just the one your headless screenshot uses?
+
+- [ ] The head kept detaching because the graft BUTTED the head against a cut
+  body edge; the fix keeps the clean body tube running UNDER the neck (overlay,
+  not cut-and-join) so a solid multi-pixel bridge survives the downsample and the
+  band-wave shear. Relate this to why adjacent SnakeSprite bands (continuous
+  columns of one image) never seam but two separately-authored pieces would —
+  what invariant does "one continuous source image" preserve that a graft breaks?
 
 - [ ] The two low waypoints use POSITIVE `y` (`h * 0.02`), below the `y = 0`
   floor line, where the serpent's positioner was previously only ever `<= 0`.
