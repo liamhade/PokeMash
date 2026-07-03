@@ -45,7 +45,21 @@
 
 # LEARNING
 
-## Rayquaza as an exact traced sprite that wags
+## Gyarados traced too; the segmented serpent subsystem deleted
+
+- [ ] The Gyarados source (`gyrados side.png`) has its head on the LEFT, but it's
+  traced from a horizontally-FLIPPED copy so `GY_IMAGE` natively faces right.
+  Walk through why that flip is required given the render applies
+  `scaleX(serpent.dir)` and the cross-behavior sets `startX`/`endX` from `dir` —
+  what would a un-flipped grid do on a left-to-right (`dir === 1`) crossing?
+
+- [ ] Once both serpents became single `image` sprites, the whole segmented path
+  went away: `SerpentPiece`, `pieces?`, `SERPENT_SCALE`/`AMP_SCALE`/
+  `SERPENT_OVERLAP_PX`/`WAVE_LAG_MS`, the `.serpent-piece`/`serpent-undulate`
+  CSS, and the per-piece render branch. What's the YAGNI case for deleting that
+  hard-won, working code outright (rather than keeping the `pieces?` union "just
+  in case"), and why is `wagOrigin` per-serpent data rather than one shared CSS
+  `transform-origin` like the wag animation itself?
 
 - [ ] The tracer quantized the model with `MEDIANCUT` first and the red fin
   plates collapsed into one brown (`#976446`); switching to `FASTOCTREE` split

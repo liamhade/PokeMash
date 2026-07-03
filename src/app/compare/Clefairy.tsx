@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SERPENTS } from "./serpentSprites";
 
 // A relaxed toddle, in px/s. Walk duration scales with distance so speed stays constant.
@@ -232,47 +232,18 @@ const DISPLAY_SCALE = 0.75;
 const SPRITE_W = SPRITE[0].length * PX * DISPLAY_SCALE;
 const SPRITE_H = SPRITE.length * PX * DISPLAY_SCALE;
 
-// The serpents' strips are tail→head along +x (side profiles: travel direction
-// is a plain horizontal flip); each piece oscillates vertically and the
-// traveling wave comes from the per-piece animation delays — the head (rendered
-// last) leads, the tail follows. WAVE_LAG_MS is deliberately small: the strips
-// use many narrow slices, and a small phase step between NEIGHBORS keeps their
-// relative offset well under the tube thickness, so joints can never drift
-// apart and visibly disconnect (the big whole-body S still emerges from the
-// lag summed over ten pieces).
-const WAVE_LAG_MS = 120;
-// The serpents render at 3x her scale — screen-dominating legendaries. Wave
-// amplitudes (authored in design px) scale up with the art.
-const SERPENT_SCALE = DISPLAY_SCALE * 3;
-const AMP_SCALE = 3;
-const SERPENT_OVERLAP_PX = 3 * PX * SERPENT_SCALE; // pieces merge into one tube
-// A traced-image serpent (Rayquaza) is one big sprite rather than a strip, so
-// it gets its own render scale; WAG_SWING_PX pads its clearance box for the
-// side-to-side body wag (a whole-sprite rotation, so the tail sweeps an arc).
+// Each serpent is one big traced sprite — a screen-dominating legendary — drawn
+// at SERPENT_IMAGE_SCALE. It wags as a whole body rather than snaking, so
+// WAG_SWING_PX pads its card-avoidance box for the side-to-side sweep (the wag
+// is a whole-sprite rotation, so the far tail traces an arc past the box edge).
 const SERPENT_IMAGE_SCALE = 1.2;
 const WAG_SWING_PX = 32;
-// Per-serpent footprint for card avoidance: for a piece strip, its length minus
-// overlaps and thickness plus the full wave swing; for a traced image, its own
-// pixel box padded by the wag swing.
+// Per-serpent footprint for card avoidance: its own pixel box, padded above and
+// below by the wag swing.
 const SERPENT_DIMS = SERPENTS.map((serpent) => {
-  if (serpent.image) {
-    const w = serpent.image[0].length * PX * SERPENT_IMAGE_SCALE;
-    const stripH = serpent.image.length * PX * SERPENT_IMAGE_SCALE;
-    return { w, h: stripH + 2 * WAG_SWING_PX, stripH, maxAmp: WAG_SWING_PX };
-  }
-  const pieces = serpent.pieces!;
-  const maxAmp = Math.max(...pieces.map((piece) => piece.amp)) * AMP_SCALE;
-  return {
-    w:
-      pieces.reduce(
-        (total, piece) => total + piece.rows[0].length * PX * SERPENT_SCALE,
-        0,
-      ) -
-      (pieces.length - 1) * SERPENT_OVERLAP_PX,
-    h: 24 * PX * SERPENT_SCALE + 2 * maxAmp,
-    stripH: 24 * PX * SERPENT_SCALE,
-    maxAmp,
-  };
+  const w = serpent.image[0].length * PX * SERPENT_IMAGE_SCALE;
+  const stripH = serpent.image.length * PX * SERPENT_IMAGE_SCALE;
+  return { w, h: stripH + 2 * WAG_SWING_PX, stripH, maxAmp: WAG_SWING_PX };
 });
 type SerpentDim = (typeof SERPENT_DIMS)[number];
 // A slow menacing swim (she toddles at 41), a faster dive/exit lunge, how high
@@ -1023,12 +994,9 @@ export default function Clefairy({ picks }: { picks: number }) {
       </div>
 
       {/* The visiting serpent: same bottom-center anchor and glide scheme as
-          her positioner. Two render paths. Gyarados is a strip of pieces (tail
-          first, head last) that natively faces right; each piece runs the
-          shared undulate keyframe with a staggered delay, so a slow wave
-          travels head-to-tail while it glides. Rayquaza is a single traced
-          sprite that wags as one body (`serpent-wag`). Both mirror with scaleX
-          for leftward travel. */}
+          her positioner. One traced sprite that natively faces right (mirrored
+          with scaleX for leftward travel) and wags as a whole body via
+          `serpent-wag`, hinged at its head (`wagOrigin`) so the tail sweeps. */}
       {serpent &&
         (() => {
           const spec = SERPENTS[serpent.kind];
@@ -1041,39 +1009,16 @@ export default function Clefairy({ picks }: { picks: number }) {
                 }}
               >
                 <div style={{ transform: `scaleX(${serpent.dir})` }}>
-                  {spec.image ? (
-                    <div className="serpent-wag">
-                      <PixelArt
-                        rows={spec.image}
-                        scale={SERPENT_IMAGE_SCALE}
-                        palette={spec.palette}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex items-center">
-                      {spec.pieces!.map((piece, i) => (
-                        <div
-                          key={i}
-                          className="serpent-piece"
-                          style={
-                            {
-                              "--amp": `${piece.amp * AMP_SCALE}px`,
-                              // Negative delay = phase advance; the head
-                              // (largest i) leads and the wave ripples back.
-                              animationDelay: `${-i * WAVE_LAG_MS}ms`,
-                              marginLeft: i === 0 ? 0 : -SERPENT_OVERLAP_PX,
-                            } as CSSProperties
-                          }
-                        >
-                          <PixelArt
-                            rows={piece.rows}
-                            scale={SERPENT_SCALE}
-                            palette={spec.palette}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div
+                    className="serpent-wag"
+                    style={{ transformOrigin: spec.wagOrigin }}
+                  >
+                    <PixelArt
+                      rows={spec.image}
+                      scale={SERPENT_IMAGE_SCALE}
+                      palette={spec.palette}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

@@ -171,28 +171,11 @@ body {
   transform-origin: 50% 90%;
 }
 
-/* The serpents swim with a slow traveling wave: every piece of the top-down
-   strip oscillates across the travel axis on the same period, with its
-   amplitude set inline (--amp, growing toward the tail) and its phase staggered
-   by the inline animation-delay (head leads, tail follows). */
-@keyframes serpent-undulate {
-  0%,
-  100% {
-    transform: translateY(calc(-1 * var(--amp)));
-  }
-  50% {
-    transform: translateY(var(--amp));
-  }
-}
-
-.serpent-piece {
-  animation: serpent-undulate 3400ms ease-in-out infinite;
-}
-
-/* Rayquaza is one traced sprite (not a segmented strip), so it can't snake
-   piece-by-piece. Instead the whole body WAGS: a gentle rotation hinged near
-   the head (top-right of the art) so the long tail sweeps side to side, plus a
-   small vertical bob — reads as a serpent swimming while it glides across. */
+/* The serpents are single traced sprites (exact pixel copies of reference art),
+   so they can't snake segment-by-segment. Instead the whole body WAGS: a gentle
+   rotation hinged at the head (per-serpent transform-origin, set inline) so the
+   long tail sweeps side to side, plus a small vertical bob — reads as a serpent
+   swimming while it glides across. */
 @keyframes serpent-wag {
   0%,
   100% {
@@ -204,7 +187,8 @@ body {
 }
 
 .serpent-wag {
-  transform-origin: 82% 24%;
+  /* transform-origin is set inline per serpent (each head is in a different
+     spot); it hinges the wag rotation there. */
   animation: serpent-wag 2400ms ease-in-out infinite;
 }
 
