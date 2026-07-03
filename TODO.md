@@ -45,7 +45,19 @@
 
 # LEARNING
 
-## graft the good head + Rayquaza's parabolic swoop
+## steeper out-and-back swoop, timed by speed
+
+- [ ] The swoop path is now `[...out, ...out.slice(0, -1).reverse()]` — the same
+  `out` waypoints, then reversed (minus the shared apex) so it flips and retraces
+  its trip. Why does dropping the last element before reversing avoid a duplicated
+  apex point (and a zero-length segment there), and what makes the single `dir`
+  flip land exactly at that apex?
+
+- [ ] Timing switched from a fixed `SWOOP_MS` total to `segMs = segLen /
+  SWOOP_SPEED` (px/s). Explain why the old fixed-duration approach made the
+  serpent move FASTER on bigger screens (path scales with width) while the
+  speed-based one keeps a constant visual pace — and why "50% slower" is now a
+  one-number change even though the out-and-back path is also longer.
 
 - [ ] The unrolled body's head came out mangled, so the clean head was cropped
   from the SAME photo (`head_crop`) and composited onto the neck at high-res

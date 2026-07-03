@@ -279,11 +279,12 @@ const SERPENT_DIMS = SERPENTS.map((serpent) => ({
 }));
 // A slow menacing swim (she toddles at 41), how high Gyarados' straight crossing
 // sits (body center, fraction of the play area's height up from the bottom), how
-// long Rayquaza's parabolic swoop takes end to end, how long a visit terrorizes
-// the play area, and the randomized gap until the next one.
+// fast Rayquaza flies its swoop (px/s, so the duration follows the path length),
+// how long a visit terrorizes the play area, and the randomized gap until the
+// next one.
 const SERPENT_SPEED = 70;
 const CROSS_HEIGHT = 0.25;
-const SWOOP_MS = 7000;
+const SWOOP_SPEED = 255;
 const VISIT_MS = 12_500;
 const VISIT_GAP_MIN_MS = 25_000;
 const VISIT_GAP_SPAN_MS = 35_000;
@@ -715,8 +716,11 @@ export default function Clefairy({ picks }: { picks: number }) {
         hide.x,
         hide.y,
         () => {
+          // Peek periodically for the whole visit (extras no-op once the episode
+          // ends, so this covers both Gyarados' short crossing and Rayquaza's
+          // longer swoop). First peek chains onto the ARRIVAL, not a fixed offset.
           nervousPeek(card, hide.y);
-          after(4600, () => nervousPeek(card, hide.y));
+          for (let k = 1; k <= 4; k++) after(k * 4600, () => nervousPeek(card, hide.y));
         },
         WALK_SPEED * 5,
       );
@@ -749,35 +753,37 @@ export default function Clefairy({ picks }: { picks: number }) {
         return;
       }
 
-      // Rayquaza swoops across the whole screen in a parabola, then loops back
-      // over the top and off the screen — entering from an alternating side each
-      // visit. Its long body snakes the whole way. This is a fast fly-by, not a
-      // prowl, so it ignores the board (no card-avoidance).
+      // Rayquaza dives in a steep parabola UNDER the cards to a far top corner,
+      // flips around up there, and retraces the same path back out — entering
+      // from an alternating side each visit. Its long body snakes the whole way.
+      // It's a swooping fly-by, so it ignores the board (no card-avoidance).
       const fromLeftSwoop = swoopFromLeftRef.current;
       swoopFromLeftRef.current = !fromLeftSwoop;
       const s: 1 | -1 = fromLeftSwoop ? 1 : -1; // mirror the path for right entries
       const offX = w / 2 + dim.w + 24;
-      const control = [
-        { x: -s * offX, y: -h * 0.8 }, // off-screen entry side, high
-        { x: -s * w * 0.28, y: -h * 0.66 },
-        { x: 0, y: -h * 0.44 }, // parabola dip: down through the center
-        { x: s * w * 0.3, y: -h * 0.64 },
-        { x: s * w * 0.44, y: -h * 0.82 }, // rise to the far top corner
-        { x: s * w * 0.24, y: -h * 1.02 }, // loop up and back over the top...
-        { x: -s * w * 0.22, y: -h * 1.05 },
-        { x: -s * offX, y: -h * 0.98 }, // ...exiting off the entry side
+      // A steep parabola that dives UNDER the cards to a far top corner, then the
+      // SAME points reversed so it flips around up there and retraces its trip
+      // back out the way it came.
+      const out = [
+        { x: -s * offX, y: -h * 0.85 }, // off-screen entry side, high
+        { x: -s * w * 0.28, y: -h * 0.5 },
+        { x: 0, y: -h * 0.06 }, // steep dip: down under the cards, near the floor
+        { x: s * w * 0.28, y: -h * 0.5 },
+        { x: s * w * 0.44, y: -h * 0.85 }, // rise to the far top corner (flip point)
       ];
+      const control = [...out, ...out.slice(0, -1).reverse()];
       const path = catmullRom(control, 10);
       let pathLen = 0;
       for (let i = 1; i < path.length; i++) {
         pathLen += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
       }
+      const swoopMs = (pathLen / SWOOP_SPEED) * 1000;
       serpentRef.current = { x: path[0].x, y: path[0].y };
       setSerpent({ kind, x: path[0].x, y: path[0].y, ms: 0, dir: s, ease: "linear" });
       after(60, () => {
         // (60ms: let the off-screen spawn mount before animating, like the wrap.)
-        // Fly the curve at constant speed: each segment's duration is its share
-        // of the total path length, so the whole swoop lasts SWOOP_MS.
+        // Fly the curve at a constant SWOOP_SPEED: each segment's duration is its
+        // length over the speed. dir flips at the top when it turns and heads back.
         let i = 1;
         function flyNext() {
           if (i >= path.length) {
@@ -787,7 +793,7 @@ export default function Clefairy({ picks }: { picks: number }) {
           const from = serpentRef.current;
           const p = path[i];
           const dx = p.x - from.x;
-          const segMs = Math.max(16, (Math.hypot(dx, p.y - from.y) / pathLen) * SWOOP_MS);
+          const segMs = Math.max(16, (Math.hypot(dx, p.y - from.y) / SWOOP_SPEED) * 1000);
           serpentRef.current = { x: p.x, y: p.y };
           setSerpent(
             (cur) =>
@@ -797,7 +803,6 @@ export default function Clefairy({ picks }: { picks: number }) {
                 y: p.y,
                 ms: segMs,
                 ease: "linear",
-                // face travel direction; flips once at the apex when it turns back
                 dir: Math.abs(dx) > 4 ? (dx > 0 ? 1 : -1) : cur.dir,
               },
           );
@@ -807,12 +812,12 @@ export default function Clefairy({ picks }: { picks: number }) {
         flyNext();
       });
 
-      after(SWOOP_MS + 900, () => {
+      after(swoopMs + 900, () => {
         // The swoop is gone; come back out to roam. stepOutSpot checks only the
         // target — she STARTS behind the card, so openMeadow's path check would
         // reject everything.
         episodeRef.current = false;
-        setPeeking(false); // a straggling second peek must not outlive the visit
+        setPeeking(false); // a straggling peek must not outlive the visit
         const spot = stepOutSpot();
         schedule(walkTo(spot.x, spot.y) + 600 + Math.random() * 1200);
         scheduleVisit();
