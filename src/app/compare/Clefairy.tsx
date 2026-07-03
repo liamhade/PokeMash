@@ -284,7 +284,7 @@ const SERPENT_DIMS = SERPENTS.map((serpent) => ({
 // next one.
 const SERPENT_SPEED = 70;
 const CROSS_HEIGHT = 0.25;
-const SWOOP_SPEED = 255;
+const SWOOP_SPEED = 128;
 const VISIT_MS = 12_500;
 const VISIT_GAP_MIN_MS = 25_000;
 const VISIT_GAP_SPAN_MS = 35_000;
@@ -720,7 +720,7 @@ export default function Clefairy({ picks }: { picks: number }) {
           // ends, so this covers both Gyarados' short crossing and Rayquaza's
           // longer swoop). First peek chains onto the ARRIVAL, not a fixed offset.
           nervousPeek(card, hide.y);
-          for (let k = 1; k <= 4; k++) after(k * 4600, () => nervousPeek(card, hide.y));
+          for (let k = 1; k <= 8; k++) after(k * 4600, () => nervousPeek(card, hide.y));
         },
         WALK_SPEED * 5,
       );
@@ -761,15 +761,17 @@ export default function Clefairy({ picks }: { picks: number }) {
       swoopFromLeftRef.current = !fromLeftSwoop;
       const s: 1 | -1 = fromLeftSwoop ? 1 : -1; // mirror the path for right entries
       const offX = w / 2 + dim.w + 24;
-      // A steep parabola that dives UNDER the cards to a far top corner, then the
-      // SAME points reversed so it flips around up there and retraces its trip
-      // back out the way it came.
+      // Dive down and SWEEP along the floor under the cards/rankings to a far top
+      // corner, then the SAME points reversed so it flips around up there and
+      // retraces its trip back out the way it came. The two low points sit just
+      // below the floor line (positive y), so the body sweeps under the board.
       const out = [
         { x: -s * offX, y: -h * 0.85 }, // off-screen entry side, high
-        { x: -s * w * 0.28, y: -h * 0.5 },
-        { x: 0, y: -h * 0.06 }, // steep dip: down under the cards, near the floor
-        { x: s * w * 0.28, y: -h * 0.5 },
-        { x: s * w * 0.44, y: -h * 0.85 }, // rise to the far top corner (flip point)
+        { x: -s * w * 0.32, y: -h * 0.42 }, // descend
+        { x: -s * w * 0.16, y: h * 0.02 }, // sweep low under the near card...
+        { x: s * w * 0.16, y: h * 0.02 }, // ...and the far card, along the floor
+        { x: s * w * 0.32, y: -h * 0.42 }, // ascend
+        { x: s * w * 0.46, y: -h * 0.85 }, // rise to the far top corner (flip point)
       ];
       const control = [...out, ...out.slice(0, -1).reverse()];
       const path = catmullRom(control, 10);

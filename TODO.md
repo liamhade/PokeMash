@@ -45,6 +45,20 @@
 
 # LEARNING
 
+## sweep under the board (positive y) + the cost of halving speed
+
+- [ ] The two low waypoints use POSITIVE `y` (`h * 0.02`), below the `y = 0`
+  floor line, where the serpent's positioner was previously only ever `<= 0`.
+  Why does that push the body under the board and let the play area's
+  `overflow-hidden` clip whatever dips past the screen bottom, rather than
+  needing an explicit clamp?
+
+- [ ] Halving `SWOOP_SPEED` (255 -> 128) more than doubled the visit: the
+  deeper, flatter sweep also lengthened the path, so the out-and-back is now
+  ~35s. Given the episode end is derived from `swoopMs = pathLen / SWOOP_SPEED`,
+  why did the peek loop have to grow to 8, and what's the argument that "slower +
+  bigger path" compounds into a visit long enough to feel broken?
+
 ## steeper out-and-back swoop, timed by speed
 
 - [ ] The swoop path is now `[...out, ...out.slice(0, -1).reverse()]` — the same
