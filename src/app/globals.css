@@ -189,9 +189,9 @@ body {
   animation: serpent-undulate 3400ms ease-in-out infinite;
 }
 
-/* The roll from the face-first entrance to top-down swimming: the strip mounts
-   vertically squashed and springs open, reading as the serpent turning
-   belly-up under the viewer. */
+/* The roll from the face-first entrance to the side-profile swim: the strip
+   mounts vertically squashed and springs open, reading as the serpent turning
+   through the flat of its body. */
 @keyframes serpent-flip {
   0% {
     transform: scaleY(0.12);

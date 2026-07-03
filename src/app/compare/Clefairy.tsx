@@ -232,38 +232,46 @@ const DISPLAY_SCALE = 0.75;
 const SPRITE_W = SPRITE[0].length * PX * DISPLAY_SCALE;
 const SPRITE_H = SPRITE.length * PX * DISPLAY_SCALE;
 
-// The serpents' strips are tail→head along +x, rotated at runtime to the travel
-// heading; each piece oscillates across the travel axis and the traveling wave
-// comes from the per-piece animation delays — the head (rendered last) leads,
-// the tail follows. WAVE_LAG_MS is deliberately small: the strips use many
-// narrow slices, and a small phase step between NEIGHBORS keeps their relative
-// offset well under the tube thickness, so joints can never drift apart and
-// visibly disconnect (the big whole-body S still emerges from the lag summed
-// over ten pieces).
+// The serpents' strips are tail→head along +x (side profiles: travel direction
+// is a plain horizontal flip); each piece oscillates vertically and the
+// traveling wave comes from the per-piece animation delays — the head (rendered
+// last) leads, the tail follows. WAVE_LAG_MS is deliberately small: the strips
+// use many narrow slices, and a small phase step between NEIGHBORS keeps their
+// relative offset well under the tube thickness, so joints can never drift
+// apart and visibly disconnect (the big whole-body S still emerges from the
+// lag summed over ten pieces).
 const WAVE_LAG_MS = 120;
-const OVERLAP_PX = 3 * PX * DISPLAY_SCALE; // adjoining pieces merge into one tube
+// The serpents render at 3x her scale — screen-dominating legendaries. Wave
+// amplitudes (authored in design px) scale up with the art.
+const SERPENT_SCALE = DISPLAY_SCALE * 3;
+const AMP_SCALE = 3;
+const SERPENT_OVERLAP_PX = 3 * PX * SERPENT_SCALE; // pieces merge into one tube
 // Per-serpent footprint for card avoidance: strip length minus overlaps; strip
 // thickness plus the full wave swing either side of the spine.
 const SERPENT_DIMS = SERPENTS.map((serpent) => {
-  const maxAmp = Math.max(...serpent.pieces.map((piece) => piece.amp));
+  const maxAmp = Math.max(...serpent.pieces.map((piece) => piece.amp)) * AMP_SCALE;
   return {
     w:
       serpent.pieces.reduce(
-        (total, piece) => total + piece.rows[0].length * PX * DISPLAY_SCALE,
+        (total, piece) => total + piece.rows[0].length * PX * SERPENT_SCALE,
         0,
       ) -
-      (serpent.pieces.length - 1) * OVERLAP_PX,
-    h: 24 * PX * DISPLAY_SCALE + 2 * maxAmp,
+      (serpent.pieces.length - 1) * SERPENT_OVERLAP_PX,
+    h: 24 * PX * SERPENT_SCALE + 2 * maxAmp,
+    stripH: 24 * PX * SERPENT_SCALE,
     maxAmp,
   };
 });
 type SerpentDim = (typeof SERPENT_DIMS)[number];
-// A slow menacing prowl (she toddles at 41), a faster dive/exit lunge, how long
-// the face-first entrance holds before the roll to top-down, how long a visit
-// terrorizes the play area, and the randomized gap until the next one.
+// A slow menacing swim (she toddles at 41), a faster dive/exit lunge, how long
+// Rayquaza's face-first entrance holds before the roll to the side view, how
+// high Gyarados' straight crossing sits (body center, fraction of the play
+// area's height up from the bottom), how long a visit terrorizes the play
+// area, and the randomized gap until the next one.
 const SERPENT_SPEED = 70;
 const SERPENT_LUNGE_SPEED = 170;
 const FACE_MS = 1500;
+const CROSS_HEIGHT = 0.25;
 const VISIT_MS = 12_500;
 const VISIT_GAP_MIN_MS = 25_000;
 const VISIT_GAP_SPAN_MS = 35_000;
@@ -342,14 +350,14 @@ export default function Clefairy({ picks }: { picks: number }) {
   const [dartFrame, setDartFrame] = useState(0);
   // The visiting serpent (null = off screen): which one (index into SERPENTS),
   // target position in the same anchor-relative coordinates as her x/y, glide
-  // duration, travel heading in degrees (cumulative, so turns always tween the
-  // short way around), and whether it's still face-first or swimming top-down.
+  // duration, horizontal travel direction (side profiles flip, they don't
+  // rotate), and whether it's still face-first or swimming in profile.
   const [serpent, setSerpent] = useState<{
     kind: number;
     x: number;
     y: number;
     ms: number;
-    angle: number;
+    dir: 1 | -1;
     form: "face" | "swim";
   } | null>(null);
   // Current position/orientation, readable inside the timer loop without re-running
@@ -358,11 +366,12 @@ export default function Clefairy({ picks }: { picks: number }) {
   const yRef = useRef(0);
   const facingRef = useRef<1 | -1>(1);
   const backRef = useRef(false);
-  // The serpent's current glide target and cumulative heading, readable inside
-  // the timer loop like her refs; visitKindRef alternates Gyarados/Rayquaza.
+  // The serpent's current glide target, readable inside the timer loop like her
+  // refs; visitKindRef alternates Gyarados/Rayquaza, and crossDirRef alternates
+  // the direction of Gyarados' straight crossings.
   const serpentRef = useRef({ x: 0, y: 0 });
-  const serpentAngleRef = useRef(0);
   const visitKindRef = useRef(0);
+  const crossDirRef = useRef<1 | -1>(1);
   // True while a serpent visit owns the stage. Player clicks are ignored for the
   // duration so they can't clear the episode's timers mid-choreography.
   const episodeRef = useRef(false);
@@ -530,35 +539,32 @@ export default function Clefairy({ picks }: { picks: number }) {
       return true;
     }
 
-    // The serpent's clearance box. It rotates about the strip's center to face
-    // any heading, so a turn sweeps its full LENGTH in an arc — clear a length-
-    // sided square around the center, not just the resting strip box, or a turn
-    // near the board arcs the head and tail across it.
+    // The serpent's clearance box: the strip plus its wave swing. (Side profiles
+    // flip rather than rotate, so no turning arc has to be cleared.)
     function serpentClear(dim: SerpentDim, x: number, y: number, cards: CardRect[]) {
-      const centerY = y + dim.maxAmp - dim.h / 2;
-      return clearOfCards(x, centerY + dim.w / 2, dim.w, dim.w, cards);
+      return clearOfCards(x, y + dim.maxAmp, dim.w, dim.h, cards);
     }
 
-    // Glide the serpent to (tx, ty), heading into its direction of travel. The
-    // heading accumulates by the SHORTEST turn from the previous one, so the CSS
-    // rotation tween never spins it the long way round. Returns the glide
-    // duration so the visit choreography can schedule past it.
+    // Glide the serpent to (tx, ty), facing its direction of travel (a near-
+    // vertical drift keeps the current facing). Returns the glide duration so
+    // the visit choreography can schedule past it.
     function serpentGlide(tx: number, ty: number, speed = SERPENT_SPEED): number {
       const from = serpentRef.current;
       const ms = Math.max(400, (Math.hypot(tx - from.x, ty - from.y) / speed) * 1000);
-      const raw = (Math.atan2(ty - from.y, tx - from.x) * 180) / Math.PI;
-      const prev = serpentAngleRef.current;
-      const delta = ((raw - (((prev % 360) + 360) % 360) + 540) % 360) - 180;
-      serpentAngleRef.current = prev + delta;
+      const dx = tx - from.x;
       serpentRef.current = { x: tx, y: ty };
-      setSerpent((s) => s && { ...s, x: tx, y: ty, ms, angle: serpentAngleRef.current });
+      setSerpent(
+        (s) =>
+          s && { ...s, x: tx, y: ty, ms, dir: Math.abs(dx) > 6 ? (dx > 0 ? 1 : -1) : s.dir },
+      );
       return ms;
     }
 
     // A random patch of open "white space": inside the play area but clear of
     // every card box, with the whole glide path sampled so a hop from one side
-    // to the other doesn't cut behind the board. Rejection-sampled; if the
-    // serpent is hemmed in, it just holds position for a beat.
+    // to the other doesn't cut behind the board. Rejection-sampled; a serpent
+    // this size is often hemmed in, so fall back to a vertical drift in its own
+    // lane before giving up and holding position.
     function openWater(dim: SerpentDim): { x: number; y: number } {
       const { w, h } = area();
       const xMin = -w / 2 + 8;
@@ -571,6 +577,11 @@ export default function Clefairy({ picks }: { picks: number }) {
         const x = xMin + Math.random() * (xMax - xMin);
         const y = yMin * Math.random();
         if (clear(x, y) && pathClear(from.x, from.y, x, y, clear)) return { x, y };
+      }
+      for (let tries = 0; tries < 10; tries++) {
+        const y = yMin * Math.random();
+        if (clear(from.x, y) && pathClear(from.x, from.y, from.x, y, clear))
+          return { x: from.x, y };
       }
       return from;
     }
@@ -620,14 +631,16 @@ export default function Clefairy({ picks }: { picks: number }) {
       );
     }
 
-    // One serpent visit (Gyarados and Rayquaza alternate): it looms in face-
-    // first from the side edge on HER side of the screen, holds the glare for
-    // FACE_MS, rolls belly-up into the top-down view, and dives at the spot
-    // where she stood — never crossing the board. It then prowls the open water
-    // in beats for the rest of the visit; she bolts behind the nearest card in
-    // one continuous dash, pops up for a first nervous peek the moment she
-    // arrives, steals a second one later, and on what would be the third she
-    // steps back out to roam — the serpent is gone by then.
+    // One serpent visit — Gyarados and Rayquaza alternate, each with its own
+    // manner. Gyarados simply cruises straight across the screen at CROSS_HEIGHT
+    // (direction alternating visit to visit). Rayquaza looms in face-first from
+    // the side edge on HER side of the screen, holds the glare for FACE_MS,
+    // rolls into his side profile, dives at the spot where she stood — never
+    // crossing the board — then prowls the open water in beats. Either way she
+    // bolts behind the nearest card in one continuous dash, pops up for a first
+    // nervous peek the moment she arrives, steals a second one later, and on
+    // what would be the third she steps back out to roam — the serpent is gone
+    // by then.
     function serpentVisit() {
       const cards = cardRects();
       if (!cards.length || document.hidden) {
@@ -662,17 +675,43 @@ export default function Clefairy({ picks }: { picks: number }) {
         WALK_SPEED * 5,
       );
 
-      // The serpent looms in face-first at the edge on her side of the screen.
       const { w, h } = area();
       const fromLeft = herX < 0;
+
+      if (SERPENTS[kind].behavior === "cross") {
+        // Gyarados: cruise straight across at CROSS_HEIGHT, body snaking, the
+        // direction alternating from one crossing to the next.
+        const dir = crossDirRef.current;
+        crossDirRef.current = dir === 1 ? -1 : 1;
+        const startX = dir === 1 ? -w / 2 - dim.w - 24 : w / 2 + 24;
+        const endX = dir === 1 ? w / 2 + 24 : -w / 2 - dim.w - 24;
+        const y = Math.min(0, -(h * CROSS_HEIGHT) + dim.stripH / 2);
+        serpentRef.current = { x: startX, y };
+        setSerpent({ kind, x: startX, y, ms: 0, dir, form: "swim" });
+        after(60, () => {
+          // One unbroken glide spanning the whole visit, then despawn.
+          const crossMs = VISIT_MS - 600;
+          serpentGlide(endX, y, Math.abs(endX - startX) / (crossMs / 1000));
+          after(crossMs + 80, () => setSerpent(null));
+        });
+        after(VISIT_MS + 1200, () => {
+          episodeRef.current = false;
+          setPeeking(false);
+          const spot = stepOutSpot();
+          schedule(walkTo(spot.x, spot.y) + 600 + Math.random() * 1200);
+          scheduleVisit();
+        });
+        return;
+      }
+
+      // Rayquaza looms in face-first at the edge on her side of the screen.
       const xMinG = -w / 2 + 8;
       const xMaxG = w / 2 - dim.w - 8;
       const yMinG = Math.min(0, -(h - dim.h - 96));
       const startX = fromLeft ? -w / 2 - dim.w - 24 : w / 2 + 24;
       const startY = Math.max(yMinG, Math.min(0, herY - SPRITE_H));
       serpentRef.current = { x: startX, y: startY };
-      serpentAngleRef.current = fromLeft ? 0 : 180; // head into the screen
-      setSerpent({ kind, x: startX, y: startY, ms: 0, angle: 0, form: "face" });
+      setSerpent({ kind, x: startX, y: startY, ms: 0, dir: fromLeft ? 1 : -1, form: "face" });
 
       // Prowl beat: glide to fresh open water, pause, repeat while time remains;
       // then leave — a side edge it can reach without cutting behind the board,
@@ -706,15 +745,15 @@ export default function Clefairy({ picks }: { picks: number }) {
       after(60, () => {
         // (60ms: let the off-screen spawn mount before animating, like the wrap.)
         // Drift the glaring face just into view and hold it.
-        const faceW = SERPENTS[kind].face[0].length * PX * DISPLAY_SCALE;
+        const faceW = (SERPENTS[kind].face?.[0].length ?? 0) * PX * SERPENT_SCALE;
         const peekX = fromLeft ? -w / 2 + 16 : w / 2 - faceW - 16;
         serpentRef.current = { x: peekX, y: startY };
         setSerpent((s) => s && { ...s, x: peekX, ms: FACE_MS - 200 });
       });
       after(FACE_MS, () => {
-        // Roll belly-up into the top-down view, then dive at her old spot —
-        // unless the spot or the way to it touches the board, in which case
-        // lunge to open water instead: the serpent never crosses cards.
+        // Roll into the side profile, then dive at her old spot — unless the
+        // spot or the way to it touches the board, in which case lunge to open
+        // water instead: the serpent never crosses cards.
         setSerpent((s) => s && { ...s, form: "swim" });
         const clear = (x: number, y: number) => serpentClear(dim, x, y, cards);
         const diveX = Math.max(xMinG, Math.min(xMaxG, herX + SPRITE_W / 2 - dim.w / 2));
@@ -984,10 +1023,10 @@ export default function Clefairy({ picks }: { picks: number }) {
       </div>
 
       {/* The visiting serpent: same bottom-center anchor and glide scheme as
-          her positioner. It enters face-first (the symmetric front sprite needs
-          no rotation), then rolls into the top-down strip: pieces (tail first,
-          head last) lie along +x; the rotator turns the strip to the travel
-          heading on its own transition, and every piece runs the shared
+          her positioner, at 3x her scale. Rayquaza enters face-first (the
+          symmetric front sprite needs no flip), then rolls into the side
+          profile; the strip (tail first, head last) natively faces right and
+          mirrors with scaleX for leftward travel. Every piece runs the shared
           undulate keyframe with a staggered delay, so a slow wave travels
           head-to-tail while it glides. */}
       {serpent && (
@@ -998,43 +1037,38 @@ export default function Clefairy({ picks }: { picks: number }) {
               transition: `transform ${serpent.ms}ms ease-in-out`,
             }}
           >
-            {serpent.form === "face" ? (
+            {serpent.form === "face" && SERPENTS[serpent.kind].face ? (
               <PixelArt
-                rows={SERPENTS[serpent.kind].face}
-                scale={DISPLAY_SCALE}
+                rows={SERPENTS[serpent.kind].face!}
+                scale={SERPENT_SCALE}
                 palette={SERPENTS[serpent.kind].palette}
               />
             ) : (
-              <div
-                style={{
-                  transform: `rotate(${serpent.angle}deg)`,
-                  transition: "transform 600ms ease-in-out",
-                }}
-              >
-                {/* the belly-roll squash lives on its own layer (it mounts
-                    fresh with the form swap) so it can't fight the rotate */}
+              <div style={{ transform: `scaleX(${serpent.dir})` }}>
+                {/* the roll-over squash lives on its own layer (it mounts
+                    fresh with the form swap) so it can't fight the flip */}
                 <div className="serpent-flip flex items-center">
-                {SERPENTS[serpent.kind].pieces.map((piece, i) => (
-                  <div
-                    key={i}
-                    className="serpent-piece"
-                    style={
-                      {
-                        "--amp": `${piece.amp}px`,
-                        // Negative delay = phase advance; the head (largest i)
-                        // leads and the wave ripples back toward the tail.
-                        animationDelay: `${-i * WAVE_LAG_MS}ms`,
-                        marginLeft: i === 0 ? 0 : -OVERLAP_PX,
-                      } as CSSProperties
-                    }
-                  >
-                    <PixelArt
-                      rows={piece.rows}
-                      scale={DISPLAY_SCALE}
-                      palette={SERPENTS[serpent.kind].palette}
-                    />
-                  </div>
-                ))}
+                  {SERPENTS[serpent.kind].pieces.map((piece, i) => (
+                    <div
+                      key={i}
+                      className="serpent-piece"
+                      style={
+                        {
+                          "--amp": `${piece.amp * AMP_SCALE}px`,
+                          // Negative delay = phase advance; the head (largest
+                          // i) leads and the wave ripples back to the tail.
+                          animationDelay: `${-i * WAVE_LAG_MS}ms`,
+                          marginLeft: i === 0 ? 0 : -SERPENT_OVERLAP_PX,
+                        } as CSSProperties
+                      }
+                    >
+                      <PixelArt
+                        rows={piece.rows}
+                        scale={SERPENT_SCALE}
+                        palette={SERPENTS[serpent.kind].palette}
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

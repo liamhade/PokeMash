@@ -45,6 +45,14 @@
 
 # LEARNING
 
+## 3x side-view serpents: crossing Gyarados, prowling Rayquaza
+
+- [ ] Switching from top-down to side profiles let the whole rotation subsystem (cumulative shortest-turn angles, the length-sided square clearance) collapse into a `scaleX` flip and a plain box check. Why does a side view make arbitrary-heading rotation WRONG rather than merely unnecessary (what happens to "up" when a side profile rotates 180°?), and what did the clearance box get back by no longer having to cover a turning arc?
+
+- [ ] At 3x, Rayquaza's clearance box (~380x280px) rarely fits beside the board, so `openWater` gained a second loop: vertical-only drift in his own lane before holding still. Why is vertical drift from an already-clear spot safe without re-checking horizontal card overlap conceptually — and why does the code still call `pathClear` on it anyway?
+
+- [ ] Gyarados' crossing computes its speed FROM the distance and a fixed duration (`dist / (crossMs / 1000)`) while every other glide computes duration from a fixed speed. What does each parameterization hold invariant across screen widths, and why is "the visit lasts VISIT_MS" the right invariant for a crossing but the wrong one for a prowl beat?
+
 ## face-first entries, Rayquaza, connected tails, continuous flee
 
 - [ ] The "teleport to the top of the card" was a sequencing bug, not a motion bug: the peeks were scheduled at fixed offsets from the episode START, so a long flee let `nervousPeek`'s `setWalkMs(350); setY(card.top + 2)` fire mid-run and override the glide. Why does chaining the first peek onto `walkTo`'s `onArrive` fix every flee distance at once, and what NEW race did that introduce that the `episodeRef` guard inside `nervousPeek` now closes?
