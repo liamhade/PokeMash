@@ -271,22 +271,19 @@ const SERPENT_SLICES = SERPENTS.map((serpent) => {
   }
   return bands;
 });
-// Per-serpent footprint for card avoidance: its own pixel box, padded above and
-// below by the full tail wave swing.
-const SERPENT_DIMS = SERPENTS.map((serpent) => {
-  const maxAmp = serpent.waveAmp * PX * serpent.renderScale;
-  const w = serpent.image[0].length * PX * serpent.renderScale;
-  const stripH = serpent.image.length * PX * serpent.renderScale;
-  return { w, h: stripH + 2 * maxAmp, stripH, maxAmp };
-});
-type SerpentDim = (typeof SERPENT_DIMS)[number];
-// A slow menacing swim (she toddles at 41), a faster dive/exit lunge, how high
-// Gyarados' straight crossing sits (body center, fraction of the play area's
-// height up from the bottom), how long a visit terrorizes the play area, and
-// the randomized gap until the next one.
+// Per-serpent on-screen size: rendered width (used to spawn/exit fully off the
+// edges) and strip height (used to seat Gyarados' crossing at CROSS_HEIGHT).
+const SERPENT_DIMS = SERPENTS.map((serpent) => ({
+  w: serpent.image[0].length * PX * serpent.renderScale,
+  stripH: serpent.image.length * PX * serpent.renderScale,
+}));
+// A slow menacing swim (she toddles at 41), how high Gyarados' straight crossing
+// sits (body center, fraction of the play area's height up from the bottom), how
+// long Rayquaza's parabolic swoop takes end to end, how long a visit terrorizes
+// the play area, and the randomized gap until the next one.
 const SERPENT_SPEED = 70;
-const SERPENT_LUNGE_SPEED = 170;
 const CROSS_HEIGHT = 0.25;
+const SWOOP_MS = 7000;
 const VISIT_MS = 12_500;
 const VISIT_GAP_MIN_MS = 25_000;
 const VISIT_GAP_SPAN_MS = 35_000;
@@ -372,16 +369,41 @@ function SnakeSprite({ kind }: { kind: number }) {
   );
 }
 
+type Pt = { x: number; y: number };
+// Densify a set of control points into a smooth polyline through them (a
+// Catmull-Rom spline, `perSeg` samples per segment). Used to shape Rayquaza's
+// swoop so a handful of waypoints becomes one flowing curve.
+function catmullRom(pts: Pt[], perSeg: number): Pt[] {
+  const out: Pt[] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? pts[i + 1];
+    for (let j = 0; j < perSeg; j++) {
+      const t = j / perSeg;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      out.push({
+        x: 0.5 * (2 * p1.x + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+        y: 0.5 * (2 * p1.y + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+      });
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+
 // A pixel-art Clefairy that keeps the player company, roaming the whole play area
 // (everything under the nav). A single self-rescheduling timer is its "brain": it
 // walks to random spots — turning its back to the viewer for upward treks — strolls
 // off the left edge to reappear from the right, stands around, glances, blinks, and
 // mixes in little hop/wiggle emotes with randomized pauses so the rhythm feels
 // natural, not metronomic. Once in a while a legendary serpent (Gyarados and
-// Rayquaza alternate) slithers in side-on from a screen edge and hunts her: she
-// bolts behind a card (the only time she hides) and steals nervous peeks —
-// darting eyes, "!" overhead — while it prowls the open water seen from above,
-// body snaking in a slow wave, never crossing behind the board.
+// Rayquaza alternate) sweeps across the screen and hunts her: she bolts behind a
+// card (the only time she hides) and steals nervous peeks — darting eyes, "!"
+// overhead — while it swims by, its long body snaking in a traveling wave
+// (Gyarados cruises straight across; Rayquaza swoops in a parabola).
 // She also hops on every pick (the `picks`-keyed wrapper, kept separate from the
 // wander emote so the two one-shot animations can't cancel each other). The roam
 // layer itself takes no pointer events; instead a click listener on the play screen
@@ -405,14 +427,16 @@ export default function Clefairy({ picks }: { picks: number }) {
   const [dartFrame, setDartFrame] = useState(0);
   // The visiting serpent (null = off screen): which one (index into SERPENTS),
   // target position in the same anchor-relative coordinates as her x/y, glide
-  // duration, and horizontal travel direction (side profiles flip, they don't
-  // rotate). Both serpents stay in side profile for their whole visit.
+  // duration, horizontal travel direction (side profiles flip, they don't
+  // rotate), and the CSS timing function (Gyarados eases; Rayquaza's swoop glides
+  // through many waypoints at constant speed, so those segments run linear).
   const [serpent, setSerpent] = useState<{
     kind: number;
     x: number;
     y: number;
     ms: number;
     dir: 1 | -1;
+    ease?: string;
   } | null>(null);
   // Current position/orientation, readable inside the timer loop without re-running
   // the effect (the loop's closure would only ever see the initial state).
@@ -421,11 +445,13 @@ export default function Clefairy({ picks }: { picks: number }) {
   const facingRef = useRef<1 | -1>(1);
   const backRef = useRef(false);
   // The serpent's current glide target, readable inside the timer loop like her
-  // refs; visitKindRef alternates Gyarados/Rayquaza, and crossDirRef alternates
-  // the direction of Gyarados' straight crossings.
+  // refs; visitKindRef alternates Gyarados/Rayquaza, crossDirRef alternates the
+  // direction of Gyarados' straight crossings, and swoopFromLeftRef alternates
+  // the side Rayquaza swoops in from.
   const serpentRef = useRef({ x: 0, y: 0 });
   const visitKindRef = useRef(0);
   const crossDirRef = useRef<1 | -1>(1);
+  const swoopFromLeftRef = useRef(true);
   // True while a serpent visit owns the stage. Player clicks are ignored for the
   // duration so they can't clear the episode's timers mid-choreography.
   const episodeRef = useRef(false);
@@ -593,12 +619,6 @@ export default function Clefairy({ picks }: { picks: number }) {
       return true;
     }
 
-    // The serpent's clearance box: the strip plus its wave swing. (Side profiles
-    // flip rather than rotate, so no turning arc has to be cleared.)
-    function serpentClear(dim: SerpentDim, x: number, y: number, cards: CardRect[]) {
-      return clearOfCards(x, y + dim.maxAmp, dim.w, dim.h, cards);
-    }
-
     // Glide the serpent to (tx, ty), facing its direction of travel (a near-
     // vertical drift keeps the current facing). Returns the glide duration so
     // the visit choreography can schedule past it.
@@ -614,35 +634,10 @@ export default function Clefairy({ picks }: { picks: number }) {
       return ms;
     }
 
-    // A random patch of open "white space": inside the play area but clear of
-    // every card box, with the whole glide path sampled so a hop from one side
-    // to the other doesn't cut behind the board. Rejection-sampled; a serpent
-    // this size is often hemmed in, so fall back to a vertical drift in its own
-    // lane before giving up and holding position.
-    function openWater(dim: SerpentDim): { x: number; y: number } {
-      const { w, h } = area();
-      const xMin = -w / 2 + 8;
-      const xMax = w / 2 - dim.w - 8;
-      const yMin = Math.min(0, -(h - dim.h - 96));
-      const cards = cardRects();
-      const from = serpentRef.current;
-      const clear = (x: number, y: number) => serpentClear(dim, x, y, cards);
-      for (let tries = 0; tries < 30; tries++) {
-        const x = xMin + Math.random() * (xMax - xMin);
-        const y = yMin * Math.random();
-        if (clear(x, y) && pathClear(from.x, from.y, x, y, clear)) return { x, y };
-      }
-      for (let tries = 0; tries < 10; tries++) {
-        const y = yMin * Math.random();
-        if (clear(from.x, y) && pathClear(from.x, from.y, from.x, y, clear))
-          return { x: from.x, y };
-      }
-      return from;
-    }
-
-    // Her wander targets stay in the open too — she only ever tucks in behind a
-    // card when a serpent shows up, so an idle stroll must never park her (or
-    // route her) behind the board. Same rejection sampling as openWater.
+    // Her wander targets stay in the open — she only ever tucks in behind a card
+    // when a serpent shows up, so an idle stroll must never park her (or route
+    // her) behind the board. Rejection-sample a spot whose box AND straight path
+    // from her current position both clear every card rect.
     function openMeadow(): { x: number; y: number } {
       const { xMin, xMax, yMin } = bounds();
       const cards = cardRects();
@@ -686,14 +681,13 @@ export default function Clefairy({ picks }: { picks: number }) {
     }
 
     // One serpent visit — Gyarados and Rayquaza alternate, each with its own
-    // manner. Gyarados simply cruises straight across the screen at CROSS_HEIGHT
-    // (direction alternating visit to visit). Rayquaza slithers in side-on from
-    // the edge on HER side of the screen, dives at the spot where she stood —
-    // never crossing the board — then prowls the open water in beats. Either way she
-    // bolts behind the nearest card in one continuous dash, pops up for a first
-    // nervous peek the moment she arrives, steals a second one later, and on
-    // what would be the third she steps back out to roam — the serpent is gone
-    // by then.
+    // manner. Gyarados cruises straight across the screen at CROSS_HEIGHT
+    // (direction alternating visit to visit). Rayquaza swoops across in a
+    // parabola then loops back off the top (entry side alternating). Either way
+    // she bolts behind the nearest card in one continuous dash, pops up for a
+    // first nervous peek the moment she arrives, steals a second one later, and
+    // on what would be the third she steps back out to roam — the serpent is
+    // gone by then.
     function serpentVisit() {
       const cards = cardRects();
       if (!cards.length || document.hidden) {
@@ -714,7 +708,6 @@ export default function Clefairy({ picks }: { picks: number }) {
       // ARRIVAL (a fixed-time peek could fire mid-run and yank her to the card
       // top in a single 350ms hop: the "teleport").
       const herX = xRef.current;
-      const herY = yRef.current;
       const off = (c: CardRect) => Math.abs((c.left + c.right) / 2 - herX);
       const card = cards.reduce((a, b) => (off(a) <= off(b) ? a : b));
       const hide = hideSpotBehind(card);
@@ -729,7 +722,6 @@ export default function Clefairy({ picks }: { picks: number }) {
       );
 
       const { w, h } = area();
-      const fromLeft = herX < 0;
 
       if (SERPENTS[kind].behavior === "cross") {
         // Gyarados: cruise straight across at CROSS_HEIGHT, body snaking, the
@@ -757,65 +749,68 @@ export default function Clefairy({ picks }: { picks: number }) {
         return;
       }
 
-      // Rayquaza slithers in side-on from the edge on her side of the screen.
-      const xMinG = -w / 2 + 8;
-      const xMaxG = w / 2 - dim.w - 8;
-      const yMinG = Math.min(0, -(h - dim.h - 96));
-      const startX = fromLeft ? -w / 2 - dim.w - 24 : w / 2 + 24;
-      const startY = Math.max(yMinG, Math.min(0, herY - SPRITE_H));
-      serpentRef.current = { x: startX, y: startY };
-      setSerpent({ kind, x: startX, y: startY, ms: 0, dir: fromLeft ? 1 : -1 });
-
-      // Prowl beat: glide to fresh open water, pause, repeat while time remains;
-      // then leave — a side edge it can reach without cutting behind the board,
-      // else soaring off the top, else (hemmed in on a tiny screen) the nearest
-      // side regardless — and despawn.
-      function prowl(remaining: number) {
-        if (remaining <= 0) {
-          const g = serpentRef.current;
-          const cardsNow = cardRects();
-          const clear = (x: number, y: number) => serpentClear(dim, x, y, cardsNow);
-          const sides =
-            g.x < 0
-              ? [-w / 2 - dim.w - 24, w / 2 + 24]
-              : [w / 2 + 24, -w / 2 - dim.w - 24];
-          const side = sides.find((exitX) => pathClear(g.x, g.y, exitX, g.y, clear));
-          const exit =
-            side !== undefined
-              ? { x: side, y: g.y }
-              : pathClear(g.x, g.y, g.x, -(h + dim.w), clear)
-                ? { x: g.x, y: -(h + dim.w) }
-                : { x: sides[0], y: g.y };
-          const ms = serpentGlide(exit.x, exit.y, SERPENT_LUNGE_SPEED);
-          after(ms + 80, () => setSerpent(null));
-          return;
-        }
-        const spot = openWater(dim);
-        const ms = serpentGlide(spot.x, spot.y);
-        const pause = 150 + Math.random() * 350;
-        after(ms + pause, () => prowl(remaining - ms - pause));
+      // Rayquaza swoops across the whole screen in a parabola, then loops back
+      // over the top and off the screen — entering from an alternating side each
+      // visit. Its long body snakes the whole way. This is a fast fly-by, not a
+      // prowl, so it ignores the board (no card-avoidance).
+      const fromLeftSwoop = swoopFromLeftRef.current;
+      swoopFromLeftRef.current = !fromLeftSwoop;
+      const s: 1 | -1 = fromLeftSwoop ? 1 : -1; // mirror the path for right entries
+      const offX = w / 2 + dim.w + 24;
+      const control = [
+        { x: -s * offX, y: -h * 0.8 }, // off-screen entry side, high
+        { x: -s * w * 0.28, y: -h * 0.66 },
+        { x: 0, y: -h * 0.44 }, // parabola dip: down through the center
+        { x: s * w * 0.3, y: -h * 0.64 },
+        { x: s * w * 0.44, y: -h * 0.82 }, // rise to the far top corner
+        { x: s * w * 0.24, y: -h * 1.02 }, // loop up and back over the top...
+        { x: -s * w * 0.22, y: -h * 1.05 },
+        { x: -s * offX, y: -h * 0.98 }, // ...exiting off the entry side
+      ];
+      const path = catmullRom(control, 10);
+      let pathLen = 0;
+      for (let i = 1; i < path.length; i++) {
+        pathLen += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
       }
+      serpentRef.current = { x: path[0].x, y: path[0].y };
+      setSerpent({ kind, x: path[0].x, y: path[0].y, ms: 0, dir: s, ease: "linear" });
       after(60, () => {
         // (60ms: let the off-screen spawn mount before animating, like the wrap.)
-        // Slither straight in and dive at her old spot — unless the spot or the
-        // way to it touches the board, in which case dive to open water instead:
-        // the serpent never crosses cards.
-        const clear = (x: number, y: number) => serpentClear(dim, x, y, cards);
-        const diveX = Math.max(xMinG, Math.min(xMaxG, herX + SPRITE_W / 2 - dim.w / 2));
-        const diveY = Math.min(0, herY);
-        const start = serpentRef.current;
-        const dive =
-          clear(diveX, diveY) && pathClear(start.x, start.y, diveX, diveY, clear)
-            ? { x: diveX, y: diveY }
-            : openWater(dim);
-        const diveMs = serpentGlide(dive.x, dive.y, SERPENT_LUNGE_SPEED);
-        after(diveMs, () => prowl(VISIT_MS - diveMs));
+        // Fly the curve at constant speed: each segment's duration is its share
+        // of the total path length, so the whole swoop lasts SWOOP_MS.
+        let i = 1;
+        function flyNext() {
+          if (i >= path.length) {
+            setSerpent(null);
+            return;
+          }
+          const from = serpentRef.current;
+          const p = path[i];
+          const dx = p.x - from.x;
+          const segMs = Math.max(16, (Math.hypot(dx, p.y - from.y) / pathLen) * SWOOP_MS);
+          serpentRef.current = { x: p.x, y: p.y };
+          setSerpent(
+            (cur) =>
+              cur && {
+                ...cur,
+                x: p.x,
+                y: p.y,
+                ms: segMs,
+                ease: "linear",
+                // face travel direction; flips once at the apex when it turns back
+                dir: Math.abs(dx) > 4 ? (dx > 0 ? 1 : -1) : cur.dir,
+              },
+          );
+          i++;
+          after(segMs, flyNext);
+        }
+        flyNext();
       });
 
-      after(VISIT_MS + 1200, () => {
-        // All clear: step out to open space and get back to roaming. stepOutSpot
-        // checks only the target — the walk necessarily STARTS behind the card,
-        // so openMeadow's path check would reject everything.
+      after(SWOOP_MS + 900, () => {
+        // The swoop is gone; come back out to roam. stepOutSpot checks only the
+        // target — she STARTS behind the card, so openMeadow's path check would
+        // reject everything.
         episodeRef.current = false;
         setPeeking(false); // a straggling second peek must not outlive the visit
         const spot = stepOutSpot();
@@ -1076,7 +1071,7 @@ export default function Clefairy({ picks }: { picks: number }) {
           <div
             style={{
               transform: `translate(${serpent.x}px, ${serpent.y}px)`,
-              transition: `transform ${serpent.ms}ms ease-in-out`,
+              transition: `transform ${serpent.ms}ms ${serpent.ease ?? "ease-in-out"}`,
             }}
           >
             <div style={{ transform: `scaleX(${serpent.dir})` }}>

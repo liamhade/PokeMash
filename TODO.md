@@ -45,7 +45,22 @@
 
 # LEARNING
 
-## unroll Rayquaza's S-pose into a straight snaking serpent
+## graft the good head + Rayquaza's parabolic swoop
+
+- [ ] The unrolled body's head came out mangled, so the clean head was cropped
+  from the SAME photo (`head_crop`) and composited onto the neck at high-res
+  BEFORE tracing to a sprite (scratchpad `graft.py`), rather than pasting two
+  already-quantized pixel grids. Why does grafting at the photo resolution and
+  then quantizing ONCE give a seamless single-palette sprite, whereas stitching
+  two traced grids would not?
+
+- [ ] Rayquaza's swoop is a `catmullRom` spline through 8 control points, flown
+  by chaining ~70 short `translate` transitions whose per-segment duration is
+  each segment's share of the total path length (so speed is constant and the
+  whole thing lasts `SWOOP_MS`), each with `ease: "linear"`. Why does linear
+  easing per tiny segment read as smooth constant motion while the segments'
+  own `ease-in-out` (the Gyarados default) would visibly pulse — and why must
+  the sprite `dir` flip exactly at the apex where `dx` changes sign?
 
 - [ ] `unroll.py` finds the body centerline as the skeleton's LONGEST path via
   two BFS passes (farthest node from an arbitrary start, then farthest from
