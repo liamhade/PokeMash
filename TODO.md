@@ -45,7 +45,18 @@
 
 # LEARNING
 
-## faithful serpent portraits, no more belly-roll
+## match the reference photos + side-on entrance for both serpents
+
+- [ ] Both `GS_FIN`'s white prongs and `RS_FIN`'s red plates sit in rows the
+  neighboring segments leave `.` (empty), yet `RS_RING`'s yellow oval still has
+  to hug the LEFT of its 10-wide slice. Why does the 3-column head-ward overlap
+  clip the ring but not the fins — what's different about the rows each occupies?
+
+- [ ] Redrawing Gyarados kept the committed `GS_HEAD`/`GS_FAN` grids untouched and
+  only swapped `GS_SLICE`/`GS_JOINT` (spike-on-every-segment) for a smooth
+  `GS_BODY` plus an interval `GS_FIN`. What did reusing the proven head/tail
+  grids buy over regenerating all ten pieces, and how does deleting `RAY_FACE`
+  (and the `form` state it drove) rather than leaving it unused reflect YAGNI?
 
 - [ ] Every serpent piece now keeps its rightmost 3 columns plain tube — and `RS_RING` additionally backs its ring with solid green instead of transparent cells. Trace how the 3-cell overlap's paint order (head-ward neighbor on top) turned the first draft's rings into "C" shapes, and which 1px seam holes the solid backing closes that the overlap alone couldn't.
 
