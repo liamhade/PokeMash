@@ -507,3 +507,9 @@
 - [ ] `nervousPeek`'s rise is guarded by `episodeRef.current`, but the bug lived in the sink-back closure 1.45s later. Why did clobbering `walkMs` to 300 mid-walk read as a "teleport" — what does the CSS transition do when its duration property shrinks while the transform target also changes?
 
 - [ ] Clefairy's motion multiplexes ONE transform through shared `x`/`y`/`walkMs` state, so any late timer can hijack an in-flight glide. What's the general lesson about one-shot timers that mutate shared animation state, and how does checking an "owner" flag (`episodeRef`) at fire time differ from clearing the timer at handoff?
+
+## hide-spot sanity: reject mid-swap card rects, clamp her into the walkable box
+
+- [ ] The teleport was traced to `hideSpotBehind` receiving a card rect whose `bottom` was ~470px below the floor line — a `[data-compare-card]` element measured mid-remount after a pick. Why does `getBoundingClientRect` on a card that React is in the middle of swapping report a position "flowed" to the bottom of the document, and why did no amount of transition/timer analysis reproduce it until the harness started clicking cards?
+
+- [ ] The fix layers a rect filter (in `cardRects`) AND a coordinate clamp (in `hideSpotBehind`/`nervousPeek`). What's the argument for enforcing an invariant ("she never leaves the walkable box") at the point of use even when the data source is already filtered — and what's the equivalent principle in API design?

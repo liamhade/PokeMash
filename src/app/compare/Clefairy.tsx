@@ -521,7 +521,11 @@ export default function Clefairy({ picks }: { picks: number }) {
           top: r.top - floorY,
           bottom: r.bottom - floorY,
         };
-      });
+        // A card mid-swap (every pick remounts the board) can report a
+        // degenerate rect, or one flowed far below the play area — "hiding"
+        // behind that once sent her under the floor, off-screen for a whole
+        // visit. Only rects that look like real on-board cards count.
+      }).filter((c) => c.right - c.left > 40 && c.bottom - c.top > 40 && c.bottom < 60);
     }
     type CardRect = ReturnType<typeof cardRects>[number];
 
@@ -579,10 +583,12 @@ export default function Clefairy({ picks }: { picks: number }) {
     // The hiding spot behind `card`: centered on it, ducked fully below its top
     // edge so the z-10 card hides all of her.
     function hideSpotBehind(card: CardRect) {
-      const { xMin, xMax } = bounds();
+      const { xMin, xMax, yMin } = bounds();
+      // Clamped into the walkable box: even if a rect slips past the cardRects
+      // filter, she must never be sent below the floor or above the play area.
       return {
         x: Math.min(xMax, Math.max(xMin, (card.left + card.right) / 2 - SPRITE_W / 2)),
-        y: Math.min(card.bottom - 8, card.top + SPRITE_H + 24),
+        y: Math.min(0, Math.max(yMin, Math.min(card.bottom - 8, card.top + SPRITE_H + 24))),
       };
     }
 
@@ -595,7 +601,7 @@ export default function Clefairy({ picks }: { picks: number }) {
       if (!episodeRef.current) return;
       setPeeking(true);
       setWalkMs(350);
-      yRef.current = card.top + 2;
+      yRef.current = Math.min(0, card.top + 2); // never below the floor
       setY(yRef.current);
       after(350 + 1100, () => {
         // The episode can end mid-peek: her step-out walkTo owns the transform
@@ -686,6 +692,20 @@ export default function Clefairy({ picks }: { picks: number }) {
       setFacing(facingRef.current);
     }
 
+    // Serpent motion timers also ride outside the interruptible pool: the
+    // flight's tail outlives episodeRef (the episode-end timer fires on the
+    // path-length estimate, the real flight accumulates timer overhead), and a
+    // player click in that window must not freeze the serpent mid-exit — or
+    // kill the despawn step that schedules the next visit.
+    const flightTimers = new Set<ReturnType<typeof setTimeout>>();
+    function flightAfter(delay: number, fn: () => void) {
+      const t = setTimeout(() => {
+        flightTimers.delete(t);
+        fn();
+      }, delay);
+      flightTimers.add(t);
+    }
+
     // Visits ride their own timer handle, NOT the interruptible pool: a player
     // click clears the pool, and that must never cancel the next visit. Called
     // at the moment a serpent despawns, so the 15-60s gap is serpent-free time
@@ -719,6 +739,8 @@ export default function Clefairy({ picks }: { picks: number }) {
       episodeRef.current = true;
       timers.forEach((t) => clearTimeout(t));
       timers.clear();
+      flightTimers.forEach((t) => clearTimeout(t));
+      flightTimers.clear();
       setEmote("none"); // cut short a dance/hop; fleeing overrides celebration
       setPeeking(false);
 
@@ -758,12 +780,12 @@ export default function Clefairy({ picks }: { picks: number }) {
         const y = Math.min(0, -(h * CROSS_HEIGHT) + dim.stripH / 2);
         serpentRef.current = { x: startX, y };
         setSerpent({ kind, x: startX, y, ms: 0, dir });
-        after(60, () => {
+        flightAfter(60, () => {
           // One unbroken glide spanning the whole visit, then despawn (which
           // starts the serpent-free gap until the next visit).
           const crossMs = VISIT_MS - 600;
           serpentGlide(endX, y, Math.abs(endX - startX) / (crossMs / 1000));
-          after(crossMs + 80, () => {
+          flightAfter(crossMs + 80, () => {
             setSerpent(null);
             scheduleVisit();
           });
@@ -811,7 +833,7 @@ export default function Clefairy({ picks }: { picks: number }) {
       const swoopMs = (pathLen / SWOOP_SPEED) * 1000;
       serpentRef.current = { x: path[0].x, y: path[0].y };
       setSerpent({ kind, x: path[0].x, y: path[0].y, ms: 0, dir: s, ease: "linear" });
-      after(60, () => {
+      flightAfter(60, () => {
         // (60ms: let the off-screen spawn mount before animating, like the wrap.)
         // Fly the curve at a constant SWOOP_SPEED: each segment's duration is its
         // length over the speed. dir flips at the top when it turns and heads back.
@@ -840,7 +862,7 @@ export default function Clefairy({ picks }: { picks: number }) {
               },
           );
           i++;
-          after(segMs, flyNext);
+          flightAfter(segMs, flyNext);
         }
         flyNext();
       });
@@ -995,6 +1017,7 @@ export default function Clefairy({ picks }: { picks: number }) {
     return () => {
       screen?.removeEventListener("click", onClick);
       timers.forEach((t) => clearTimeout(t));
+      flightTimers.forEach((t) => clearTimeout(t));
       clearTimeout(visitTimer);
     };
   }, []);
