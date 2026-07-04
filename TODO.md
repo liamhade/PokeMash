@@ -513,3 +513,9 @@
 - [ ] The teleport was traced to `hideSpotBehind` receiving a card rect whose `bottom` was ~470px below the floor line — a `[data-compare-card]` element measured mid-remount after a pick. Why does `getBoundingClientRect` on a card that React is in the middle of swapping report a position "flowed" to the bottom of the document, and why did no amount of transition/timer analysis reproduce it until the harness started clicking cards?
 
 - [ ] The fix layers a rect filter (in `cardRects`) AND a coordinate clamp (in `hideSpotBehind`/`nervousPeek`). What's the argument for enforcing an invariant ("she never leaves the walkable box") at the point of use even when the data source is already filtered — and what's the equivalent principle in API design?
+
+## layout-true card rects, fresh peek measures, nearest step-out, motion-driven feet
+
+- [ ] `cardRects` now builds each card's box from `offsetLeft/offsetTop/offsetWidth/offsetHeight` against the wrapper instead of `getBoundingClientRect`. Which two CSS transforms on the card button were contaminating the old measurement, and why does offset geometry ignore them by definition?
+
+- [ ] Her stepping feet now key off a `moving` state sampled from the animating transform rather than a `walking` flag set by the same timers that drive the walk. What's the general principle about deriving UI state from observed reality versus mirroring it in bookkeeping flags, and what did each of the two reported feet glitches (frozen mid-run, stepping in place) reveal about flag drift?

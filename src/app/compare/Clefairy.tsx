@@ -427,7 +427,12 @@ export default function Clefairy({ picks }: { picks: number }) {
   const [x, setX] = useState(0);
   const [y, setY] = useState(0);
   const [walkMs, setWalkMs] = useState(0);
-  const [walking, setWalking] = useState(false);
+  // True while her positioner is actually moving on screen, sampled off the
+  // animating transform. The walk visuals (stepping feet, waddle) key off
+  // THIS rather than a "walking" flag: a timer race could strand a flag true
+  // after the glide ended (stepping in place) or false while one was still in
+  // flight (frozen feet mid-run) — real motion can't lie.
+  const [moving, setMoving] = useState(false);
   const [facing, setFacing] = useState<1 | -1>(1);
   const [showBack, setShowBack] = useState(false);
   const [peeking, setPeeking] = useState(false);
@@ -513,19 +518,28 @@ export default function Clefairy({ picks }: { picks: number }) {
       if (!el) return [];
       const a = el.getBoundingClientRect();
       const floorY = a.top + a.height - 24; // bottom-6 anchor line
-      return Array.from(document.querySelectorAll("[data-compare-card]")).map((c) => {
-        const r = c.getBoundingClientRect();
-        return {
-          left: r.left - a.left - a.width / 2,
-          right: r.right - a.left - a.width / 2,
-          top: r.top - floorY,
-          bottom: r.bottom - floorY,
-        };
-        // A card mid-swap (every pick remounts the board) can report a
-        // degenerate rect, or one flowed far below the play area — "hiding"
-        // behind that once sent her under the floor, off-screen for a whole
-        // visit. Only rects that look like real on-board cards count.
-      }).filter((c) => c.right - c.left > 40 && c.bottom - c.top > 40 && c.bottom < 60);
+      return Array.from(document.querySelectorAll<HTMLElement>("[data-compare-card]"))
+        .map((c) => {
+          // The card button slides in via a translate transform (from 120vh
+          // below) and scales up on hover — and getBoundingClientRect includes
+          // transforms, so a rect read mid-slide or mid-hover is a valid-
+          // looking box that is NOT where the card rests (hides went under
+          // the floor; peeks anchored to an offset box). Measure the layout
+          // box instead: offset geometry against the transform-free wrapper.
+          const wrap = (c.offsetParent as HTMLElement | null) ?? c;
+          const w = wrap.getBoundingClientRect();
+          const left = w.left + c.offsetLeft;
+          const top = w.top + c.offsetTop;
+          return {
+            left: left - a.left - a.width / 2,
+            right: left + c.offsetWidth - a.left - a.width / 2,
+            top: top - floorY,
+            bottom: top + c.offsetHeight - floorY,
+          };
+        })
+        // Belt and braces for a card measured mid-mount (styles not yet
+        // applied): only rects that look like real on-board cards count.
+        .filter((c) => c.right - c.left > 40 && c.bottom - c.top > 40 && c.bottom < 60);
     }
     type CardRect = ReturnType<typeof cardRects>[number];
 
@@ -566,9 +580,7 @@ export default function Clefairy({ picks }: { picks: number }) {
         setX(tx);
         setY(ty);
         setWalkMs(ms);
-        setWalking(true);
         after(ms, () => {
-          setWalking(false);
           if (back) {
             // Arrived: turn back around to face the viewer.
             backRef.current = false;
@@ -599,9 +611,21 @@ export default function Clefairy({ picks }: { picks: number }) {
     // peek's timer past the episode's end).
     function nervousPeek(card: CardRect, hideY: number) {
       if (!episodeRef.current) return;
+      // Every pick swaps the board, so the visit-start rect can be stale (a
+      // new occupant with a different height). Re-measure her slot — the card
+      // nearest her hiding spot — at peek time; heights differ card to card.
+      const fresh = cardRects();
+      const herX = xRef.current + SPRITE_W / 2;
+      const near = fresh.length
+        ? fresh.reduce((a2, b2) =>
+            Math.abs((a2.left + a2.right) / 2 - herX) <= Math.abs((b2.left + b2.right) / 2 - herX)
+              ? a2
+              : b2,
+          )
+        : card;
       setPeeking(true);
       setWalkMs(350);
-      yRef.current = Math.min(0, card.top + 2); // never below the floor
+      yRef.current = Math.min(0, near.top + 2); // never below the floor
       setY(yRef.current);
       after(350 + 1100, () => {
         // The episode can end mid-peek: her step-out walkTo owns the transform
@@ -675,15 +699,25 @@ export default function Clefairy({ picks }: { picks: number }) {
     // A clear spot to step out to, checking only the TARGET: for when she is
     // already overlapping the board (cards mounted over her, or she's emerging
     // from a hide), where any path check from the start point must fail.
+    // Takes the NEAREST clear candidate so she steps out right beside where
+    // she is and resumes roaming immediately, instead of trekking across the
+    // screen to a random far spot.
     function stepOutSpot(): { x: number; y: number } {
       const { xMin, xMax, yMin } = bounds();
       const cards = cardRects();
+      let best: { x: number; y: number } | null = null;
+      let bestD = Infinity;
       for (let tries = 0; tries < 30; tries++) {
         const x = xMin + Math.random() * (xMax - xMin);
         const y = yMin * Math.random();
-        if (clearOfCards(x, y, SPRITE_W, SPRITE_H, cards)) return { x, y };
+        if (!clearOfCards(x, y, SPRITE_W, SPRITE_H, cards)) continue;
+        const d = Math.hypot(x - xRef.current, y - yRef.current);
+        if (d < bestD) {
+          best = { x, y };
+          bestD = d;
+        }
       }
-      return { x: xRef.current, y: 0 }; // the floor lane below the board is always open
+      return best ?? { x: xRef.current, y: 0 }; // the floor lane below the board is always open
     }
 
     // Turn to face the other way (a glance, or a dance twirl beat).
@@ -1022,14 +1056,34 @@ export default function Clefairy({ picks }: { picks: number }) {
     };
   }, []);
 
-  // Step cadence: alternate feet while a glide is in flight. 160ms/step suits the
-  // toddle speed (~2 steps per 13px of travel at WALK_SPEED); the interval dies with
-  // the walk so she always plants both feet when she stops.
+  // Motion sampler: read the animating transform a few times a second and
+  // compare against the last sample. This is the source of truth for whether
+  // she is moving (and so whether her feet should step).
   useEffect(() => {
-    if (!walking) return;
+    let lastX = NaN;
+    let lastY = NaN;
+    const timer = setInterval(() => {
+      const el = posRef.current;
+      if (!el) return;
+      const t = getComputedStyle(el).transform;
+      if (!t || t === "none") return;
+      const m = new DOMMatrixReadOnly(t);
+      const d = Math.hypot(m.m41 - lastX, m.m42 - lastY);
+      lastX = m.m41;
+      lastY = m.m42;
+      setMoving(Number.isFinite(d) && d > 1);
+    }, 140);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Step cadence: alternate feet while she's in motion. 160ms/step suits the
+  // toddle speed (~2 steps per 13px of travel at WALK_SPEED); the interval dies
+  // with the motion so she always plants both feet when she stops.
+  useEffect(() => {
+    if (!moving) return;
     const timer = setInterval(() => setStepFrame((frame) => frame ^ 1), 160);
     return () => clearInterval(timer);
-  }, [walking]);
+  }, [moving]);
 
   // Nervous eye darting: flick the pupils left/right while she peeks for a serpent.
   useEffect(() => {
@@ -1063,7 +1117,7 @@ export default function Clefairy({ picks }: { picks: number }) {
   // Peeks only happen while a serpent prowls, so they always wear the nervous eyes.
   const rows = peeking
     ? NERVOUS_PEEK[dartFrame]
-    : walking
+    : moving
       ? (showBack ? WALK_BACK : WALK_FRONT)[stepFrame]
       : showBack
         ? BACK_SPRITE
@@ -1113,7 +1167,7 @@ export default function Clefairy({ picks }: { picks: number }) {
                         : ""
                 }
               >
-                <div className={walking ? "clefairy-waddle" : "critter-idle"}>
+                <div className={moving ? "clefairy-waddle" : "critter-idle"}>
                   <PixelArt rows={rows} scale={DISPLAY_SCALE} />
                 </div>
               </div>
