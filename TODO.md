@@ -45,7 +45,19 @@
 
 # LEARNING
 
-## the protruding "neck" was the head crop's OWN neck
+## diagonal neck cut (keep the throat) + arm z-order
+
+- [ ] Masking the head's neck with a RECTANGLE (x<178 & y>145) also bit a chunk
+  out of the head's throat and clipped the neck spike. The fix cut along a
+  DIAGONAL that follows the neck tube (a cross-product side test against a line),
+  removing only the tube while keeping the throat and crest. Why is a straight
+  half-plane cut (line + which-side) enough here, and how does the sign of the 2D
+  cross product `(p-a) x (b-a)` pick the side to erase?
+
+- [ ] The hand kept disappearing because the arm was composited BEFORE (under)
+  the body. Compositing the arm AFTER the head/body — and hanging it below the
+  silhouette — makes the claws show. What does this say about paint order being
+  the whole story for a flat 2D graft, versus real depth?
 
 - [ ] The leftover wasn't body clutter — it was the head crop's own down-curving
   neck (the model's neck bent toward the coiled body below in the S-pose), which
