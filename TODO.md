@@ -45,7 +45,20 @@
 
 # LEARNING
 
-## diagonal neck cut (keep the throat) + arm z-order
+## rotate the head to point forward; angle + overlay the arm
+
+- [ ] The head read as "too low / disconnected" because the model's head axis
+  tilts ~34° DOWN (crest→snout), so on a horizontal body the mouth drooped below
+  the neck line. Rotating the cropped head ~32° CCW before grafting makes it
+  point forward and join the tube naturally. Why does a rigid rotation (not a
+  reposition) fix a droop that repositioning couldn't, and what does that say
+  about matching a grafted part's axis to the host body's axis?
+
+- [ ] The arm looked detached because it was a horizontal forearm placed below
+  the tube (gap at the shoulder). Rotating it ~38° CW so it angles down-forward,
+  overlapping the shoulder INTO the body and compositing it ON TOP, made it read
+  as attached with the hand clear of the silhouette. Why is "overlap the joint +
+  paint on top" the 2D stand-in for an actual attached limb?
 
 - [ ] Masking the head's neck with a RECTANGLE (x<178 & y>145) also bit a chunk
   out of the head's throat and clipped the neck spike. The fix cut along a
