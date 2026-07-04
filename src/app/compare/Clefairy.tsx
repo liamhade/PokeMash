@@ -287,8 +287,8 @@ const SERPENT_SPEED = 70;
 const CROSS_HEIGHT = 0.25;
 const SWOOP_SPEED = 128;
 const VISIT_MS = 12_500;
-const VISIT_GAP_MIN_MS = 25_000;
-const VISIT_GAP_SPAN_MS = 35_000;
+const VISIT_GAP_MIN_MS = 15_000;
+const VISIT_GAP_SPAN_MS = 45_000;
 
 // A walk whose vertical component exceeds this reads as "moving up the screen":
 // Clefairy turns around (into the page, back to the viewer) for upward treks only —

@@ -45,7 +45,21 @@
 
 # LEARNING
 
-## place the graft by coordinates, not by eye
+## the arm that looked best was the model's own, barely rotated
+
+- [ ] Three arm attempts failed before the fix: the GBA sprite arm (right anatomy,
+  but its dithered teal pixels read as noise next to the smooth photo body) and
+  two hand-drawn capsule arms (right palette, but "stick + ball" proportions).
+  The winner was the model photo's own arm at a gentle -18° instead of the old
+  -38°. Why did the steep rotation make a natural limb read as a "blocky" blob
+  (think: what happens to a mostly-horizontal forearm + forward claws when you
+  rotate them 38°), and why does material continuity (same photo source as the
+  body) matter more here than anatomical detail?
+
+- [ ] VISIT_GAP_MIN_MS/SPAN became 15_000/45_000 — a min + span pair rather than
+  a min + max. What does storing the randomized gap as (min, span) simplify at
+  the call site (`min + Math.random() * span`), and what's the off-by-one-ish
+  trap if someone later "fixes" span to be the max?
 
 - [ ] The head kept landing off the neck because its placement (`hx`/`hy`) was
   eyeballed against zoom renders. The fix measured the actual geometry — the
