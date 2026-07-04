@@ -495,3 +495,9 @@
 - [ ] `buildarm.py` splits the photo arm into a thinned tube and a fist, rotates them 52° and 20° below horizontal, and overlaps the forearm 15px back along its own axis before compositing it ON TOP of the upper arm. Why does the overlap have to run along the forearm's axis (not just shift left), and why did the trace need 18 colors instead of 16 to keep the claws white?
 
 - [ ] The arm is composited UNDER the body tube in `graft6.py`, so the shoulder is hidden and the limb "emerges" from the silhouette. What general rule about grafting parts onto a sprite does this illustrate — when is hiding a joint behind an occluder better than trying to blend a visible seam?
+
+## on-screen loop U-turn, opposite-side entry, gap from departure
+
+- [ ] In `serpentVisit`, `scheduleVisit()` moved from the episode-end timers into the despawn callbacks (`setSerpent(null)`). Why does scheduling the next visit from the fixed `after(swoopMs + 900)` timer measure the gap from a slightly different moment than the serpent actually leaving, and where does that drift come from?
+
+- [ ] The swoop's `turn` waypoints make the Catmull-Rom path cross itself into a teardrop loop, and the sprite's facing flips automatically mid-loop because `flyNext` derives `dir` from each segment's dx sign. What's the advantage of deriving orientation from the path over scripting a flip at a known time, and when would the dx-sign heuristic misfire?
