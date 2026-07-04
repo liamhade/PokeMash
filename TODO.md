@@ -45,6 +45,16 @@
 
 # LEARNING
 
+## the protruding "neck" was the head crop's OWN neck
+
+- [ ] The leftover wasn't body clutter — it was the head crop's own down-curving
+  neck (the model's neck bent toward the coiled body below in the S-pose), which
+  hung down as a second neck once the straight body tube already formed one. The
+  fix masked that neck off the head crop (keeping crest + skull + jaw) so the body
+  tube is the only neck. Why does unrolling a POSED model inevitably leave a neck
+  pointing the "wrong" way, and why is masking it on the head — not cutting the
+  body — the right place to fix a double-neck?
+
 ## cut the neck clutter exactly where the clean tube ends
 
 - [ ] Keeping the body tube under the neck (cut_x 1230) left mangled unroll
