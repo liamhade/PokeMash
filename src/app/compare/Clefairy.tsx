@@ -598,6 +598,11 @@ export default function Clefairy({ picks }: { picks: number }) {
       yRef.current = card.top + 2;
       setY(yRef.current);
       after(350 + 1100, () => {
+        // The episode can end mid-peek: her step-out walkTo owns the transform
+        // by then, and this sink-back would clobber its duration to 300ms — a
+        // "teleport" to the walk target, then stepping in place while the
+        // original walk timer runs out. Let the walk keep the stage instead.
+        if (!episodeRef.current) return;
         setWalkMs(300);
         yRef.current = hideY;
         setY(hideY);

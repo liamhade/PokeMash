@@ -501,3 +501,9 @@
 - [ ] In `serpentVisit`, `scheduleVisit()` moved from the episode-end timers into the despawn callbacks (`setSerpent(null)`). Why does scheduling the next visit from the fixed `after(swoopMs + 900)` timer measure the gap from a slightly different moment than the serpent actually leaving, and where does that drift come from?
 
 - [ ] The swoop's `turn` waypoints make the Catmull-Rom path cross itself into a teardrop loop, and the sprite's facing flips automatically mid-loop because `flyNext` derives `dir` from each segment's dx sign. What's the advantage of deriving orientation from the path over scripting a flip at a known time, and when would the dx-sign heuristic misfire?
+
+## guard the peek sink-back against the episode ending mid-peek
+
+- [ ] `nervousPeek`'s rise is guarded by `episodeRef.current`, but the bug lived in the sink-back closure 1.45s later. Why did clobbering `walkMs` to 300 mid-walk read as a "teleport" — what does the CSS transition do when its duration property shrinks while the transform target also changes?
+
+- [ ] Clefairy's motion multiplexes ONE transform through shared `x`/`y`/`walkMs` state, so any late timer can hijack an in-flight glide. What's the general lesson about one-shot timers that mutate shared animation state, and how does checking an "owner" flag (`episodeRef`) at fire time differ from clearing the timer at handoff?
