@@ -45,7 +45,22 @@
 
 # LEARNING
 
-## rotate the head to point forward; angle + overlay the arm
+## place the graft by coordinates, not by eye
+
+- [ ] The head kept landing off the neck because its placement (`hx`/`hy`) was
+  eyeballed against zoom renders. The fix measured the actual geometry — the
+  neck-join sits at head-local ≈(135, 85) (read off a gridded render) and the
+  body tube's centerline at body-local y=100 — and solved `hy = 100 - 85` so the
+  join lands ON the tube axis, with the stub length chosen so the tube ends ~30px
+  into the join. Why does anchoring two measured reference points beat iterating
+  visual offsets, and what changes when someone later swaps in a different head
+  crop?
+
+- [ ] The previous graft's tube stub ran 145px past the neck join, sliding under
+  the jaw (the stray yellow stripe below the mouth). Explain how ONE stub-length
+  number encodes the difference between "the body flows into the head" and "a
+  pipe pokes through the head", and why the overlap should be measured from the
+  join point rather than the head's bounding-box edge.
 
 - [ ] The head read as "too low / disconnected" because the model's head axis
   tilts ~34° DOWN (crest→snout), so on a horizontal body the mouth drooped below
