@@ -490,3 +490,8 @@
 - [ ] Adding `collector_number` to the rankings response only required editing the `cards!inner(...)` select string and the `RankedCard` type — why did the `...row.cards` spread in `route.ts` mean the mapping code needed no change, and what would break if a selected column had no matching field on `RankedCard`?
 
 - [ ] The `details` array wraps `collector_number` in `orDash` just like the other nullable fields. What's the design benefit of routing every display value through one null-normalizing helper versus letting each row decide its own fallback, and when would that uniformity become a constraint?
+## rebuild Rayquaza's arm with an elbow bend
+
+- [ ] `buildarm.py` splits the photo arm into a thinned tube and a fist, rotates them 52° and 20° below horizontal, and overlaps the forearm 15px back along its own axis before compositing it ON TOP of the upper arm. Why does the overlap have to run along the forearm's axis (not just shift left), and why did the trace need 18 colors instead of 16 to keep the claws white?
+
+- [ ] The arm is composited UNDER the body tube in `graft6.py`, so the shoulder is hidden and the limb "emerges" from the silhouette. What general rule about grafting parts onto a sprite does this illustrate — when is hiding a joint behind an occluder better than trying to blend a visible seam?
