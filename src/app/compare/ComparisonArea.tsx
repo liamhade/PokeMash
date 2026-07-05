@@ -97,8 +97,11 @@ export default function ComparisonArea({
           <div key={card.card_id} className="relative">
             <button
               // Marks this card's box for the Clefairy, who peeks over its top
-              // edge when her wander path crosses it.
+              // edge when her wander path crosses it. The card that just won
+              // (still on the board in Keep Winner mode) is also flagged: when
+              // a serpent shows up, she always hides behind the winner.
               data-compare-card
+              data-compare-winner={isPicked ? "true" : undefined}
               onClick={() => onPick(card)}
               onMouseEnter={() => onHover(card.card_id)}
               onMouseLeave={() => onHover(null)}

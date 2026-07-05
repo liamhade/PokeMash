@@ -508,6 +508,9 @@ export default function Clefairy({ picks }: { picks: number }) {
             // the roam exclusion runs down to here so she never strolls over
             // the dials either (hide/peek geometry keeps the card box).
             roamBottom: w.bottom - floorY,
+            // The card that just won the last pick (see ComparisonArea): the
+            // one she trusts to hide behind when a serpent shows up.
+            winner: c.hasAttribute("data-compare-winner"),
           };
         })
         // Belt and braces for a card measured mid-mount (styles not yet
@@ -756,7 +759,10 @@ export default function Clefairy({ picks }: { picks: number }) {
       setEmote("none"); // cut short a dance/hop; fleeing overrides celebration
       setPeeking(false);
 
-      // She bolts behind the card nearest to where she's standing — one fast,
+      // She bolts behind the card that just WON the last pick — the champion
+      // is clearly the safest cover. Only when no winner is on the board (no
+      // picks yet, or Keep Winner off just swapped the whole pair) does she
+      // settle for the card nearest to where she's standing. One fast,
       // continuous run all the way there, with her first peek chained onto the
       // ARRIVAL (a fixed-time peek could fire mid-run and yank her to the card
       // top in a single 350ms hop: the "teleport"). The flee doesn't start at
@@ -765,7 +771,7 @@ export default function Clefairy({ picks }: { picks: number }) {
       // to the monster, not to a timer the player can't see.
       const herX = xRef.current;
       const off = (c: CardRect) => Math.abs((c.left + c.right) / 2 - herX);
-      const card = cards.reduce((a, b) => (off(a) <= off(b) ? a : b));
+      const card = cards.find((c) => c.winner) ?? cards.reduce((a, b) => (off(a) <= off(b) ? a : b));
       const hide = hideSpotBehind(card);
       const flee = () => {
         // However far she is, she MUST be tucked in well before the serpent

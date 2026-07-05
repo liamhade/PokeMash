@@ -549,3 +549,9 @@
 - [ ] The flee speed is now `Math.max(WALK_SPEED * 5, dist / 2.2)` instead of a fixed 5x dash. Why did a constant px/s flee interact badly with the serpent's constant-DURATION crossing (11.9s regardless of screen width), and what invariant does expressing the flee as a time budget restore?
 
 - [ ] `dist` is computed from `xRef/yRef`, which mid-walk hold her TARGET rather than her live position (walkTo re-reads the live transform internally). When is this approximation safe here, and what would it take for the discrepancy to matter?
+
+## she hides behind the card that just won
+
+- [ ] The winner reaches Clefairy via a `data-compare-winner` attribute on the card button rather than a React prop. What are the trade-offs of communicating through DOM attributes here versus threading `pickedId` down as a prop, given that Clefairy already measures these elements with `querySelectorAll`?
+
+- [ ] `pickedId` is deliberately never cleared after a pick, and with Keep Winner off the winner departs the board. Trace why `cards.find((c) => c.winner) ?? nearest` handles all three regimes (no picks yet, Keep Winner on, Keep Winner off) without any mode flag.
