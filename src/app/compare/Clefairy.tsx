@@ -1082,6 +1082,15 @@ export default function Clefairy({ picks }: { picks: number }) {
       schedule(walkTo(spot.x, spot.y, undefined, WALK_SPEED * 2) + 400 + Math.random() * 800);
     }, 900);
 
+    // Clean slate on (re)mount: a dev hot-reload can land MID-VISIT — the old
+    // effect's cleanup kills the flight timers but React preserves the
+    // serpent/peeking state and refs, leaving a ghost serpent frozen on
+    // screen and episodeRef stuck true (which would mute clicks and the
+    // watchdog for good). Reset all of it before the fresh brain starts.
+    episodeRef.current = false;
+    setSerpent(null);
+    setPeeking(false);
+
     schedule(1500);
     scheduleVisit();
     return () => {

@@ -531,3 +531,9 @@
 - [ ] The swoop's waypoints are now body-CENTER coordinates mapped to the sprite anchor with `x - dim.w / 2`. Why did anchoring the mirrored x directly make right-side entries spawn a whole body-length off-screen while left entries spawned 24px off, and what property of the scaleX facing-flip explains the asymmetry?
 
 - [ ] Clefairy's flee is scheduled for when the serpent's head is ~140px on screen plus a 300ms beat, computed from each behavior's speed rather than observed from the DOM. What are the trade-offs of deriving "when will it be visible" from the motion model versus polling the serpent's live position, and when would the model-based timing go stale?
+
+## clean-slate mount: hot reloads can strand mid-visit state
+
+- [ ] The effect now resets `episodeRef`, the serpent, and `peeking` on mount. Which pieces of a mid-visit snapshot does Fast Refresh preserve versus destroy (state, refs, pending timers), and why does that exact split produce a frozen serpent plus a permanently-true `episodeRef`?
+
+- [ ] The one-pass regression report couldn't be reproduced: logged flight waypoints were strictly monotonic across every visit. What's the value of asserting an invariant ("x never reverses") over the actual runtime trace before touching code, and how does a stale client bundle masquerade as a code bug during live-edited dev sessions?
