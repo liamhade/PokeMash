@@ -535,6 +535,10 @@ export default function Clefairy({ picks }: { picks: number }) {
             right: left + c.offsetWidth - a.left - a.width / 2,
             top: top - floorY,
             bottom: top + c.offsetHeight - floorY,
+            // The wrapper's bottom includes the rating dial under the slot —
+            // the roam exclusion runs down to here so she never strolls over
+            // the dials either (hide/peek geometry keeps the card box).
+            roamBottom: w.bottom - floorY,
           };
         })
         // Belt and braces for a card measured mid-mount (styles not yet
@@ -542,6 +546,12 @@ export default function Clefairy({ picks }: { picks: number }) {
         .filter((c) => c.right - c.left > 40 && c.bottom - c.top > 40 && c.bottom < 60);
     }
     type CardRect = ReturnType<typeof cardRects>[number];
+    // The no-go boxes for ROAMING (idle wanders, step-outs, commanded walks):
+    // each card slot extended down over its rating dial. She only ever enters
+    // these — ducking behind a card proper — when a serpent is on screen.
+    function roamRects() {
+      return cardRects().map((c) => ({ ...c, bottom: c.roamBottom }));
+    }
 
     // Walk to (tx, ty): look where you're going first — face the target, turning
     // around (back view) only when the trek climbs the screen, with a longer beat
@@ -686,7 +696,7 @@ export default function Clefairy({ picks }: { picks: number }) {
     // from her current position both clear every card rect.
     function openMeadow(): { x: number; y: number } {
       const { xMin, xMax, yMin } = bounds();
-      const cards = cardRects();
+      const cards = roamRects();
       const clear = (x: number, y: number) => clearOfCards(x, y, SPRITE_W, SPRITE_H, cards);
       for (let tries = 0; tries < 30; tries++) {
         const x = xMin + Math.random() * (xMax - xMin);
@@ -704,7 +714,7 @@ export default function Clefairy({ picks }: { picks: number }) {
     // screen to a random far spot.
     function stepOutSpot(): { x: number; y: number } {
       const { xMin, xMax, yMin } = bounds();
-      const cards = cardRects();
+      const cards = roamRects();
       let best: { x: number; y: number } | null = null;
       let bestD = Infinity;
       for (let tries = 0; tries < 30; tries++) {
@@ -920,7 +930,7 @@ export default function Clefairy({ picks }: { picks: number }) {
       // serpent episode legitimately hid her), step out before doing anything.
       if (
         !episodeRef.current &&
-        !clearOfCards(xRef.current, yRef.current, SPRITE_W, SPRITE_H, cardRects())
+        !clearOfCards(xRef.current, yRef.current, SPRITE_W, SPRITE_H, roamRects())
       ) {
         const spot = stepOutSpot();
         schedule(walkTo(spot.x, spot.y) + 300 + Math.random() * 700);
@@ -938,7 +948,7 @@ export default function Clefairy({ picks }: { picks: number }) {
         // hidden, then keep walking left back into view. The wrap is a straight
         // trek across the whole width, so only take it when that shoreline is
         // clear of the board at her height; otherwise wander instead.
-        const cardsNow = cardRects();
+        const cardsNow = roamRects();
         const shoreClear = pathClear(
           -w / 2,
           yRef.current,
@@ -1018,8 +1028,8 @@ export default function Clefairy({ picks }: { picks: number }) {
       const cx = Math.min(xMax, Math.max(xMin, tx));
       let cy = Math.min(0, Math.max(yMin, ty));
       // A click on the board would tuck her behind a card — she only hides there
-      // during serpent visits, so stop her just below the card instead.
-      const cards = cardRects();
+      // during serpent visits, so stop her just below the slot (dial included).
+      const cards = roamRects();
       const blocker = cards.find((c) => !clearOfCards(cx, cy, SPRITE_W, SPRITE_H, [c]));
       if (blocker) cy = Math.min(0, blocker.bottom + SPRITE_H + 6);
       // Commanded walks hustle at double the idle-wander toddle. If the straight
@@ -1046,10 +1056,28 @@ export default function Clefairy({ picks }: { picks: number }) {
     const screen = areaRef.current?.parentElement;
     screen?.addEventListener("click", onClick);
 
+    // Watchdog: outside a serpent episode she must NEVER be behind the board.
+    // act() checks this too, but only when it runs — cards can remount over
+    // her (board load, filter change) or a resize can move the board onto a
+    // spot she already holds, seconds before the next act. Poll her held spot
+    // and bolt for the nearest clear one the moment it's covered. During any
+    // walk her refs are the TARGET, so a walk-out already in flight reads as
+    // clear and isn't restarted.
+    const watchdog = setInterval(() => {
+      if (episodeRef.current) return;
+      if (clearOfCards(xRef.current, yRef.current, SPRITE_W, SPRITE_H, roamRects())) return;
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+      setPeeking(false);
+      const spot = stepOutSpot();
+      schedule(walkTo(spot.x, spot.y, undefined, WALK_SPEED * 2) + 400 + Math.random() * 800);
+    }, 900);
+
     schedule(1500);
     scheduleVisit();
     return () => {
       screen?.removeEventListener("click", onClick);
+      clearInterval(watchdog);
       timers.forEach((t) => clearTimeout(t));
       flightTimers.forEach((t) => clearTimeout(t));
       clearTimeout(visitTimer);

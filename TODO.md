@@ -519,3 +519,9 @@
 - [ ] `cardRects` now builds each card's box from `offsetLeft/offsetTop/offsetWidth/offsetHeight` against the wrapper instead of `getBoundingClientRect`. Which two CSS transforms on the card button were contaminating the old measurement, and why does offset geometry ignore them by definition?
 
 - [ ] Her stepping feet now key off a `moving` state sampled from the animating transform rather than a `walking` flag set by the same timers that drive the walk. What's the general principle about deriving UI state from observed reality versus mirroring it in bookkeeping flags, and what did each of the two reported feet glitches (frozen mid-run, stepping in place) reveal about flag drift?
+
+## board is off-limits outside serpent visits: roam rects + coverage watchdog
+
+- [ ] Roaming clearance now uses `roamRects()` (card slot extended to the wrapper's bottom, covering the rating dial) while hides/peeks keep the card box from `cardRects()`. Why do these two consumers genuinely need different geometry, and what would break if hides used the dial-extended box?
+
+- [ ] The coverage watchdog polls her held spot against the board every 900ms, but during any walk her refs hold the TARGET rather than her live position. How does that ref convention make the watchdog naturally idempotent (an escape in flight reads as clear), and when would polling her live computed position instead cause repeated pool-clears?
