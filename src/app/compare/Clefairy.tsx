@@ -767,7 +767,13 @@ export default function Clefairy({ picks }: { picks: number }) {
       const off = (c: CardRect) => Math.abs((c.left + c.right) / 2 - herX);
       const card = cards.reduce((a, b) => (off(a) <= off(b) ? a : b));
       const hide = hideSpotBehind(card);
-      const flee = () =>
+      const flee = () => {
+        // However far she is, she MUST be tucked in well before the serpent
+        // finishes its pass: cover the distance in ~2.2s, never slower than
+        // her usual 5x dash. (A fixed dash speed meant that on wide monitors
+        // a far-corner flee outlasted the visit — she never hid at all.)
+        const dist = Math.hypot(hide.x - xRef.current, hide.y - yRef.current);
+        const speed = Math.max(WALK_SPEED * 5, dist / 2.2);
         walkTo(
           hide.x,
           hide.y,
@@ -777,8 +783,9 @@ export default function Clefairy({ picks }: { picks: number }) {
             nervousPeek(card, hide.y);
             for (let k = 1; k <= 8; k++) after(k * 4600, () => nervousPeek(card, hide.y));
           },
-          WALK_SPEED * 5,
+          speed,
         );
+      };
 
       const { w, h } = area();
       // Both serpents enter from the side opposite wherever she stands right

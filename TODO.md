@@ -543,3 +543,9 @@
 - [ ] The crossing height is now solved from measured geometry (`lowest + 6 + dim.stripH`, clamped to 0) instead of the old CROSS_HEIGHT fraction. Walk through why the serpent positioner being BOTTOM-anchored makes the naive "y = dial bottom + margin" land the sprite a full body-height too high, and how the video frame check caught what the coordinate logs looked fine on.
 
 - [ ] Unifying Rayquaza onto Gyarados' straight crossing deleted the whole prowl branch, the Catmull-Rom helper, and the per-segment flight chain. What's the maintenance argument for deleting a behavior "mode" rather than leaving it switchable, and what signals in this session justified YAGNI here?
+
+## distance-scaled flee: she always makes it behind the card
+
+- [ ] The flee speed is now `Math.max(WALK_SPEED * 5, dist / 2.2)` instead of a fixed 5x dash. Why did a constant px/s flee interact badly with the serpent's constant-DURATION crossing (11.9s regardless of screen width), and what invariant does expressing the flee as a time budget restore?
+
+- [ ] `dist` is computed from `xRef/yRef`, which mid-walk hold her TARGET rather than her live position (walkTo re-reads the live transform internally). When is this approximation safe here, and what would it take for the discrepancy to matter?
