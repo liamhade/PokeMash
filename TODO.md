@@ -525,3 +525,9 @@
 - [ ] Roaming clearance now uses `roamRects()` (card slot extended to the wrapper's bottom, covering the rating dial) while hides/peeks keep the card box from `cardRects()`. Why do these two consumers genuinely need different geometry, and what would break if hides used the dial-extended box?
 
 - [ ] The coverage watchdog polls her held spot against the board every 900ms, but during any walk her refs hold the TARGET rather than her live position. How does that ref convention make the watchdog naturally idempotent (an escape in flight reads as clear), and when would polling her live computed position instead cause repeated pool-clears?
+
+## one-sweep Rayquaza on the drawn arc; flee only once the serpent is visible
+
+- [ ] The swoop's waypoints are now body-CENTER coordinates mapped to the sprite anchor with `x - dim.w / 2`. Why did anchoring the mirrored x directly make right-side entries spawn a whole body-length off-screen while left entries spawned 24px off, and what property of the scaleX facing-flip explains the asymmetry?
+
+- [ ] Clefairy's flee is scheduled for when the serpent's head is ~140px on screen plus a 300ms beat, computed from each behavior's speed rather than observed from the DOM. What are the trade-offs of deriving "when will it be visible" from the motion model versus polling the serpent's live position, and when would the model-based timing go stale?
