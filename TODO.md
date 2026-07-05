@@ -537,3 +537,9 @@
 - [ ] The effect now resets `episodeRef`, the serpent, and `peeking` on mount. Which pieces of a mid-visit snapshot does Fast Refresh preserve versus destroy (state, refs, pending timers), and why does that exact split produce a frozen serpent plus a permanently-true `episodeRef`?
 
 - [ ] The one-pass regression report couldn't be reproduced: logged flight waypoints were strictly monotonic across every visit. What's the value of asserting an invariant ("x never reverses") over the actual runtime trace before touching code, and how does a stale client bundle masquerade as a code bug during live-edited dev sessions?
+
+## one shared lane: both serpents cross under the Rankings
+
+- [ ] The crossing height is now solved from measured geometry (`lowest + 6 + dim.stripH`, clamped to 0) instead of the old CROSS_HEIGHT fraction. Walk through why the serpent positioner being BOTTOM-anchored makes the naive "y = dial bottom + margin" land the sprite a full body-height too high, and how the video frame check caught what the coordinate logs looked fine on.
+
+- [ ] Unifying Rayquaza onto Gyarados' straight crossing deleted the whole prowl branch, the Catmull-Rom helper, and the per-segment flight chain. What's the maintenance argument for deleting a behavior "mode" rather than leaving it switchable, and what signals in this session justified YAGNI here?

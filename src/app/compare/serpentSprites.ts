@@ -162,9 +162,6 @@ const RAY_IMAGE = [
 export type SerpentSprite = {
   name: string;
   palette: Record<string, string>;
-  // "cross": swims straight across at a fixed height, alternating direction.
-  // "prowl": slithers in from a side edge, dives, then wanders the open water.
-  behavior: "cross" | "prowl";
   // An exact traced sprite (tail-to-head, natively facing right). At render time
   // it's sliced into thin vertical columns and a traveling sine runs down them,
   // so the whole body SNAKES like a swimming fish (head steady, tail sweeping).
@@ -181,7 +178,6 @@ export const SERPENTS: SerpentSprite[] = [
   {
     name: "gyarados",
     palette: GY_IMAGE_HEX,
-    behavior: "cross",
     image: GY_IMAGE,
     renderScale: 1.2,
     waveAmp: 9,
@@ -189,7 +185,6 @@ export const SERPENTS: SerpentSprite[] = [
   {
     name: "rayquaza",
     palette: RAY_IMAGE_HEX,
-    behavior: "prowl",
     image: RAY_IMAGE,
     renderScale: 0.8,
     waveAmp: 11,

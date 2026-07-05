@@ -273,19 +273,16 @@ const SERPENT_SLICES = SERPENTS.map((serpent) => {
   return bands;
 });
 // Per-serpent on-screen size: rendered width (used to spawn/exit fully off the
-// edges) and strip height (used to seat Gyarados' crossing at CROSS_HEIGHT).
+// edges) and strip height (used to seat the crossing lane under the dials).
 const SERPENT_DIMS = SERPENTS.map((serpent) => ({
   w: serpent.image[0].length * PX * serpent.renderScale,
   stripH: serpent.image.length * PX * serpent.renderScale,
 }));
-// A slow menacing swim (she toddles at 41), how high Gyarados' straight crossing
-// sits (body center, fraction of the play area's height up from the bottom), how
-// fast Rayquaza flies its swoop (px/s, so the duration follows the path length),
-// how long a visit terrorizes the play area, and the randomized gap until the
-// next one.
+// A slow menacing swim (she toddles at 41), how long a visit terrorizes the
+// play area, and the randomized gap until the next one. The crossing height
+// isn't a constant: it's measured off the board each visit (the lane under
+// the rating dials).
 const SERPENT_SPEED = 70;
-const CROSS_HEIGHT = 0.25;
-const SWOOP_SPEED = 192;
 const VISIT_MS = 12_500;
 const VISIT_GAP_MIN_MS = 15_000;
 const VISIT_GAP_SPAN_MS = 45_000;
@@ -381,31 +378,6 @@ function SnakeSprite({ kind }: { kind: number }) {
   );
 }
 
-type Pt = { x: number; y: number };
-// Densify a set of control points into a smooth polyline through them (a
-// Catmull-Rom spline, `perSeg` samples per segment). Used to shape Rayquaza's
-// swoop so a handful of waypoints becomes one flowing curve.
-function catmullRom(pts: Pt[], perSeg: number): Pt[] {
-  const out: Pt[] = [];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] ?? pts[i];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[i + 2] ?? pts[i + 1];
-    for (let j = 0; j < perSeg; j++) {
-      const t = j / perSeg;
-      const t2 = t * t;
-      const t3 = t2 * t;
-      out.push({
-        x: 0.5 * (2 * p1.x + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
-        y: 0.5 * (2 * p1.y + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
-      });
-    }
-  }
-  out.push(pts[pts.length - 1]);
-  return out;
-}
-
 // A pixel-art Clefairy that keeps the player company, roaming the whole play area
 // (everything under the nav). A single self-rescheduling timer is its "brain": it
 // walks to random spots — turning its back to the viewer for upward treks — strolls
@@ -415,8 +387,7 @@ function catmullRom(pts: Pt[], perSeg: number): Pt[] {
 // Rayquaza alternate) sweeps across the screen and hunts her: she bolts behind a
 // card (the only time she hides) and steals nervous peeks — darting eyes, "!"
 // overhead — while it swims by, its long body snaking in a traveling wave
-// (Gyarados cruises straight across; Rayquaza dives in one parabolic sweep
-// under the board and out the far side).
+// (both cruise one straight pass along the lane under the rankings).
 // She also hops on every pick (the `picks`-keyed wrapper, kept separate from the
 // wander emote so the two one-shot animations can't cancel each other). The roam
 // layer itself takes no pointer events; instead a click listener on the play screen
@@ -445,16 +416,14 @@ export default function Clefairy({ picks }: { picks: number }) {
   const [dartFrame, setDartFrame] = useState(0);
   // The visiting serpent (null = off screen): which one (index into SERPENTS),
   // target position in the same anchor-relative coordinates as her x/y, glide
-  // duration, horizontal travel direction (side profiles flip, they don't
-  // rotate), and the CSS timing function (Gyarados eases; Rayquaza's swoop glides
-  // through many waypoints at constant speed, so those segments run linear).
+  // duration, and horizontal travel direction (side profiles flip, they
+  // don't rotate).
   const [serpent, setSerpent] = useState<{
     kind: number;
     x: number;
     y: number;
     ms: number;
     dir: 1 | -1;
-    ease?: string;
   } | null>(null);
   // Current position/orientation, readable inside the timer loop without re-running
   // the effect (the loop's closure would only ever see the initial state).
@@ -762,12 +731,11 @@ export default function Clefairy({ picks }: { picks: number }) {
       );
     }
 
-    // One serpent visit — Gyarados and Rayquaza alternate, each with its own
-    // manner. Gyarados cruises straight across the screen at CROSS_HEIGHT;
-    // Rayquaza dives through in one parabolic sweep under the board and out
-    // the far side. Both enter from the side of the screen opposite Clefairy,
-    // so they always bear down on her. Once the serpent's head is actually on
-    // screen she bolts behind the nearest card in one continuous dash, pops up for a
+    // One serpent visit — Gyarados and Rayquaza alternate. Both cruise the
+    // same straight pass along the lane under the Rankings, entering from the
+    // side of the screen opposite Clefairy so they always bear down on her.
+    // Once the serpent's head is actually on screen she bolts behind the
+    // nearest card in one continuous dash, pops up for a
     // first nervous peek the moment she arrives, steals a second one later, and
     // on what would be the third she steps back out to roam — the serpent is
     // gone by then.
@@ -792,9 +760,9 @@ export default function Clefairy({ picks }: { picks: number }) {
       // continuous run all the way there, with her first peek chained onto the
       // ARRIVAL (a fixed-time peek could fire mid-run and yank her to the card
       // top in a single 350ms hop: the "teleport"). The flee doesn't start at
-      // visit time though: each behavior schedules it for when the serpent's
-      // head is actually ~140px on screen plus a beat to "notice" it — she
-      // must react to the monster, not to a timer the player can't see.
+      // visit time though: it's scheduled for when the serpent's head is
+      // actually ~140px on screen plus a beat to "notice" it — she must react
+      // to the monster, not to a timer the player can't see.
       const herX = xRef.current;
       const off = (c: CardRect) => Math.abs((c.left + c.right) / 2 - herX);
       const card = cards.reduce((a, b) => (off(a) <= off(b) ? a : b));
@@ -818,112 +786,36 @@ export default function Clefairy({ picks }: { picks: number }) {
       // crosses the whole stage toward her.
       const herOnRight = herX + SPRITE_W / 2 > 0;
 
-      if (SERPENTS[kind].behavior === "cross") {
-        // Gyarados: cruise straight across at CROSS_HEIGHT, body snaking,
-        // entering opposite her.
-        const dir: 1 | -1 = herOnRight ? 1 : -1;
-        const startX = dir === 1 ? -w / 2 - dim.w - 24 : w / 2 + 24;
-        const endX = dir === 1 ? w / 2 + 24 : -w / 2 - dim.w - 24;
-        const y = Math.min(0, -(h * CROSS_HEIGHT) + dim.stripH / 2);
-        const crossMs = VISIT_MS - 600;
-        const crossSpeed = Math.abs(endX - startX) / (crossMs / 1000);
-        // She notices him once his head is well on screen (it spawns 24px off
-        // the edge), then bolts.
-        after(((24 + 140) / crossSpeed) * 1000 + 300, flee);
-        serpentRef.current = { x: startX, y };
-        setSerpent({ kind, x: startX, y, ms: 0, dir });
-        flightAfter(60, () => {
-          // One unbroken glide spanning the whole visit, then despawn (which
-          // starts the serpent-free gap until the next visit).
-          serpentGlide(endX, y, crossSpeed);
-          flightAfter(crossMs + 80, () => {
-            setSerpent(null);
-            scheduleVisit();
-          });
-        });
-        after(VISIT_MS + 1200, () => {
-          episodeRef.current = false;
-          setPeeking(false);
-          const spot = stepOutSpot();
-          schedule(walkTo(spot.x, spot.y) + 600 + Math.random() * 1200);
-        });
-        return;
-      }
-
-      // Rayquaza: ONE parabolic sweep — in from the side opposite her at
-      // mid-card height, dipping low under the board (bottom of the arc just
-      // above the floor), and straight out the far side. No U-turn, no return
-      // trip. It's a fly-by, so it ignores the board (no card-avoidance).
-      // The waypoints are the BODY CENTER, then mapped to the sprite's
-      // top-left anchor: anchoring the raw mirrored x would leave a right-side
-      // entry a whole body-length off-screen at spawn (she'd hide long before
-      // he appeared), since the anchor is the box's left edge either way.
-      const s: 1 | -1 = herOnRight ? 1 : -1; // mirror the path for right entries
-      const spawnCx = w / 2 + dim.w / 2 + 24; // body center fully off either edge
-      const arc = [
-        { x: -s * spawnCx, y: -h * 0.6 }, // off-screen, high
-        { x: -s * w * 0.5, y: -h * 0.55 }, // crosses the edge at mid-card height
-        { x: -s * w * 0.3, y: -h * 0.3 }, // diving toward the floor
-        { x: -s * w * 0.13, y: -h * 0.1 },
-        { x: 0, y: -h * 0.05 }, // bottom of the arc, under the board
-        { x: s * w * 0.13, y: -h * 0.09 },
-        { x: s * w * 0.3, y: -h * 0.28 }, // climbing back out
-        { x: s * w * 0.5, y: -h * 0.47 }, // crosses the far edge rising
-        { x: s * spawnCx, y: -h * 0.52 }, // gone
-      ];
-      const control = arc.map((p) => ({
-        x: p.x - dim.w / 2,
-        y: p.y - dim.stripH / 2,
-      }));
-      const path = catmullRom(control, 10);
-      // She notices him once his head is well on screen (~140px past the
-      // edge; the body center spawns half a body + 24px out), then bolts.
-      after(((24 + 140) / SWOOP_SPEED) * 1000 + 300, flee);
-      let pathLen = 0;
-      for (let i = 1; i < path.length; i++) {
-        pathLen += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
-      }
-      const swoopMs = (pathLen / SWOOP_SPEED) * 1000;
-      serpentRef.current = { x: path[0].x, y: path[0].y };
-      setSerpent({ kind, x: path[0].x, y: path[0].y, ms: 0, dir: s, ease: "linear" });
+      // Both serpents fly the SAME path: one straight pass across the lane
+      // under the Rankings (the rating dials below the cards), entering
+      // opposite her and despawning at the far edge — no return trip. The
+      // lane is measured from the real board: top edge just below the lowest
+      // dial, clamped so the body never clips through the floor.
+      const dir: 1 | -1 = herOnRight ? 1 : -1;
+      const startX = dir === 1 ? -w / 2 - dim.w - 24 : w / 2 + 24;
+      const endX = dir === 1 ? w / 2 + 24 : -w / 2 - dim.w - 24;
+      const lowest = Math.max(...cards.map((c) => c.roamBottom)); // dial nearest the floor
+      // The serpent's positioner is BOTTOM-anchored (y places the sprite's
+      // bottom edge, like hers), so the top edge rides at -y + stripH: seat
+      // that 6px below the lowest dial, and never sink below the floor.
+      const y = Math.min(0, lowest + 6 + dim.stripH);
+      const crossMs = VISIT_MS - 600;
+      const crossSpeed = Math.abs(endX - startX) / (crossMs / 1000);
+      // She notices him once his head is well on screen (it spawns 24px off
+      // the edge), then bolts.
+      after(((24 + 140) / crossSpeed) * 1000 + 300, flee);
+      serpentRef.current = { x: startX, y };
+      setSerpent({ kind, x: startX, y, ms: 0, dir });
       flightAfter(60, () => {
-        // (60ms: let the off-screen spawn mount before animating, like the wrap.)
-        // Fly the curve at a constant SWOOP_SPEED: each segment's duration is
-        // its length over the speed.
-        let i = 1;
-        function flyNext() {
-          if (i >= path.length) {
-            // Gone off-screen: despawn and start the gap to the next visit.
-            setSerpent(null);
-            scheduleVisit();
-            return;
-          }
-          const from = serpentRef.current;
-          const p = path[i];
-          const dx = p.x - from.x;
-          const segMs = Math.max(16, (Math.hypot(dx, p.y - from.y) / SWOOP_SPEED) * 1000);
-          serpentRef.current = { x: p.x, y: p.y };
-          setSerpent(
-            (cur) =>
-              cur && {
-                ...cur,
-                x: p.x,
-                y: p.y,
-                ms: segMs,
-                ease: "linear",
-                dir: Math.abs(dx) > 4 ? (dx > 0 ? 1 : -1) : cur.dir,
-              },
-          );
-          i++;
-          flightAfter(segMs, flyNext);
-        }
-        flyNext();
+        // One unbroken glide spanning the whole visit, then despawn (which
+        // starts the serpent-free gap until the next visit).
+        serpentGlide(endX, y, crossSpeed);
+        flightAfter(crossMs + 80, () => {
+          setSerpent(null);
+          scheduleVisit();
+        });
       });
-
-      after(swoopMs + 900, () => {
-        // The swoop is gone; come back out to roam. stepOutSpot checks only the
-        // target — she STARTS behind the card, so openMeadow's path check would
-        // reject everything.
+      after(VISIT_MS + 1200, () => {
         episodeRef.current = false;
         setPeeking(false); // a straggling peek must not outlive the visit
         const spot = stepOutSpot();
@@ -1231,7 +1123,7 @@ export default function Clefairy({ picks }: { picks: number }) {
           <div
             style={{
               transform: `translate(${serpent.x}px, ${serpent.y}px)`,
-              transition: `transform ${serpent.ms}ms ${serpent.ease ?? "ease-in-out"}`,
+              transition: `transform ${serpent.ms}ms ease-in-out`,
             }}
           >
             <div style={{ transform: `scaleX(${serpent.dir})` }}>
