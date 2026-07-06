@@ -602,26 +602,21 @@ export default function ComparisonScreen() {
         preloadRef.current.filterKey === buildFilterQuery(filtersRef.current)
           ? preloadRef.current
           : undefined;
-      const challenger = popChallenger(
-        [store?.queues[winner.card_id], store?.donated[winner.card_id]],
-        new Set([winner.card_id, loser.card_id]),
-      );
       if (store) {
         // The loser's leftover speculation was matched to the LOSER's rating — but the
         // two cards were just on the board together (rating-adjacent by construction),
         // so recycle it as the winner's warm stopgap instead of discarding paid-for
-        // fetches. This is what makes switching winners as fast as a streak pick: the
-        // new winner's own queue is usually still fetching at that moment. Dedupe
-        // against everything the winner already holds (the two sides' queues are
-        // fetched independently, so they CAN contain the same card).
-        const held = new Set(
-          [
-            winner.card_id,
-            challenger?.card_id,
-            ...(store.queues[winner.card_id] ?? []).map((card) => card.card_id),
-            ...(store.donated[winner.card_id] ?? []).map((card) => card.card_id),
-          ].filter((id): id is string => id != null),
-        );
+        // fetches. This must happen BEFORE the pop below: on a winner switch the new
+        // winner's own queue is usually still fetching, so THIS pick's challenger has
+        // to come from the hand-me-downs — donating after the pop would only ever help
+        // the pick after, and a switch pick would stay slow forever. Dedupe against
+        // everything the winner already holds (the two sides' queues are fetched
+        // independently, so they CAN contain the same card).
+        const held = new Set([
+          winner.card_id,
+          ...(store.queues[winner.card_id] ?? []).map((card) => card.card_id),
+          ...(store.donated[winner.card_id] ?? []).map((card) => card.card_id),
+        ]);
         const leftovers = [
           ...(store.queues[loser.card_id] ?? []),
           ...(store.donated[loser.card_id] ?? []),
@@ -633,6 +628,10 @@ export default function ComparisonScreen() {
         delete store.queues[loser.card_id];
         delete store.donated[loser.card_id];
       }
+      const challenger = popChallenger(
+        [store?.queues[winner.card_id], store?.donated[winner.card_id]],
+        new Set([winner.card_id, loser.card_id]),
+      );
 
       if (challenger && imageReady(challenger.image_url)) {
         // Fast path: challenger in hand AND its art decoded — overlap the loser leaving
