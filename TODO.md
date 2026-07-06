@@ -573,3 +573,9 @@
 - [ ] `seriesOrFilter` builds ONE PostgREST or-string (`set.in`, the Legendary Collection `pack.eq`, and the `and(set.eq.Other,pack.neq...)` carve-out) that filters both the top-level `cards` count and, via `{ referencedTable: "cards" }`, the embedded rows of the ranks query. Why does the embedded use only drop ranks because the select says `cards!inner(...)`, and what would each rank row hold without the `!inner`?
 
 - [ ] `FilterModal` gained a `sections?: FilterSection[]` prop rather than a separate Rankings modal, and a hidden section's `Filters` field rides through `initial` → `onApply` untouched. What does that pass-through guarantee about `hasActiveFilters` and the rankings query builder ignoring `eras`/`minElo`, and at what point (how many divergent callers/sections) would the config-prop approach lose to splitting the modal?
+
+## universal (community) rankings
+
+- [ ] The universal score is a Bayesian average, `weight*cardMean + (1-weight)*globalMean` where `weight = v/(v + BAYESIAN_SMOOTHING)`, not a plain mean. Work through why a card with one 2705 rating dropped from #1 to #7 while a 3-rater Charizard rose — what does raising `BAYESIAN_SMOOTHING` from 5 to, say, 50 do to that ordering, and what value makes it collapse back to a plain mean?
+
+- [ ] The universal branch resolves card details in `DETAILS_CHUNK`-sized `.in()` batches walked in score order, stopping once `UNIVERSAL_LIMIT` rows survive the price/series filters — rather than one big join. Why can't the price/series filter live in the `card_ranks` aggregation step the way it does in the personal query's `cards!inner(...)`, and what determines how many chunks a restrictive filter forces?

@@ -16,6 +16,8 @@ type RankedCard = {
   name: string;
   image_url: string;
   r: number;
+  // Universal scope only: how many players' ratings the community score averages.
+  raters?: number;
   set: string | null;
   pack: string | null;
   release_date: string | null;
@@ -23,11 +25,17 @@ type RankedCard = {
   market_price: number | null;
 };
 
+// comparedCount/totalCards drive the personal progress meter; the universal
+// response omits them (community progress isn't "yours"), so they're optional.
 type RankingsResponse = {
   rankings: RankedCard[];
-  comparedCount: number;
-  totalCards: number;
+  comparedCount?: number;
+  totalCards?: number;
 };
+
+// Whose rankings the page shows: this player's own, or the community's — every
+// player's rating for a card averaged into one score.
+type Scope = "mine" | "universal";
 
 // The card image dimensions; the flip container is locked to this so flipping to the
 // detail table doesn't reflow the list. Sized a touch larger than the raw 220×305 (same
@@ -94,6 +102,10 @@ function RankingCard({ card }: { card: RankedCard }) {
     ["Released", orDash(card.release_date)],
     ["Market Price", formatPrice(card.market_price)],
   ];
+  // Only universal-scope cards carry a rater count.
+  if (card.raters !== undefined) {
+    details.push(["Ranked by", `${card.raters} player${card.raters === 1 ? "" : "s"}`]);
+  }
 
   return (
     <div className="flex items-center gap-6">
@@ -190,6 +202,7 @@ export default function RankingsPage() {
   // Applied price/series filters (the eras/minElo fields stay unset — the modal here
   // only renders the price and series sections).
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [scope, setScope] = useState<Scope>("mine");
 
   // Price/series query params for the applied filters; "" when none are set.
   const filterQuery = useCallback((applied: Filters) => {
@@ -202,11 +215,12 @@ export default function RankingsPage() {
   }, []);
 
   const loadRankings = useCallback(
-    (applied: Filters) => {
+    (applied: Filters, which: Scope) => {
       // Clear so the loading state shows while the filtered list is refetched.
       setData(null);
       const playerId = getPlayerId();
-      fetch(`/api/rankings?playerId=${playerId}${filterQuery(applied)}`)
+      const scopeParam = which === "universal" ? "&scope=universal" : "";
+      fetch(`/api/rankings?playerId=${playerId}${scopeParam}${filterQuery(applied)}`)
         .then((res) => res.json())
         .then(setData);
     },
@@ -217,14 +231,14 @@ export default function RankingsPage() {
     // The mount fetch clears data synchronously (loading state); intentional here, so
     // silence the set-state-in-effect rule like the compare screen's mount effect does.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadRankings(filters);
-    // Only run on mount; filter changes refetch explicitly in onApply.
+    loadRankings(filters, scope);
+    // Only run on mount; filter/scope changes refetch explicitly in their handlers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex px-6 py-4">
+      <div className="flex items-center gap-4 px-6 py-4">
         <div className="relative">
           <FilterButton onClick={() => setFilterOpen(true)} />
           {hasActiveFilters(filters) && (
@@ -233,6 +247,34 @@ export default function RankingsPage() {
               className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-600 ring-2 ring-white"
             />
           )}
+        </div>
+
+        {/* Scope toggle: this player's list vs. the community-average leaderboard. */}
+        <div className="flex rounded-full border border-neutral-300 p-0.5 text-sm font-medium">
+          {(
+            [
+              { value: "mine", label: "My Rankings" },
+              { value: "universal", label: "Universal" },
+            ] as { value: Scope; label: string }[]
+          ).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                if (option.value === scope) return;
+                setScope(option.value);
+                loadRankings(filters, option.value);
+              }}
+              className={[
+                "rounded-full px-3 py-1 transition-colors",
+                option.value === scope
+                  ? "bg-red-600 text-white"
+                  : "text-neutral-600 hover:text-neutral-900",
+              ].join(" ")}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -244,7 +286,9 @@ export default function RankingsPage() {
           <div className="flex flex-1 flex-col items-center gap-8 overflow-y-auto px-4 py-10">
             {data.rankings.length === 0 ? (
               <p className="text-neutral-500">
-                No rankings yet — head to Play to start comparing!
+                {scope === "universal"
+                  ? "No community rankings yet — be the first to compare some cards!"
+                  : "No rankings yet — head to Play to start comparing!"}
               </p>
             ) : (
               data.rankings.map((card) => (
@@ -253,14 +297,17 @@ export default function RankingsPage() {
             )}
           </div>
 
-          {/* Progress meter pinned to the bottom of the screen. */}
-          <div className="sticky bottom-0 border-t border-neutral-200 bg-white py-4 text-center font-semibold text-neutral-800 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">
-            You&apos;ve compared {data.comparedCount} out of {data.totalCards} cards (
-            {data.totalCards > 0
-              ? Math.round((data.comparedCount / data.totalCards) * 100)
-              : 0}
-            %)!
-          </div>
+          {/* Progress meter pinned to the bottom of the screen. Personal progress
+              only — the universal response carries no compared/total counts. */}
+          {data.comparedCount !== undefined && data.totalCards !== undefined && (
+            <div className="sticky bottom-0 border-t border-neutral-200 bg-white py-4 text-center font-semibold text-neutral-800 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">
+              You&apos;ve compared {data.comparedCount} out of {data.totalCards} cards (
+              {data.totalCards > 0
+                ? Math.round((data.comparedCount / data.totalCards) * 100)
+                : 0}
+              %)!
+            </div>
+          )}
         </>
       )}
 
@@ -274,7 +321,7 @@ export default function RankingsPage() {
           onApply={(applied) => {
             setFilters(applied);
             setFilterOpen(false);
-            loadRankings(applied);
+            loadRankings(applied, scope);
           }}
         />
       )}
