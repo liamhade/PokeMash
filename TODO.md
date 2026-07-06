@@ -49,6 +49,18 @@
 
 # LEARNING
 
+## card-info flip: view a matchup card's details without picking it
+
+- [ ] `ComparisonArea`'s pick target changed from a `<button>` to a `role="button"` div
+  (like `RankingCard` before it) so the info `<span role="button">` and the back's Buy
+  `<a>` can live inside it. What does nested-interactive markup actually break — and why
+  does `stopPropagation` on the inner elements not solve that problem by itself?
+
+- [ ] The flip separates "view info" from "pick" *spatially* (a small corner target vs.
+  the whole card face) rather than *temporally* (e.g. long-press). Why is a temporal
+  split strictly worse here given the Buy link must be clickable, and what does the
+  flipped state buy us as a "mode" (what click meaning changes while the back is up)?
+
 ## donate before popping: the switch pick must see the leftovers
 
 - [ ] Moving the donation block above `popChallenger` was the entire fix, yet with the
