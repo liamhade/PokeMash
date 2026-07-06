@@ -599,3 +599,5 @@
 - [ ] Centering the undo button above the gap required turning `ComparisonArea`'s outer flex from a row into a `flex-col` with an inner row for the cards. Why does putting the button as the column's first centered child land it over the MIDPOINT of the two cards (not off to one side), and why is the button gated on `cards &&` rather than `canUndo` — what card-position artifact would a `canUndo`-gated button introduce the first time a pick becomes undoable?
 
 - [ ] The icon is an inline `<svg>` with `stroke="currentColor"`, so the disabled/enabled `text-neutral-*` classes recolor it for free. What would have to change if it were a raster/`<img>` icon instead, and why does `currentColor` make the single component work in both the (removed) panel context and the new above-the-cards context without per-site restyling?
+
+- [ ] The "move up a hair" nudge used `-translate-y-1.5` on the button, not a larger `mb-*` or a negative `mt-*`. Why does the transform lift only the button while a margin change would also reposition the cards row (given the column is `justify-center`), and when would that distinction actually matter to the layout?
