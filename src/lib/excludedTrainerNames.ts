@@ -1,13 +1,20 @@
 // Normalized names of Trainer "Item", "Stadium", and "Pokémon Tool" cards
-// (368 Item + 205 Stadium + 247 Pokémon Tool = 794 unique names). The `cards` table has no
-// card-type column, so these card types are excluded from the comparison pool
-// BY NAME.
+// (794 from the modern API + 12 vintage Item trainers the API can't tag = 806 unique
+// names). The `cards` table has no card-type column, so these card types are excluded
+// from the comparison pool BY NAME.
 //
 // Generated from the Pokemon TCG API (api.pokemontcg.io):
 //   q=supertype:Trainer subtypes:"<Item | Stadium | Pokémon Tool>"
 // Names are normalized: NFKD, drop non-ASCII, lowercase, non-alphanumerics
 // to spaces, collapse — must match normalizeName() in api/comparison/next.
 // Regenerate when new sets add such trainers. Supporters are NOT here.
+//
+// CAVEAT — pre-2013 trainers predate the Item/Stadium/Tool subtypes, so in the API they
+// are supertype:Trainer with NO subtype and the query above misses them. Any that are
+// rarity Rare/Rare Holo then slip through the "keep vintage Rares" path in the route
+// (e.g. PokéGear, Neo Genesis 88/111). The 12 vintage Item trainers below were added by
+// hand to close that leak; the vintage Gym-Leader/character cards (Misty, Blaine, Lass…)
+// are the era's Supporter analog and are deliberately KEPT, like modern Supporters.
 export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "academy at night",
   "accompanying flute",
@@ -44,6 +51,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "aqua diffuser",
   "aqua patch",
   "arc phone",
+  "arcade game",
   "area zero underdepths",
   "armor fossil",
   "armor fossil shieldon",
@@ -134,6 +142,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "claw fossil",
   "claw fossil anorith",
   "cleansing gloves",
+  "clefairy doll",
   "colbur berry",
   "collapsed stadium",
   "colress machine",
@@ -347,6 +356,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "heavy boots",
   "helix fossil",
   "helix fossil omanyte",
+  "here comes team rocket",
   "hero s cape",
   "hero s medal",
   "high pressure system",
@@ -371,6 +381,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "iron defender",
   "island cave",
   "island challenge amulet",
+  "item finder",
   "jamming net team flare hyper gear",
   "jamming tower",
   "jaw fossil",
@@ -528,7 +539,9 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "pokedex",
   "pokedex handy909",
   "pokedex handy910is",
+  "pokegear",
   "pokegear 3 0",
+  "pokemon breeder",
   "pokemon catcher",
   "pokemon center",
   "pokemon circulator",
@@ -540,6 +553,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "pokemon research lab",
   "pokemon reversal",
   "pokemon tower",
+  "pokemon trader",
   "pokenav",
   "pokestop",
   "postwick",
@@ -627,6 +641,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "salamence spirit link",
   "sceptile spirit link",
   "scizor spirit link",
+  "scoop up",
   "scoop up cyclone",
   "scoop up net",
   "scorched earth",
@@ -684,6 +699,8 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "strength charm",
   "struggle gloves",
   "sunyshore city gym",
+  "super energy removal",
+  "super energy retrieval",
   "super potion",
   "super rod",
   "super scoop up",
@@ -737,7 +754,9 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "tera orb",
   "the rocket s training gym",
   "thick scale",
+  "thought wave machine",
   "thunder mountain",
+  "time capsule",
   "time shard",
   "time space distortion",
   "timer ball",
