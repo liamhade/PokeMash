@@ -49,6 +49,20 @@
 
 # LEARNING
 
+## recycle the loser's queue into donated stopgap challengers
+
+- [ ] In `handlePick`, the donated hand-me-downs are deduped against the winner's
+  existing queue/donated/popped challenger (`held`) even though every queue fetch
+  already passes a server-side `excludeId` list. Which duplication can that exclusion
+  NOT prevent — think about which ids each SIDE's fetch excludes — and why did the old
+  "delete the loser's queue" code never have to care?
+
+- [ ] `popChallenger` lets a decoded donated card beat an undecoded fresh one, while
+  `need = QUEUE_DEPTH - queue.length` ignores donated entirely so fresh entries keep
+  rebuilding underneath. Which property does each rule protect (pick latency vs.
+  matchup quality), and why does one merged queue where donated cards count toward
+  depth necessarily sacrifice one of the two?
+
 ## filter vintage Item trainers the API can't tag (PokéGear leak)
 
 - [ ] PokéGear (Neo 88/111) leaked because TWO conditions lined up: its normalized
