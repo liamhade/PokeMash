@@ -76,6 +76,7 @@ function buildFilterQuery(filters: Filters): string {
   if (filters.eras.length) params.set("eras", filters.eras.join(","));
   if (filters.minPrice) params.set("minPrice", filters.minPrice);
   if (filters.maxPrice) params.set("maxPrice", filters.maxPrice);
+  if (filters.minElo) params.set("minElo", filters.minElo);
   const query = params.toString();
   return query ? `&${query}` : "";
 }

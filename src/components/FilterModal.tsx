@@ -2,26 +2,41 @@
 
 import { useState } from "react";
 
-// The filter selections this modal edits and hands back on Apply. minPrice/maxPrice are
-// raw input strings ("" = unset); eras/series hold the chosen values.
+// The filter selections this modal edits and hands back on Apply. minPrice/maxPrice/
+// minElo are raw input strings ("" = unset); eras/series hold the chosen values.
 export type Filters = {
   minPrice: string;
   maxPrice: string;
+  minElo: string;
   eras: string[];
   series: string[];
 };
 
-export const EMPTY_FILTERS: Filters = { minPrice: "", maxPrice: "", eras: [], series: [] };
+export const EMPTY_FILTERS: Filters = {
+  minPrice: "",
+  maxPrice: "",
+  minElo: "",
+  eras: [],
+  series: [],
+};
 
 // True when any filter is active — used by the caller to badge the Filter button.
 export function hasActiveFilters(filters: Filters): boolean {
   return (
     filters.minPrice !== "" ||
     filters.maxPrice !== "" ||
+    filters.minElo !== "" ||
     filters.eras.length > 0 ||
     filters.series.length > 0
   );
 }
+
+// Minimum-ELO knob bounds. The leftmost position means "no minimum" (filter off), so
+// ELO_OFF doubles as the slider's floor. Cards the player hasn't rated sit at the 1200
+// default, so a minimum above 1200 also hides every not-yet-seen card.
+const ELO_OFF = 800;
+const ELO_MAX = 1800;
+const ELO_STEP = 25;
 
 // Era buckets. Values match the API's ERA_YEAR_RANGES keys; hints describe the year span.
 // Hints use explicit start–end years (not a "≤" glyph, which rendered oversized).
@@ -74,6 +89,7 @@ type Props = {
 export default function FilterModal({ initial, onApply, onClose }: Props) {
   const [minPrice, setMinPrice] = useState(initial.minPrice);
   const [maxPrice, setMaxPrice] = useState(initial.maxPrice);
+  const [minElo, setMinElo] = useState(initial.minElo);
   const [eras, setEras] = useState<Set<string>>(() => new Set(initial.eras));
   const [series, setSeries] = useState<Set<string>>(() => new Set(initial.series));
   const [seriesSearch, setSeriesSearch] = useState("");
@@ -96,6 +112,7 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
   function clearAll() {
     setMinPrice("");
     setMaxPrice("");
+    setMinElo("");
     setEras(new Set());
     setSeries(new Set());
   }
@@ -104,6 +121,7 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
     onApply({
       minPrice: minPrice.trim(),
       maxPrice: maxPrice.trim(),
+      minElo,
       eras: [...eras],
       series: [...series],
     });
@@ -153,6 +171,32 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
               placeholder="Max"
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-neutral-800 outline-none focus:border-red-500"
             />
+          </div>
+        </section>
+
+        {/* Minimum ELO — a single-knob slider; the leftmost stop means "off" */}
+        <section className="mb-5">
+          <h3 className="mb-1 text-sm font-semibold text-neutral-700">Minimum ELO</h3>
+          <p className="mb-2 text-xs text-neutral-400">
+            Only cards you rate this high or above. Cards you haven&rsquo;t rated count as 1200.
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={ELO_OFF}
+              max={ELO_MAX}
+              step={ELO_STEP}
+              value={minElo === "" ? ELO_OFF : Number(minElo)}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+                setMinElo(value === ELO_OFF ? "" : String(value));
+              }}
+              aria-label="Minimum ELO"
+              className="w-full accent-red-600"
+            />
+            <span className="w-10 shrink-0 text-right text-sm font-medium text-neutral-700">
+              {minElo === "" ? "Off" : minElo}
+            </span>
           </div>
         </section>
 

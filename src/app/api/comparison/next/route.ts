@@ -300,6 +300,11 @@ export async function GET(request: NextRequest) {
   const maxPrice = Number(params.get("maxPrice"));
   const hasMin = params.get("minPrice") !== null && !Number.isNaN(minPrice);
   const hasMax = params.get("maxPrice") !== null && !Number.isNaN(maxPrice);
+  // Minimum ELO: filters on THIS player's rating for each card. Ratings live per-player
+  // in card_ranks (not on the cards row), so this can't go in the DB query — it's applied
+  // in JS inside sampleEligible, with unrated cards counting as the DEFAULT_RATING.
+  const minElo = Number(params.get("minElo"));
+  const hasMinElo = params.get("minElo") !== null && !Number.isNaN(minElo);
   // The series that touch any selected era — used to keep the DB sample era-relevant
   // (precise year trimming still happens in matchesEras below). De-duplicated across eras.
   const eraSets = [...new Set(eraFilter.flatMap((era) => ERA_SETS[era] ?? []))];
@@ -377,6 +382,9 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
+  // Built before sampling because the ELO filter below needs each row's rating.
+  const rankByCardId = new Map(ranks.map((rank) => [rank.card_id, rank]));
+
   // Fetch a random window and reduce it to eligible cards. Repeats the same filter chain
   // as the count query (the file already duplicates filters across count/rows).
   async function sampleEligible(offset: number): Promise<Card[]> {
@@ -403,6 +411,7 @@ export async function GET(request: NextRequest) {
         isEligible(row) &&
         matchesSeries(row, seriesFilter) &&
         matchesEras(row.release_date, eraFilter) &&
+        (!hasMinElo || (rankByCardId.get(row.card_id) ?? DEFAULT_RATING).r >= minElo) &&
         !byId.has(row.card_id)
       ) {
         byId.set(row.card_id, { card_id: row.card_id, name: row.name, image_url: row.image_url });
@@ -428,7 +437,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Not enough cards to compare" }, { status: 409 });
   }
 
-  const rankByCardId = new Map(ranks.map((rank) => [rank.card_id, rank]));
   const ratedCards: RatedCard[] = shuffle(
     cards.map((card) => ({
       ...card,

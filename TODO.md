@@ -561,3 +561,9 @@
 - [ ] Flipping the entry side was a one-character change (`herOnRight ? -1 : 1`) because side selection was already derived from her measured position at visit start rather than stored in an alternation ref. What does this say about deriving parameters from live state versus accumulating them in mutable refs?
 
 - [ ] With the serpent now surfacing on her side, the flee usually sends her TOWARD the incoming head (the winner card is often mid-screen). Which existing mechanisms (notice delay, distance-scaled flee, z-layering) keep that close encounter reading as a chase rather than a collision?
+
+## minimum-ELO filter knob
+
+- [ ] The ELO knob is enforced inside `sampleEligible` via `rankByCardId` (hoisted above the sampling loop) instead of in the DB count/rows queries the way price is. Why can't this filter be pushed into the `cards` query, and what keeps the 409/retry path honest even though `maxOffset` comes from a count that ignores the ELO filter?
+
+- [ ] Setting the knob above 1200 hides every card the player hasn't rated yet, because unrated cards count as `DEFAULT_RATING`. What makes a filter keyed on the player's own past picks self-reinforcing ("rich get richer"), and how does it interact with the explore/exploit policy in `supply_winner_with_fresh_card`, whose unseen pool it can empty?
