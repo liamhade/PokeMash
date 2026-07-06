@@ -9,6 +9,8 @@ import FilterModal, {
   type Filters,
 } from "@/components/FilterModal";
 import FilterButton from "@/components/FilterButton";
+import CardBack from "@/components/CardBack";
+import { orDash, packName } from "@/lib/cardInfo";
 
 type RankedCard = {
   rank: number;
@@ -46,25 +48,9 @@ const CARD_HEIGHT = 330;
 // Hover this long before the wiggle hint fires (ms). One-shot per hover.
 const WIGGLE_DELAY_MS = 6000;
 
-// A non-empty text value, or an em dash for null/blank so the detail rows read cleanly.
-function orDash(value: string | null): string {
-  return value && value.trim() ? value : "—";
-}
-
 // market_price is 0 when there's no sales data; treat that (and null) as "no price".
 function formatPrice(price: number | null): string {
   return price ? `$${price.toFixed(2)}` : "—";
-}
-
-// Pack values carry a trailing abbreviation, e.g. "Base Set (BS)"; drop it for display.
-function packName(pack: string | null): string {
-  return orDash(pack ? pack.replace(/\s*\([^)]*\)\s*$/, "") : null);
-}
-
-// Placeholder referral link — a TCGplayer name search for now. Swap to an affiliate
-// product link (partner code + tcgplayer_product_id) once those are backfilled.
-function tcgplayerSearchUrl(name: string): string {
-  return `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(name)}`;
 }
 
 // One ranked card: click to flip between the image and a details table, and — as a hint
@@ -151,44 +137,8 @@ function RankingCard({ card }: { card: RankedCard }) {
             />
           </div>
 
-          {/* Back: detail table + a placeholder TCGplayer referral button. Rows use tight
-              padding so the table and button both fit without enlarging the card. */}
-          <div className="absolute inset-0 flex flex-col justify-center gap-2 rounded-xl bg-white p-4 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
-            <table className="w-full text-sm">
-              <tbody>
-                {details.map(([label, value]) => (
-                  <tr
-                    key={label}
-                    className="border-b border-neutral-100 last:border-0"
-                  >
-                    <td className="py-2 pr-2 font-semibold text-neutral-500">
-                      {label}
-                    </td>
-                    <td className="py-2 text-right break-words text-neutral-800">
-                      {value}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Placeholder referral link (name search until the affiliate product link
-                lands). stopPropagation so a buy click doesn't also flip the card back. */}
-            <a
-              href={tcgplayerSearchUrl(card.name)}
-              target="_blank"
-              rel="noopener noreferrer sponsored"
-              onClick={(event) => event.stopPropagation()}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-blue-700"
-            >
-              Buy on TCGplayer
-            </a>
-
-            {/* FTC affiliate disclosure — required wherever a referral link appears. */}
-            <span className="text-center text-[9px] leading-tight text-neutral-400">
-              As a TCGplayer affiliate, PokeMash earns from qualifying purchases.
-            </span>
-          </div>
+          {/* Back: detail table + referral button, shared with the Play screen's flip. */}
+          <CardBack details={details} buyName={card.name} />
         </div>
       </div>
     </div>
