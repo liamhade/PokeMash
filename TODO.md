@@ -12,6 +12,10 @@
 	- *PROBLEM*: The rarity rule above lives in TypeScript because the app's read-only key can't create DB objects. That means an extra `cards` read per request and logic split from the data.
 	- *SOLUTION*: Apply `supabase/migrations/20260630_comparison_pool.sql` (creates `comparison_pool()`), then switch `/api/comparison/next` back to `supabase.rpc("comparison_pool")`. Needs someone with Supabase DB access.
 
+- [ ] (**let "Go back" delete the undone comparison row**)
+	- *PROBLEM*: The Play "Go back" undo (`/api/comparison/undo`) reverts both cards' ratings in `card_ranks` (works) but can't delete the pick's `comparisons` history row — RLS grants the anon key INSERT/SELECT but not DELETE, so the delete silently affects zero rows. The undone pick lingers in history (harmless: ratings are never recomputed from `comparisons`, and the row only feeds the "already compared" exclusion).
+	- *SOLUTION*: Add an RLS DELETE policy on `comparisons` scoped to `player_id` (anon-first, so keyed on the client UUID like the existing INSERT policy). Needs Supabase DB access. Once applied, the delete in `/api/comparison/undo` starts taking effect with no code change.
+
 - [ ] (**add `supertype` / `subtypes` columns to `cards`**)
 	- *PROBLEM*: Three pool filters are fragile name/regex hacks because the data has no card-type info: energy detection (`isEnergyCard` name regex), Item/Stadium/Tool exclusion (the 794-name `excludedTrainerNames.ts` list, which goes stale with new sets), and the GX/V/ex "buzzword" mechanic detection (`FEATURED_MECHANIC` regex).
 	- *SOLUTION*: Add `supertype` (Pokémon | Trainer | Energy) and `subtypes` (e.g. Item/Stadium/Supporter for Trainers; V/VMAX/ex/GX/… for Pokémon) columns, backfilled from the Pokémon TCG API (match by set + collector number, fall back to name). Then replace: energy filter → `supertype = 'Energy'`; Item/Stadium/Tool → `supertype='Trainer' AND subtypes && '{Item,Stadium,Pokémon Tool}'`; buzzword keep → `subtypes` contains a mechanic tag. NOTE: "full art" is NOT a type — it stays in `rarity` (Ultra/Illustration/Special Illustration/etc.), so the rarity rules are unaffected. Needs Supabase DB write access + a one-time backfill job.
@@ -585,3 +589,9 @@
 - [ ] The personal query switched from returning every rank to `.range(from, from + PERSONAL_PAGE_SIZE - 1)` with `{ count: "exact" }`, and `comparedCount` now comes from that `count` rather than `rankings.length`. Why would keeping `comparedCount: rankings.length` have broken the progress meter the moment pagination landed, and why does the exact count stay correct even though the query also has a `.range()`?
 
 - [ ] `loadMore` captures `requestRef.current` without bumping it and bails if it changed on resolve, while `loadFirstPage` does `++requestRef.current`. Trace the interleaving where a user clicks "Load more" and then flips the scope toggle before the page arrives — which fetch's `setCards` wins, and what would append to the wrong list if the token check were removed?
+
+## "Go back" undo for the last matchup
+
+- [ ] `handleUndo` does `await snap.postDone` before POSTing to `/api/comparison/undo`, where `postDone` is the pick's own fire-and-forget persistence promise. Walk through the interleaving if undo did NOT wait: how could the pick's upsert land AFTER the undo's revert and "resurrect" the pick's ratings, and why does awaiting the same promise the pick created close that window?
+
+- [ ] The snapshot captures `pair` (the pre-pick card array) by reference, yet `handlePick`'s `setCards((prev) => prev!.map(...))` fold of the new ratings doesn't corrupt it. Why does the `.map` leave `pair`'s card objects untouched (what does it allocate), and what would break about the undo's `ratings: snap.pair.map((card) => ratingOf(card))` payload if the fold had instead mutated each card object in place?

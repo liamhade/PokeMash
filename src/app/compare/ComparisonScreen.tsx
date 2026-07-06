@@ -13,6 +13,7 @@ import KeepWinnerToggle from "@/components/KeepWinnerToggle";
 import PanelLeft from "@/components/PanelLeft";
 import PanelRight from "@/components/PanelRight";
 import StreakLegend from "@/components/StreakLegend";
+import UndoButton from "@/components/UndoButton";
 import { getImageProps } from "next/image";
 import ComparisonArea, {
   CARD_IMAGE,
@@ -138,6 +139,21 @@ const QUEUE_DEPTH = 3;
 // all of it would spend bandwidth on art that is often discarded with the losing side.
 const WARM_DEPTH = 2;
 
+// A one-deep snapshot of the board taken just BEFORE a pick, so the "Go back" button can
+// restore that matchup for reselection. Holds the pre-pick pair (carrying its pre-pick
+// ratings), the streak/picks counters, the two card ids, and the pick's own persistence
+// POST — undo waits on that before reversing the server writes, so it can't race the
+// insert/upsert it means to undo. Only one is ever kept, capping undo at a single step.
+type Snapshot = {
+  pair: Card[];
+  streak: number;
+  streakCardId: string | null;
+  picks: number;
+  winnerId: string;
+  loserId: string;
+  postDone: Promise<unknown>;
+};
+
 export default function ComparisonScreen() {
   const [cards, setCards] = useState<Card[] | null>(null);
   const [pos, setPos] = useState<Record<string, Position>>({});
@@ -158,6 +174,10 @@ export default function ComparisonScreen() {
   const [streakCardId, setStreakCardId] = useState<string | null>(null);
   // Total picks this mount, for the Critter's per-pick hop (not persisted anywhere).
   const [picks, setPicks] = useState(0);
+
+  // The single previous matchup the "Go back" button can restore (null = nothing to undo).
+  // Set on each pick, consumed on undo — so undo can only ever step back one matchup.
+  const [lastPick, setLastPick] = useState<Snapshot | null>(null);
 
   // Active pool filters (price/era/series) and whether the Filter modal is open. True
   // poolEmpty means the current filters matched fewer than two cards.
@@ -463,6 +483,12 @@ export default function ComparisonScreen() {
     if (!ready || !cards) return;
     const pair = cards; // capture before the state below changes
     const loser = pair.find((card) => card.card_id !== winner.card_id)!;
+    // Board state as it stands right now, BEFORE this pick — the "Go back" restore point.
+    // pair still references the pre-pick card objects (setCards below builds new ones), and
+    // streak/streakCardId/picks are this render's values, so they're all pre-pick.
+    const prevStreak = streak;
+    const prevStreakCardId = streakCardId;
+    const prevPicks = picks;
     setReady(false);
     setPickedId(winner.card_id);
 
@@ -491,9 +517,10 @@ export default function ComparisonScreen() {
     const loserDial = { from: Math.round(loserRating.r), to: Math.round(newLoserRating.r) };
 
     // Persist in the background (fire-and-forget). The server recomputes from the same
-    // ratings, so its result matches ours — we don't need to wait for or read it.
+    // ratings, so its result matches ours — we don't need to wait for or read it. The
+    // promise is kept so an undo can wait for this write to land before reversing it.
     const playerId = getPlayerId();
-    fetch("/api/comparison", {
+    const postDone = fetch("/api/comparison", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -502,6 +529,18 @@ export default function ComparisonScreen() {
         loserCardId: loser.card_id,
       }),
     }).catch(() => {});
+
+    // Arm "Go back" with this matchup's pre-pick snapshot (replacing any earlier one, so
+    // only the most recent pick is undoable).
+    setLastPick({
+      pair,
+      streak: prevStreak,
+      streakCardId: prevStreakCardId,
+      picks: prevPicks,
+      winnerId: winner.card_id,
+      loserId: loser.card_id,
+      postDone,
+    });
 
     if (keepWinnerRef.current) {
       // Pop the winner's challenger queue. The queue outlives the pick (unlike the old
@@ -570,6 +609,43 @@ export default function ComparisonScreen() {
     }
   }
 
+  // "Go back": restore the previous matchup so the user can reselect. Only allowed on a
+  // settled board (guards against undoing mid-swap). Restores instantly — the pair snaps
+  // back to center, like the on-mount sessionStorage restore — then reverses the server
+  // writes. The snapshot is consumed (setLastPick(null)), so at most one step back exists.
+  async function handleUndo() {
+    const snap = lastPick;
+    if (!snap || !ready) return;
+
+    setExiting([]);
+    setPickedId(null);
+    setHoveredId(null);
+    setCards(snap.pair);
+    setPos(positionsFor(snap.pair, "center"));
+    setStreak(snap.streak);
+    setStreakCardId(snap.streakCardId);
+    setPicks(snap.picks);
+    // The preload was built around the post-pick board; drop it so the effect rebuilds it
+    // for the restored pair. In-flight fetches tied to the old store discard themselves.
+    preloadRef.current = null;
+    setLastPick(null);
+    setReady(true);
+
+    // Reverse the server writes, but only AFTER the pick's own POST settles — otherwise a
+    // slow insert/upsert could land after the undo and resurrect the pick.
+    await snap.postDone;
+    fetch("/api/comparison/undo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        playerId: getPlayerId(),
+        winnerCardId: snap.winnerId,
+        loserCardId: snap.loserId,
+        ratings: snap.pair.map((card) => ({ card_id: card.card_id, ...ratingOf(card) })),
+      }),
+    }).catch(() => {});
+  }
+
   // Desktop shortcut: Left/Right arrow picks the left/right card. cards[0] and
   // cards[1] match the render order below, and Keep Winner replaces the loser in
   // place so the index→side mapping stays stable across rounds. handlePick itself
@@ -611,6 +687,7 @@ export default function ComparisonScreen() {
             />
           )}
         </div>
+        <UndoButton onUndo={handleUndo} disabled={lastPick === null || !ready} />
         <KeepWinnerToggle keepWinner={keepWinner} onToggle={() => setKeepWinner((on) => !on)} />
       </div>
 
@@ -640,6 +717,8 @@ export default function ComparisonScreen() {
       <PanelRight
         keepWinner={keepWinner}
         onToggleKeepWinner={() => setKeepWinner((on) => !on)}
+        canUndo={lastPick !== null && ready}
+        onUndo={handleUndo}
       />
 
       {/* Roams the whole play screen (this relative, overflow-hidden container) at
