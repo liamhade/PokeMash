@@ -49,6 +49,20 @@
 
 # LEARNING
 
+## donate before popping: the switch pick must see the leftovers
+
+- [ ] Moving the donation block above `popChallenger` was the entire fix, yet with the
+  old order the feature was a no-op for every winner SWITCH (its whole purpose) while
+  still helping rapid streak picks. Trace who holds a non-empty `donated` list at pop
+  time under each ordering — why is a switch pick's winner always empty-handed when
+  donation follows the pop?
+
+- [ ] Both orderings compile, animate correctly, and end the pick with identical queue
+  state — the bug was only about when the resource became consumable, and it surfaced
+  as a human "doesn't feel faster". What per-pick instrumentation (e.g. logging which
+  of overlapSwap / slide / blocking-fetch path ran) would have caught this before a
+  play-test, and why can no amount of lint/typecheck/build ever see this bug class?
+
 ## recycle the loser's queue into donated stopgap challengers
 
 - [ ] In `handlePick`, the donated hand-me-downs are deduped against the winner's
