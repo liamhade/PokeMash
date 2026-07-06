@@ -567,3 +567,9 @@
 - [ ] The ELO knob is enforced inside `sampleEligible` via `rankByCardId` (hoisted above the sampling loop) instead of in the DB count/rows queries the way price is. Why can't this filter be pushed into the `cards` query, and what keeps the 409/retry path honest even though `maxOffset` comes from a count that ignores the ELO filter?
 
 - [ ] Setting the knob above 1200 hides every card the player hasn't rated yet, because unrated cards count as `DEFAULT_RATING`. What makes a filter keyed on the player's own past picks self-reinforcing ("rich get richer"), and how does it interact with the explore/exploit policy in `supply_winner_with_fresh_card`, whose unseen pool it can empty?
+
+## rankings filter: price + series replace rarity
+
+- [ ] `seriesOrFilter` builds ONE PostgREST or-string (`set.in`, the Legendary Collection `pack.eq`, and the `and(set.eq.Other,pack.neq...)` carve-out) that filters both the top-level `cards` count and, via `{ referencedTable: "cards" }`, the embedded rows of the ranks query. Why does the embedded use only drop ranks because the select says `cards!inner(...)`, and what would each rank row hold without the `!inner`?
+
+- [ ] `FilterModal` gained a `sections?: FilterSection[]` prop rather than a separate Rankings modal, and a hidden section's `Filters` field rides through `initial` → `onApply` untouched. What does that pass-through guarantee about `hasActiveFilters` and the rankings query builder ignoring `eras`/`minElo`, and at what point (how many divergent callers/sections) would the config-prop approach lose to splitting the modal?

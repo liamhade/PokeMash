@@ -76,17 +76,24 @@ const SERIES: { label: string; value: string }[] = [
 // Look up a series label from its value (selected state stores values).
 const SERIES_LABEL = new Map(SERIES.map((s) => [s.value, s.label]));
 
+// The modal's filter sections; callers pick which to render (Play shows all,
+// Rankings only price + series). A hidden section's Filters field passes through
+// `initial` → `onApply` unchanged, so it stays at its unset value.
+export type FilterSection = "price" | "elo" | "era" | "series";
+const ALL_SECTIONS: FilterSection[] = ["price", "elo", "era", "series"];
+
 type Props = {
   // Seeds the working selection so reopening restores the applied state.
   initial: Filters;
   onApply: (filters: Filters) => void;
   // Cancel path shared by the × button and clicking outside the panel.
   onClose: () => void;
+  sections?: FilterSection[];
 };
 
 // Mounted only while open (the parent controls this), so the working state below starts
 // fresh from `initial` on every open and edits are discarded on cancel.
-export default function FilterModal({ initial, onApply, onClose }: Props) {
+export default function FilterModal({ initial, onApply, onClose, sections = ALL_SECTIONS }: Props) {
   const [minPrice, setMinPrice] = useState(initial.minPrice);
   const [maxPrice, setMaxPrice] = useState(initial.maxPrice);
   const [minElo, setMinElo] = useState(initial.minElo);
@@ -148,6 +155,7 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
         <h2 className="mb-4 text-lg font-semibold text-neutral-800">Filter cards</h2>
 
         {/* Price range — filters on each card's market value (recent-sale based), USD */}
+        {sections.includes("price") && (
         <section className="mb-5">
           <h3 className="mb-1 text-sm font-semibold text-neutral-700">Price (USD)</h3>
           <p className="mb-2 text-xs text-neutral-400">By each card&rsquo;s market value (recent sales).</p>
@@ -173,8 +181,10 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
             />
           </div>
         </section>
+        )}
 
         {/* Minimum ELO — a single-knob slider; the leftmost stop means "off" */}
+        {sections.includes("elo") && (
         <section className="mb-5">
           <h3 className="mb-2 text-sm font-semibold text-neutral-700">Minimum ELO</h3>
           <div className="flex items-center gap-3">
@@ -196,8 +206,10 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
             </span>
           </div>
         </section>
+        )}
 
         {/* Era — multi-select toggle chips */}
+        {sections.includes("era") && (
         <section className="mb-5">
           <h3 className="mb-2 text-sm font-semibold text-neutral-700">Era</h3>
           <div className="flex flex-wrap gap-2">
@@ -222,8 +234,10 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
             })}
           </div>
         </section>
+        )}
 
         {/* Series — searchable multi-select */}
+        {sections.includes("series") && (
         <section className="mb-5">
           <h3 className="mb-2 text-sm font-semibold text-neutral-700">Series</h3>
 
@@ -290,6 +304,7 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
             </ul>
           )}
         </section>
+        )}
 
         <div className="flex items-center gap-3">
           <button
