@@ -555,3 +555,9 @@
 - [ ] The winner reaches Clefairy via a `data-compare-winner` attribute on the card button rather than a React prop. What are the trade-offs of communicating through DOM attributes here versus threading `pickedId` down as a prop, given that Clefairy already measures these elements with `querySelectorAll`?
 
 - [ ] `pickedId` is deliberately never cleared after a pick, and with Keep Winner off the winner departs the board. Trace why `cards.find((c) => c.winner) ?? nearest` handles all three regimes (no picks yet, Keep Winner on, Keep Winner off) without any mode flag.
+
+## serpents enter on Clefairy's side
+
+- [ ] Flipping the entry side was a one-character change (`herOnRight ? -1 : 1`) because side selection was already derived from her measured position at visit start rather than stored in an alternation ref. What does this say about deriving parameters from live state versus accumulating them in mutable refs?
+
+- [ ] With the serpent now surfacing on her side, the flee usually sends her TOWARD the incoming head (the winner card is often mid-screen). Which existing mechanisms (notice delay, distance-scaled flee, z-layering) keep that close encounter reading as a chase rather than a collision?

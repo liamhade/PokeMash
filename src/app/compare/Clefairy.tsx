@@ -433,8 +433,8 @@ export default function Clefairy({ picks }: { picks: number }) {
   const backRef = useRef(false);
   // The serpent's current glide target, readable inside the timer loop like her
   // refs; visitKindRef alternates Gyarados/Rayquaza. (Entry side isn't a ref:
-  // each visit enters from the side of the screen OPPOSITE wherever Clefairy is
-  // standing at that moment, so it's derived per visit.)
+  // each visit enters on the SAME side of the screen Clefairy is standing
+  // at that moment, so it's derived per visit.)
   const serpentRef = useRef({ x: 0, y: 0 });
   const visitKindRef = useRef(0);
   // True while a serpent visit owns the stage. Player clicks are ignored for the
@@ -736,7 +736,7 @@ export default function Clefairy({ picks }: { picks: number }) {
 
     // One serpent visit — Gyarados and Rayquaza alternate. Both cruise the
     // same straight pass along the lane under the Rankings, entering from the
-    // side of the screen opposite Clefairy so they always bear down on her.
+    // same side of the screen Clefairy is on, surfacing right beside her.
     // Once the serpent's head is actually on screen she bolts behind the
     // nearest card in one continuous dash, pops up for a
     // first nervous peek the moment she arrives, steals a second one later, and
@@ -794,17 +794,17 @@ export default function Clefairy({ picks }: { picks: number }) {
       };
 
       const { w, h } = area();
-      // Both serpents enter from the side opposite wherever she stands right
-      // now (her sprite center vs the screen's center line): the menace always
-      // crosses the whole stage toward her.
+      // Both serpents enter on the SAME side she's standing (her sprite
+      // center vs the screen's center line): the menace surfaces right next
+      // to her, then sweeps away across the stage.
       const herOnRight = herX + SPRITE_W / 2 > 0;
 
       // Both serpents fly the SAME path: one straight pass across the lane
       // under the Rankings (the rating dials below the cards), entering
-      // opposite her and despawning at the far edge — no return trip. The
+      // on her side and despawning at the far edge — no return trip. The
       // lane is measured from the real board: top edge just below the lowest
       // dial, clamped so the body never clips through the floor.
-      const dir: 1 | -1 = herOnRight ? 1 : -1;
+      const dir: 1 | -1 = herOnRight ? -1 : 1;
       const startX = dir === 1 ? -w / 2 - dim.w - 24 : w / 2 + 24;
       const endX = dir === 1 ? w / 2 + 24 : -w / 2 - dim.w - 24;
       const lowest = Math.max(...cards.map((c) => c.roamBottom)); // dial nearest the floor
