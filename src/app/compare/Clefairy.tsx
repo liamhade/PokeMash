@@ -444,6 +444,10 @@ export default function Clefairy({ picks }: { picks: number }) {
   // True while a serpent visit owns the stage. Player clicks are ignored for the
   // duration so they can't clear the episode's timers mid-choreography.
   const episodeRef = useRef(false);
+  // True once the serpent has slithered off screen (despawned) during a visit.
+  // Her next peek reads this to decide whether to duck back into hiding or, seeing
+  // the coast is clear, step out and resume roaming. Reset at the start of each visit.
+  const serpentGoneRef = useRef(false);
   // The roam area (the whole play screen minus the nav); measured per walk so a
   // window resize is picked up on the next wander.
   const areaRef = useRef<HTMLDivElement | null>(null);
@@ -590,11 +594,13 @@ export default function Clefairy({ picks }: { picks: number }) {
       };
     }
 
-    // One nervous peek from behind `card`: rise until just her face and fingers
-    // clear its top edge (the fingertip rows hook over it), scan the room with
-    // darting eyes and the "!" pop for ~1.1s, then sink back down to `hideY`.
-    // No-op once the visit is over (a late-arrival flee can push the second
-    // peek's timer past the episode's end).
+    // One nervous peek from behind `card`, then either hide again or leave. She
+    // rises until just her face and fingers clear its top edge (the fingertip
+    // rows hook over it), scans the room with darting eyes and the "!" pop for
+    // ~1.1s, then: if the serpent has already left she steps out and roams (she
+    // looked and saw nothing to fear); otherwise she sinks back to `hideY` and
+    // schedules another cautious peek. Self-chaining, so one call at arrival keeps
+    // her peeking for the whole visit. No-op once the visit is over.
     function nervousPeek(card: CardRect, hideY: number) {
       if (!episodeRef.current) return;
       // Every pick swaps the board, so the visit-start rect can be stale (a
@@ -614,15 +620,19 @@ export default function Clefairy({ picks }: { picks: number }) {
       yRef.current = Math.min(0, near.top + 2); // never below the floor
       setY(yRef.current);
       after(350 + 1100, () => {
-        // The episode can end mid-peek: her step-out walkTo owns the transform
-        // by then, and this sink-back would clobber its duration to 300ms — a
-        // "teleport" to the walk target, then stepping in place while the
-        // original walk timer runs out. Let the walk keep the stage instead.
         if (!episodeRef.current) return;
+        // Coast clear: don't duck back under the card — walk off and roam.
+        if (serpentGoneRef.current) {
+          emerge();
+          return;
+        }
+        // Still lurking: sink back into hiding, then peek again after a beat.
+        // The ~3150ms gap keeps rise-to-rise near the original 4600ms cadence.
         setWalkMs(300);
         yRef.current = hideY;
         setY(hideY);
         after(320, () => setPeeking(false));
+        after(3150, () => nervousPeek(card, hideY));
       });
     }
 
@@ -706,6 +716,18 @@ export default function Clefairy({ picks }: { picks: number }) {
       return best ?? { x: xRef.current, y: 0 }; // the floor lane below the board is always open
     }
 
+    // End the current serpent visit: drop the hiding pose and stroll to an open
+    // spot, handing the stage back to the wander brain. Idempotent — the peek
+    // loop and the safety-net timer both call it, and whichever runs first wins
+    // (the episodeRef guard makes the loser a no-op).
+    function emerge() {
+      if (!episodeRef.current) return;
+      episodeRef.current = false;
+      setPeeking(false);
+      const spot = stepOutSpot();
+      schedule(walkTo(spot.x, spot.y) + 600 + Math.random() * 1200);
+    }
+
     // Turn to face the other way (a glance, or a dance twirl beat).
     function flip() {
       facingRef.current = facingRef.current === 1 ? -1 : 1;
@@ -756,6 +778,7 @@ export default function Clefairy({ picks }: { picks: number }) {
       visitKindRef.current = (kind + 1) % SERPENTS.length;
       const dim = SERPENT_DIMS[kind];
       episodeRef.current = true;
+      serpentGoneRef.current = false;
       timers.forEach((t) => clearTimeout(t));
       timers.clear();
       flightTimers.forEach((t) => clearTimeout(t));
@@ -788,10 +811,10 @@ export default function Clefairy({ picks }: { picks: number }) {
           hide.x,
           hide.y,
           () => {
-            // Peek periodically for the whole visit (extras no-op once the
-            // episode ends). First peek chains onto the ARRIVAL.
+            // First peek chains onto the ARRIVAL; nervousPeek re-schedules
+            // itself, so it keeps her peeking (or walks her off once the serpent
+            // is gone) for the rest of the visit.
             nervousPeek(card, hide.y);
-            for (let k = 1; k <= 8; k++) after(k * 4600, () => nervousPeek(card, hide.y));
           },
           speed,
         );
@@ -829,15 +852,15 @@ export default function Clefairy({ picks }: { picks: number }) {
         serpentGlide(endX, y, crossSpeed);
         flightAfter(crossMs + 80, () => {
           setSerpent(null);
+          serpentGoneRef.current = true; // her next peek will see the coast is clear
           scheduleVisit();
         });
       });
-      after(VISIT_MS + 1200, () => {
-        episodeRef.current = false;
-        setPeeking(false); // a straggling peek must not outlive the visit
-        const spot = stepOutSpot();
-        schedule(walkTo(spot.x, spot.y) + 600 + Math.random() * 1200);
-      });
+      // Safety net only: the peek loop normally emerges her once the serpent is
+      // gone (she peeks, sees it's clear, walks off). This fires late enough to
+      // never preempt that peek-triggered exit, and just guarantees the episode
+      // can't hang if a peek somehow never lands.
+      after(VISIT_MS + 6500, emerge);
     }
 
     function act() {
