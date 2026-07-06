@@ -210,7 +210,9 @@ function information_rich_pair(cards: RatedCard[]): [RatedCard, RatedCard] {
 // closest cards (close but varied), and EXPLORE_EPSILON of the time pick a completely
 // random unseen card (a wildcard from anywhere in the pool).
 const SOFT_BAND_SIZE = 30;
-const EXPLORE_EPSILON = 0.3;
+// Nudged down over time (0.30 -> 0.27 -> 0.24) to favor close-rating matchups more
+// often — less wildcard exploration, a bit more informative exploitation each pass.
+const EXPLORE_EPSILON = 0.24;
 
 /**
  * Given a fixed `winner` the player wants to keep on screen, choose the fresh card to
