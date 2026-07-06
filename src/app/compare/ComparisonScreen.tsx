@@ -122,12 +122,22 @@ function pairKey(cards: Card[], keepWinner: boolean, filters: Filters): string {
 }
 
 // The prefetched next comparison. "keep": a shallow QUEUE of challengers per possible
-// winner (Keep Winner mode) — a pick consumes the winner's head and discards the loser's
-// queue, so a click can never outrun a single in-flight fetch. "fresh": a whole new pair
-// (Keep Winner off). filterKey/key tie a preload to the state it's valid for; any
-// mismatch falls back to a normal fetch.
+// winner (Keep Winner mode) — a pick consumes the winner's head and recycles the loser's
+// leftover queue into `donated`, so a click can never outrun a single in-flight fetch.
+// "fresh": a whole new pair (Keep Winner off). filterKey/key tie a preload to the state
+// it's valid for; any mismatch falls back to a normal fetch.
 type Preload =
-  | { mode: "keep"; filterKey: string; queues: Record<string, Card[]> }
+  | {
+      mode: "keep";
+      filterKey: string;
+      queues: Record<string, Card[]>;
+      // Hand-me-downs from beaten opponents: already-fetched (and mostly decoded)
+      // speculation that was rating-matched to the card it was queued FOR, not the
+      // current winner. Kept as a warm stopgap so switching winners stays fast; they
+      // don't count toward QUEUE_DEPTH, so `queues` rebuilds fresh entries matched to
+      // the new winner underneath while these bridge the gap.
+      donated: Record<string, Card[]>;
+    }
   | { mode: "fresh"; key: string; pair: Card[] };
 
 // Challengers to keep queued per potential winner. Deep enough that rapid picks can't
@@ -137,6 +147,32 @@ const QUEUE_DEPTH = 3;
 // Only the front of each queue gets its image downloaded+decoded ahead of time — warming
 // all of it would spend bandwidth on art that is often discarded with the losing side.
 const WARM_DEPTH = 2;
+
+// Pop the best available challenger for a pick, drawing from the winner's fresh queue
+// and its donated hand-me-downs (in that order). Entries colliding with the on-board
+// pair are dropped, then the first card whose art is already decoded wins — a decoded
+// donated card beats an undecoded fresh one, because only a decoded image can take the
+// one-motion overlap path. With nothing decoded, fall back to the freshest entry: its
+// slide-in buys the image time to finish.
+function popChallenger(
+  lists: (Card[] | undefined)[],
+  onBoard: Set<string>,
+): Card | undefined {
+  for (const list of lists) {
+    if (!list) continue;
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (onBoard.has(list[i].card_id)) list.splice(i, 1);
+    }
+  }
+  for (const list of lists) {
+    const ready = list?.findIndex((card) => imageReady(card.image_url)) ?? -1;
+    if (list && ready >= 0) return list.splice(ready, 1)[0];
+  }
+  for (const list of lists) {
+    if (list?.length) return list.shift();
+  }
+  return undefined;
+}
 
 // A one-deep snapshot of the board taken just BEFORE a pick, so the "Go back" button can
 // restore that matchup for reselection. Holds the pre-pick pair (carrying its pre-pick
@@ -269,19 +305,29 @@ export default function ComparisonScreen() {
       // A store from another mode or filter set is dead; start over. (In-flight fetches
       // tied to the old store notice `preloadRef.current !== store` and drop themselves.)
       if (preloadRef.current?.mode !== "keep" || preloadRef.current.filterKey !== query) {
-        preloadRef.current = { mode: "keep", filterKey: query, queues: {} };
+        preloadRef.current = { mode: "keep", filterKey: query, queues: {}, donated: {} };
       }
       const store = preloadRef.current;
       for (const winner of current) {
         const opponent = current.find((card) => card.card_id !== winner.card_id)!;
         const queue = (store.queues[winner.card_id] ??= []);
+        const donated = (store.donated[winner.card_id] ??= []);
         // Re-warm the front on every pass: after a pick consumes the head, the next
         // entries move into WARM_DEPTH range (warmImage dedupes, so this is cheap).
-        queue.slice(0, WARM_DEPTH).forEach((card) => warmImage(card.image_url));
+        // Donated cards back-fill the warm window while the fresh queue is short.
+        [...queue, ...donated]
+          .slice(0, WARM_DEPTH)
+          .forEach((card) => warmImage(card.image_url));
+        // Donated cards deliberately don't reduce `need`: they're stopgaps matched to a
+        // beaten opponent's rating, so the fresh queue still rebuilds to full depth and
+        // supersedes them as its entries decode.
         const need = QUEUE_DEPTH - queue.length;
         if (need <= 0 || preloadInFlightRef.current.has(winner.card_id)) continue;
         preloadInFlightRef.current.add(winner.card_id);
-        const exclude = [opponent.card_id, ...queue.map((card) => card.card_id)].join(",");
+        const exclude = [
+          opponent.card_id,
+          ...[...queue, ...donated].map((card) => card.card_id),
+        ].join(",");
         fetch(
           `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}&excludeId=${exclude}&count=${need}${query}`,
         )
@@ -291,14 +337,20 @@ export default function ComparisonScreen() {
             const board = cardsRef.current;
             if (!board?.some((card) => card.card_id === winner.card_id)) return; // winner left
             const onBoard = new Set(board.map((card) => card.card_id));
+            // Re-read the donated list: a pick made during this fetch may have replaced
+            // it with hand-me-downs the request's exclude list never knew about.
+            const handMeDowns = store.donated[winner.card_id] ?? [];
             // next[0] is the winner echoed back; the rest are the fresh challengers.
             for (const card of next?.slice(1) ?? []) {
               if (queue.length >= QUEUE_DEPTH) break;
               if (onBoard.has(card.card_id)) continue;
               if (queue.some((queued) => queued.card_id === card.card_id)) continue;
+              if (handMeDowns.some((queued) => queued.card_id === card.card_id)) continue;
               queue.push(card);
             }
-            queue.slice(0, WARM_DEPTH).forEach((card) => warmImage(card.image_url));
+            [...queue, ...handMeDowns]
+              .slice(0, WARM_DEPTH)
+              .forEach((card) => warmImage(card.image_url));
           })
           .catch(() => {}) // preload is best-effort; a pick just falls back to fetching
           .finally(() => {
@@ -545,22 +597,42 @@ export default function ComparisonScreen() {
       // Pop the winner's challenger queue. The queue outlives the pick (unlike the old
       // one-shot preload): its remaining entries stay valid while this winner holds the
       // board, and the preload effect tops it back up after the swap.
-      const store = preloadRef.current;
-      const queue =
-        store?.mode === "keep" && store.filterKey === buildFilterQuery(filtersRef.current)
-          ? store.queues[winner.card_id]
+      const store =
+        preloadRef.current?.mode === "keep" &&
+        preloadRef.current.filterKey === buildFilterQuery(filtersRef.current)
+          ? preloadRef.current
           : undefined;
-      let challenger: Card | undefined;
-      while (queue && queue.length > 0) {
-        const head = queue.shift()!;
-        // Server-side exclusions make a board collision near-impossible; guard anyway.
-        if (head.card_id !== winner.card_id && head.card_id !== loser.card_id) {
-          challenger = head;
-          break;
-        }
+      const challenger = popChallenger(
+        [store?.queues[winner.card_id], store?.donated[winner.card_id]],
+        new Set([winner.card_id, loser.card_id]),
+      );
+      if (store) {
+        // The loser's leftover speculation was matched to the LOSER's rating — but the
+        // two cards were just on the board together (rating-adjacent by construction),
+        // so recycle it as the winner's warm stopgap instead of discarding paid-for
+        // fetches. This is what makes switching winners as fast as a streak pick: the
+        // new winner's own queue is usually still fetching at that moment. Dedupe
+        // against everything the winner already holds (the two sides' queues are
+        // fetched independently, so they CAN contain the same card).
+        const held = new Set(
+          [
+            winner.card_id,
+            challenger?.card_id,
+            ...(store.queues[winner.card_id] ?? []).map((card) => card.card_id),
+            ...(store.donated[winner.card_id] ?? []).map((card) => card.card_id),
+          ].filter((id): id is string => id != null),
+        );
+        const leftovers = [
+          ...(store.queues[loser.card_id] ?? []),
+          ...(store.donated[loser.card_id] ?? []),
+        ].filter((card) => !held.has(card.card_id));
+        store.donated[winner.card_id] = [
+          ...(store.donated[winner.card_id] ?? []),
+          ...leftovers,
+        ].slice(0, QUEUE_DEPTH);
+        delete store.queues[loser.card_id];
+        delete store.donated[loser.card_id];
       }
-      // The loser's queue speculated on the loser winning; it leaves with the loser.
-      if (store?.mode === "keep") delete store.queues[loser.card_id];
 
       if (challenger && imageReady(challenger.image_url)) {
         // Fast path: challenger in hand AND its art decoded — overlap the loser leaving
