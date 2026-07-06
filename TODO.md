@@ -49,6 +49,59 @@
 
 # LEARNING
 
+## slow the serpents another 25%: VISIT_MS 16_667 -> 22_223
+
+- [ ] Each "25% slower" pass multiplies `VISIT_MS` by 4/3 (12_500 → 16_667 →
+  22_223). Why is repeated multiplication (not repeated subtraction of a fixed
+  chunk) the correct way to compound a percentage speed cut, and what would the
+  crossing duration converge toward if you kept applying ×4/3?
+
+- [ ] The true velocity change is slightly more than 25% each time because
+  `crossMs = VISIT_MS - 600` — the fixed 600ms trim shrinks as a FRACTION of a
+  growing `VISIT_MS`. Does that fixed offset make each successive pass closer to
+  or further from an exact 25%, and why?
+
+## nudge EXPLORE_EPSILON again: 0.27 -> 0.24
+
+- [ ] `EXPLORE_EPSILON` has now been trimmed twice (0.30→0.27→0.24), always the
+  epsilon and never `SOFT_BAND_SIZE`. What behavioral difference between the two
+  knobs makes epsilon the right one for "pick near more OFTEN" while shrinking the
+  band would instead make each near pick's rating gap TIGHTER — and when would you
+  reach for the band knob instead?
+
+- [ ] Each pass lowers epsilon by ~0.03 absolute, but that's ~10% then ~11%
+  RELATIVE of the previous value. Why does the same absolute step feel like a
+  progressively bigger nudge as epsilon shrinks, and at what point does continuing
+  to trim epsilon stop meaningfully changing what the player sees (think: what the
+  exploit path already does 76% of the time)?
+
+## slow the serpents 25% via VISIT_MS
+
+- [ ] The crossing speed is never stored — `crossSpeed = |endX - startX| /
+  (crossMs / 1000)` with `crossMs = VISIT_MS - 600`. Why does bumping `VISIT_MS`
+  slow the swim, and why would nudging `SERPENT_SPEED` (70) instead have done
+  nothing to the actual crossing (which glide call overrides it)?
+
+- [ ] `VISIT_MS` went 12_500 → 16_667 (×4/3) for "25% slower", yet the true
+  velocity change is ~26% because the fixed 600ms trim in `crossMs = VISIT_MS -
+  600` doesn't scale. Argue whether keeping 600/1200 as fixed real-time beats
+  (rather than scaling them too) is correct here — what do those constants
+  represent that a speed change should NOT stretch?
+
+## favor closer-ELO matchups: trim EXPLORE_EPSILON
+
+- [ ] `supply_winner_with_fresh_card` gates on `Math.random() < EXPLORE_EPSILON`
+  (now 0.27) to pick a wildcard, else draws from the `SOFT_BAND_SIZE` nearest
+  by rating. Given "favor closer matchups 10% more" was the ask, why does cutting
+  EXPLORE_EPSILON (fewer far picks) achieve that, while shrinking SOFT_BAND_SIZE
+  by 10% would tune a different property — and what exactly is that other property?
+
+- [ ] The explore/exploit split trades off matchup informativeness against
+  surfacing variety (breaking out of a narrow power band). What's the failure
+  mode at each extreme — EXPLORE_EPSILON = 0 versus 1 — and why is a small nudge
+  (0.30 → 0.27) the safer way to move that dial than a large one in an app where
+  the same player keeps seeing the pool over many sessions?
+
 ## the arm that looked best was the model's own, barely rotated
 
 - [ ] Three arm attempts failed before the fix: the GBA sprite arm (right anatomy,
