@@ -2,6 +2,7 @@ import Image from "next/image";
 import { flameColor } from "@/lib/streak";
 import { DEFAULT_RATING } from "@/lib/glicko2";
 import RatingDial from "./RatingDial";
+import UndoButton from "@/components/UndoButton";
 
 // r/rd/mu are the card's Glicko-2 rating (this player's), sent by /api/comparison/next so
 // the client can compute a pick's rating change instantly. Optional: a pair restored from
@@ -55,6 +56,9 @@ type ComparisonAreaProps = {
   exiting: Exit[];
   onPick: (card: Card) => void;
   onHover: (id: string | null) => void;
+  // "Go back" wiring for the undo button centered above the pair.
+  canUndo: boolean;
+  onUndo: () => void;
 };
 
 export default function ComparisonArea({
@@ -70,19 +74,29 @@ export default function ComparisonArea({
   exiting,
   onPick,
   onHover,
+  canUndo,
+  onUndo,
 }: ComparisonAreaProps) {
   return (
-    // my-8 keeps the cards clear of the top and bottom edges; pb-40 remains so the
-    // rating dials have room below the cards. Base (phone) values are tighter; md and
-    // up restores the original desktop spacing exactly.
-    <div className="flex flex-1 items-center justify-center gap-3 md:gap-8 lg:gap-16 my-4 md:my-8 pb-28 md:pb-40 relative z-10">
+    // A column so the "Go back" button can sit centered just above the cards row. my-8
+    // keeps the cards clear of the top and bottom edges; pb-40 remains so the rating dials
+    // have room below. Base (phone) values are tighter; md and up restores desktop spacing.
+    <div className="flex flex-1 flex-col items-center justify-center my-4 md:my-8 pb-28 md:pb-40 relative z-10">
       {poolEmpty && (
         <p className="max-w-xs text-center text-neutral-500">
           No cards match these filters. Open{" "}
           <span className="font-semibold text-neutral-700">Filter</span> to widen them.
         </p>
       )}
-      {cards?.map((card) => {
+
+      {/* Undo control, centered over the gap between the two cards. Present whenever a
+          board is up (greyed when there's nothing to go back to) so the cards don't shift
+          when it becomes actionable. */}
+      {cards && <UndoButton onUndo={onUndo} disabled={!canUndo} className="mb-3 md:mb-4" />}
+
+      {/* The two cards side by side; the gap values restore the original desktop spacing. */}
+      <div className="flex items-center justify-center gap-3 md:gap-8 lg:gap-16">
+        {cards?.map((card) => {
         const isPicked = pickedId === card.card_id;
         const isHovered = hoveredId === card.card_id && ready;
         // Streak glow only on the card the streak belongs to (the held winner).
@@ -183,7 +197,8 @@ export default function ComparisonArea({
             )}
           </div>
         );
-      })}
+        })}
+      </div>
     </div>
   );
 }

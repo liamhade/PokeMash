@@ -13,7 +13,6 @@ import KeepWinnerToggle from "@/components/KeepWinnerToggle";
 import PanelLeft from "@/components/PanelLeft";
 import PanelRight from "@/components/PanelRight";
 import StreakLegend from "@/components/StreakLegend";
-import UndoButton from "@/components/UndoButton";
 import { getImageProps } from "next/image";
 import ComparisonArea, {
   CARD_IMAGE,
@@ -687,7 +686,6 @@ export default function ComparisonScreen() {
             />
           )}
         </div>
-        <UndoButton onUndo={handleUndo} disabled={lastPick === null || !ready} />
         <KeepWinnerToggle keepWinner={keepWinner} onToggle={() => setKeepWinner((on) => !on)} />
       </div>
 
@@ -712,13 +710,13 @@ export default function ComparisonScreen() {
         exiting={exiting}
         onPick={handlePick}
         onHover={setHoveredId}
+        canUndo={lastPick !== null && ready}
+        onUndo={handleUndo}
       />
 
       <PanelRight
         keepWinner={keepWinner}
         onToggleKeepWinner={() => setKeepWinner((on) => !on)}
-        canUndo={lastPick !== null && ready}
-        onUndo={handleUndo}
       />
 
       {/* Roams the whole play screen (this relative, overflow-hidden container) at
