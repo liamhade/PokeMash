@@ -176,10 +176,7 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
 
         {/* Minimum ELO — a single-knob slider; the leftmost stop means "off" */}
         <section className="mb-5">
-          <h3 className="mb-1 text-sm font-semibold text-neutral-700">Minimum ELO</h3>
-          <p className="mb-2 text-xs text-neutral-400">
-            Only cards you rate this high or above. Cards you haven&rsquo;t rated count as 1200.
-          </p>
+          <h3 className="mb-2 text-sm font-semibold text-neutral-700">Minimum ELO</h3>
           <div className="flex items-center gap-3">
             <input
               type="range"
