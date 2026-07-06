@@ -283,7 +283,11 @@ const SERPENT_DIMS = SERPENTS.map((serpent) => ({
 // isn't a constant: it's measured off the board each visit (the lane under
 // the rating dials).
 const SERPENT_SPEED = 70;
-const VISIT_MS = 12_500;
+// The crossing speed is derived from VISIT_MS (crossMs = VISIT_MS - 600, distance
+// fixed by the screen), so a longer visit == a slower swim. Scaled up over time
+// (12_500 -> 16_667 -> 22_223, x4/3 each) to slow both serpents ~25% per pass; the
+// dependent flee/despawn/episode timers follow.
+const VISIT_MS = 22_223;
 const VISIT_GAP_MIN_MS = 15_000;
 const VISIT_GAP_SPAN_MS = 45_000;
 
