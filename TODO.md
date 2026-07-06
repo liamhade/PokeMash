@@ -49,6 +49,36 @@
 
 # LEARNING
 
+## filter vintage Item trainers the API can't tag (PokéGear leak)
+
+- [ ] PokéGear (Neo 88/111) leaked because TWO conditions lined up: its normalized
+  name `pokegear` wasn't in `EXCLUDED_TRAINER_NAMES` (only `pokegear 3 0` was), AND
+  its rarity `Rare` + pre-2011 date sent it down the "keep genuinely vintage Rares"
+  branch of `isEligible`. Why did fixing only the name list close the leak without
+  touching that vintage branch — and which cards would STILL leak if a future rarity
+  change let vintage `Uncommon` trainers into the pool?
+
+- [ ] The generation query `subtypes:"Item|Stadium|Pokémon Tool"` silently misses
+  every pre-2013 trainer (the API tags them supertype:Trainer with NO subtype), which
+  is why 166 vintage trainers were absent. We added the 12 leaking *items* but left
+  Misty/Blaine/Lass (subtype-less too). What principle decided that split, and why is
+  it consistent with the list's existing "Supporters are NOT here" rule rather than
+  an exception to it?
+
+## she walks off after her last peek instead of ducking back
+
+- [ ] `nervousPeek` became self-chaining (it re-calls itself after ~3150ms)
+  instead of being fired as a fixed `for (k=1..8)` schedule from arrival. Why
+  does a self-scheduling loop make the "serpent gone → walk away" the guaranteed
+  TERMINAL beat, where the old absolute-time schedule + a `VISIT_MS + 1200`
+  walk-out could instead catch her ducked (down) between two peeks?
+
+- [ ] `emerge()` guards on `if (!episodeRef.current) return;` so the peek loop
+  and the `VISIT_MS + 6500` safety-net timer can both call it and only the first
+  wins. Why is making the shared exit idempotent the right tool here rather than
+  clearing the other timer at the moment of exit — and what would double-emerging
+  (two `walkTo(stepOutSpot())` in flight) look like on screen if the guard weren't there?
+
 ## slow the serpents another 25%: VISIT_MS 16_667 -> 22_223
 
 - [ ] Each "25% slower" pass multiplies `VISIT_MS` by 4/3 (12_500 → 16_667 →
