@@ -579,3 +579,9 @@
 - [ ] The universal score is a Bayesian average, `weight*cardMean + (1-weight)*globalMean` where `weight = v/(v + BAYESIAN_SMOOTHING)`, not a plain mean. Work through why a card with one 2705 rating dropped from #1 to #7 while a 3-rater Charizard rose — what does raising `BAYESIAN_SMOOTHING` from 5 to, say, 50 do to that ordering, and what value makes it collapse back to a plain mean?
 
 - [ ] The universal branch resolves card details in `DETAILS_CHUNK`-sized `.in()` batches walked in score order, stopping once `UNIVERSAL_LIMIT` rows survive the price/series filters — rather than one big join. Why can't the price/series filter live in the `card_ranks` aggregation step the way it does in the personal query's `cards!inner(...)`, and what determines how many chunks a restrictive filter forces?
+
+## paginate the personal rankings ("load more")
+
+- [ ] The personal query switched from returning every rank to `.range(from, from + PERSONAL_PAGE_SIZE - 1)` with `{ count: "exact" }`, and `comparedCount` now comes from that `count` rather than `rankings.length`. Why would keeping `comparedCount: rankings.length` have broken the progress meter the moment pagination landed, and why does the exact count stay correct even though the query also has a `.range()`?
+
+- [ ] `loadMore` captures `requestRef.current` without bumping it and bails if it changed on resolve, while `loadFirstPage` does `++requestRef.current`. Trace the interleaving where a user clicks "Load more" and then flips the scope toggle before the page arrives — which fetch's `setCards` wins, and what would append to the wrong list if the token check were removed?

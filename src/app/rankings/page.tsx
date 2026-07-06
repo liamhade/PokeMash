@@ -196,13 +196,22 @@ function RankingCard({ card }: { card: RankedCard }) {
 }
 
 export default function RankingsPage() {
-  const [data, setData] = useState<RankingsResponse | null>(null);
+  // Accumulated across "load more": null = first page still loading. meta holds the
+  // personal progress counts (undefined under the universal scope, which sends none).
+  const [cards, setCards] = useState<RankedCard[] | null>(null);
+  const [meta, setMeta] = useState<{ comparedCount?: number; totalCards?: number }>({});
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [filterOpen, setFilterOpen] = useState(false);
   // Applied price/series filters (the eras/minElo fields stay unset — the modal here
   // only renders the price and series sections).
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [scope, setScope] = useState<Scope>("mine");
+
+  // The last page index loaded, and a token that invalidates in-flight fetches when
+  // the filter/scope changes — so a slow "load more" can't append to a newer list.
+  const pageRef = useRef(0);
+  const requestRef = useRef(0);
 
   // Price/series query params for the applied filters; "" when none are set.
   const filterQuery = useCallback((applied: Filters) => {
@@ -214,27 +223,58 @@ export default function RankingsPage() {
     return chunk ? `&${chunk}` : "";
   }, []);
 
-  const loadRankings = useCallback(
-    (applied: Filters, which: Scope) => {
-      // Clear so the loading state shows while the filtered list is refetched.
-      setData(null);
+  const fetchPage = useCallback(
+    (applied: Filters, which: Scope, page: number): Promise<RankingsResponse> => {
       const playerId = getPlayerId();
       const scopeParam = which === "universal" ? "&scope=universal" : "";
-      fetch(`/api/rankings?playerId=${playerId}${scopeParam}${filterQuery(applied)}`)
-        .then((res) => res.json())
-        .then(setData);
+      return fetch(
+        `/api/rankings?playerId=${playerId}${scopeParam}&page=${page}${filterQuery(applied)}`,
+      ).then((res) => res.json());
     },
     [filterQuery],
   );
 
+  // Load page 0 fresh — used on mount and whenever the filter or scope changes.
+  const loadFirstPage = useCallback(
+    (applied: Filters, which: Scope) => {
+      const token = ++requestRef.current;
+      pageRef.current = 0;
+      setCards(null); // show the loading state while the new list arrives
+      fetchPage(applied, which, 0).then((data) => {
+        if (requestRef.current !== token) return; // superseded by a newer load
+        setCards(data.rankings ?? []);
+        setMeta({ comparedCount: data.comparedCount, totalCards: data.totalCards });
+      });
+    },
+    [fetchPage],
+  );
+
+  // Append the next page to the current list (personal scope only).
+  const loadMore = useCallback(() => {
+    const token = requestRef.current; // not bumped: same list session
+    const next = pageRef.current + 1;
+    setLoadingMore(true);
+    fetchPage(filters, scope, next).then((data) => {
+      setLoadingMore(false);
+      if (requestRef.current !== token) return; // filter/scope changed mid-load
+      pageRef.current = next;
+      setCards((prev) => [...(prev ?? []), ...(data.rankings ?? [])]);
+    });
+  }, [fetchPage, filters, scope]);
+
   useEffect(() => {
-    // The mount fetch clears data synchronously (loading state); intentional here, so
+    // The mount fetch clears cards synchronously (loading state); intentional here, so
     // silence the set-state-in-effect rule like the compare screen's mount effect does.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadRankings(filters, scope);
+    loadFirstPage(filters, scope);
     // Only run on mount; filter/scope changes refetch explicitly in their handlers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // More pages remain when we've loaded fewer cards than the player's total ranks.
+  // Universal sends no comparedCount, so its list never shows "load more" (capped at 100).
+  const hasMore =
+    cards !== null && meta.comparedCount !== undefined && cards.length < meta.comparedCount;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -263,7 +303,7 @@ export default function RankingsPage() {
               onClick={() => {
                 if (option.value === scope) return;
                 setScope(option.value);
-                loadRankings(filters, option.value);
+                loadFirstPage(filters, option.value);
               }}
               className={[
                 "rounded-full px-3 py-1 transition-colors",
@@ -278,32 +318,42 @@ export default function RankingsPage() {
         </div>
       </div>
 
-      {!data ? (
+      {!cards ? (
         <p className="py-20 text-center text-neutral-500">Loading your rankings…</p>
       ) : (
         <>
           {/* Scrollable list, highest ranked at the top, each card centered. */}
           <div className="flex flex-1 flex-col items-center gap-8 overflow-y-auto px-4 py-10">
-            {data.rankings.length === 0 ? (
+            {cards.length === 0 ? (
               <p className="text-neutral-500">
                 {scope === "universal"
                   ? "No community rankings yet — be the first to compare some cards!"
                   : "No rankings yet — head to Play to start comparing!"}
               </p>
             ) : (
-              data.rankings.map((card) => (
-                <RankingCard key={card.card_id} card={card} />
-              ))
+              cards.map((card) => <RankingCard key={card.card_id} card={card} />)
+            )}
+
+            {/* Reveal the next page rather than rendering thousands of cards at once. */}
+            {hasMore && (
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="rounded-full border border-neutral-300 px-6 py-2 font-medium text-neutral-700 transition-colors hover:border-neutral-400 disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
             )}
           </div>
 
           {/* Progress meter pinned to the bottom of the screen. Personal progress
               only — the universal response carries no compared/total counts. */}
-          {data.comparedCount !== undefined && data.totalCards !== undefined && (
+          {meta.comparedCount !== undefined && meta.totalCards !== undefined && (
             <div className="sticky bottom-0 border-t border-neutral-200 bg-white py-4 text-center font-semibold text-neutral-800 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">
-              You&apos;ve compared {data.comparedCount} out of {data.totalCards} cards (
-              {data.totalCards > 0
-                ? Math.round((data.comparedCount / data.totalCards) * 100)
+              You&apos;ve compared {meta.comparedCount} out of {meta.totalCards} cards (
+              {meta.totalCards > 0
+                ? Math.round((meta.comparedCount / meta.totalCards) * 100)
                 : 0}
               %)!
             </div>
@@ -321,7 +371,7 @@ export default function RankingsPage() {
           onApply={(applied) => {
             setFilters(applied);
             setFilterOpen(false);
-            loadRankings(applied, scope);
+            loadFirstPage(applied, scope);
           }}
         />
       )}

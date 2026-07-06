@@ -32,6 +32,10 @@ function seriesOrFilter(series: string[]): string {
 
 // Universal scope: a community-favorites leaderboard, not an exhaustive table.
 const UNIVERSAL_LIMIT = 100;
+// Personal scope is paginated (?page=0,1,…): a heavy player can rate thousands of
+// cards, and rendering them all at once bloats the DOM. The client appends pages
+// behind a "Load more" button. The exact rank count still drives the progress meter.
+const PERSONAL_PAGE_SIZE = 100;
 // PostgREST caps a single select at ~1000 rows, so the all-players ranks read pages.
 const RANKS_PAGE_SIZE = 1000;
 // Card ids resolved per details query — keeps the .in() URL comfortably short.
@@ -157,11 +161,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "playerId is required" }, { status: 400 });
   }
 
+  // Which page of the player's ranked cards to return (100 per page, best first).
+  const page = Math.max(0, Math.floor(Number(params.get("page")) || 0));
+  const from = page * PERSONAL_PAGE_SIZE;
+
   // !inner so a filter on the embedded `cards` row drops ranks whose card doesn't
-  // match, rather than returning them with a null relation.
+  // match, rather than returning them with a null relation. count: "exact" returns
+  // the total matching ranks (ignoring the range) so the meter and "load more" know
+  // the real total, not just this page's size.
   let ranksQuery = supabase
     .from("card_ranks")
-    .select(`r, cards!inner(${CARD_COLUMNS})`)
+    .select(`r, cards!inner(${CARD_COLUMNS})`, { count: "exact" })
     .eq("player_id", playerId)
     .order("r", { ascending: false });
   if (series.length > 0) {
@@ -174,7 +184,8 @@ export async function GET(request: NextRequest) {
     if (hasMin) ranksQuery = ranksQuery.gte(`cards.${PRICE_COLUMN}`, minPrice);
     if (hasMax) ranksQuery = ranksQuery.lte(`cards.${PRICE_COLUMN}`, maxPrice);
   }
-  const { data: ranks, error: ranksError } = await ranksQuery;
+  ranksQuery = ranksQuery.range(from, from + PERSONAL_PAGE_SIZE - 1);
+  const { data: ranks, count: comparedCount, error: ranksError } = await ranksQuery;
   if (ranksError) {
     return NextResponse.json({ error: ranksError.message }, { status: 500 });
   }
@@ -196,7 +207,8 @@ export async function GET(request: NextRequest) {
   }
 
   const rankings = (ranks ?? []).map((row, index) => ({
-    rank: index + 1,
+    // Rank is absolute across pages, so offset by where this page starts.
+    rank: from + index + 1,
     r: row.r,
     // The embedded `cards` relation is returned as an array by the typed client.
     ...(Array.isArray(row.cards) ? row.cards[0] : row.cards),
@@ -204,7 +216,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     rankings,
-    comparedCount: rankings.length,
+    comparedCount: comparedCount ?? 0,
     totalCards: totalCards ?? 0,
   });
 }
