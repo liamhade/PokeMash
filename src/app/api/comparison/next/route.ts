@@ -4,16 +4,19 @@ import { createClient } from "@/utils/supabase/server";
 import { DEFAULT_RATING } from "@/lib/glicko2";
 import { EXCLUDED_TRAINER_NAMES } from "@/lib/excludedTrainerNames";
 
-type Card = { card_id: string; name: string; image_url: string };
-// A card joined with this player's Glicko-2 rating for it (r, rd, mu).
-type RatedCard = Card & { r: number; rd: number; mu: number };
-// The extra columns we need to decide pool eligibility (not sent to the client).
-type CardRow = Card & {
+// set/pack/release_date ride along to the client for the card-info flip on Play.
+type Card = {
+  card_id: string;
+  name: string;
+  image_url: string;
   set: string | null;
   pack: string | null;
-  rarity: string;
   release_date: string | null;
 };
+// A card joined with this player's Glicko-2 rating for it (r, rd, mu).
+type RatedCard = Card & { r: number; rd: number; mu: number };
+// The extra column we need to decide pool eligibility (not sent to the client).
+type CardRow = Card & { rarity: string };
 
 // --- Comparison pool eligibility -------------------------------------------
 // Comparing Common/Uncommon cards is boring, and "interesting" differs by era.
@@ -416,7 +419,14 @@ export async function GET(request: NextRequest) {
         (!hasMinElo || (rankByCardId.get(row.card_id) ?? DEFAULT_RATING).r >= minElo) &&
         !byId.has(row.card_id)
       ) {
-        byId.set(row.card_id, { card_id: row.card_id, name: row.name, image_url: row.image_url });
+        byId.set(row.card_id, {
+          card_id: row.card_id,
+          name: row.name,
+          image_url: row.image_url,
+          set: row.set,
+          pack: row.pack,
+          release_date: row.release_date,
+        });
       }
     }
     return [...byId.values()];
@@ -455,7 +465,7 @@ export async function GET(request: NextRequest) {
     if (!winner) {
       const { data: winnerCard, error: winnerError } = await supabase
         .from("cards")
-        .select("card_id, name, image_url")
+        .select("card_id, name, image_url, set, pack, release_date")
         .eq("card_id", winnerId)
         .single();
       if (winnerError || !winnerCard) {
@@ -484,6 +494,9 @@ export async function GET(request: NextRequest) {
       card_id: card.card_id,
       name: card.name,
       image_url: card.image_url,
+      set: card.set,
+      pack: card.pack,
+      release_date: card.release_date,
       r: card.r,
       rd: card.rd,
       mu: card.mu,
