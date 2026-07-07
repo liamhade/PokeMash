@@ -9,11 +9,11 @@ import StreakLegend from "@/components/StreakLegend";
 type PanelLeftProps = {
   filters: Filters;
   onOpenFilter: () => void;
-  // True while a streak glow is on the board — the only time the legend shows.
-  legendVisible: boolean;
+  // Current win streak — the legend reveals each tier row as the streak reaches it.
+  streak: number;
 };
 
-export default function PanelLeft({ filters, onOpenFilter, legendVisible }: PanelLeftProps) {
+export default function PanelLeft({ filters, onOpenFilter, streak }: PanelLeftProps) {
   return (
     <aside className="hidden md:flex w-56 shrink-0 flex-col items-start gap-8 px-6 py-4">
       {/* Filter trigger. A dot badges it when any price/era/series filter is active. */}
@@ -27,7 +27,7 @@ export default function PanelLeft({ filters, onOpenFilter, legendVisible }: Pane
         )}
       </div>
 
-      <StreakLegend visible={legendVisible} className="flex-col gap-2" />
+      <StreakLegend streak={streak} className="flex-col gap-2" />
     </aside>
   );
 }
