@@ -110,11 +110,12 @@ column). So after importing new card rows into `cards`, walk this list:
 
 7. **Refresh prices:** `npx tsx scripts/refresh-prices.ts` — re-reads current
    TCGplayer prices (market + listing bounds, per printing) into `price_stage` via
-   the product ids from step 6 and prints the sync UPDATE. Cards ≥ $25 also get a
-   near-mint verification against TCGplayer's price-history endpoint: no NM sales
-   in the last quarter nulls market_price (the UI shows an em dash), so we never
-   headline a number the card's own page won't show near-mint. Also worth running
-   on its own every so often: prices drift continuously, imports or not.
+   the product ids from step 6 and prints the sync UPDATE. Cards ≥ $25 also get
+   near-mint verification: the card's Near Mint SKU is resolved via TCGplayer's
+   page APIs and its market price stamped verbatim (the number on the page's
+   "Near Mint Comparison Prices" line), or nulled to an em dash when TCGplayer
+   prices no NM sku. Also worth running on its own every so often: prices drift
+   continuously, imports or not.
 
 8. **Sanity-check:** `select count(*) from cards where eligible` should match the
    stamp script's printed count; the rankings meter denominator (`poolTotal` from
