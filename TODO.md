@@ -49,6 +49,18 @@
 
 # LEARNING
 
+## market price on the Play flip
+
+- [ ] `formatPrice` moved from rankings/page.tsx into lib/cardInfo.ts and its parameter
+  widened from `number | null` to `number | null | undefined`. Which caller forces
+  `undefined` into the signature, and why does the 0-sentinel ("no sales data") handling
+  survive the widening without any code change?
+
+- [ ] The pair-coder rule says two similar lines aren't a pattern worth extracting — yet
+  `formatPrice` was consolidated at its second use instead of copied. What makes a
+  domain RULE (market_price's 0 sentinel means "no price") different from incidental
+  similarity, and what user-visible bug does divergence between the two flips invite?
+
 ## direct TCGplayer Buy links: product-id backfill
 
 - [ ] In `scripts/backfill-tcgplayer.ts`, pack→group candidates found by name or

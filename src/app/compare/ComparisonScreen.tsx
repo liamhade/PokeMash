@@ -46,7 +46,8 @@ function ratingOf(card: Card): GlickoRating {
 // is never refetched (picks only fold rating fields into it), so a stale save would keep
 // showing outdated fields for as long as that card stays on the board. v2: cards carry
 // set/pack/release_date for the info flip. v3: tcgplayer_product_id for the Buy link.
-const COMPARISON_STORAGE_KEY = "pokemash:comparison:v3";
+// v4: market_price for the info back's price row.
+const COMPARISON_STORAGE_KEY = "pokemash:comparison:v4";
 
 type SavedComparison = { cards: Card[]; streak: number; streakCardId: string | null };
 

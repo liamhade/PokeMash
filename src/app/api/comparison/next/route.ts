@@ -5,8 +5,8 @@ import { withStorageArt } from "@/lib/cardArt";
 import { DEFAULT_RATING } from "@/lib/glicko2";
 import { LEGENDARY_COLLECTION, matchesSeries } from "@/lib/comparisonPool";
 
-// set/pack/release_date and the TCGplayer product id ride along to the client
-// for the card-info flip on Play.
+// set/pack/release_date, market_price, and the TCGplayer product id ride along
+// to the client for the card-info flip on Play.
 type Card = {
   card_id: string;
   name: string;
@@ -14,6 +14,7 @@ type Card = {
   set: string | null;
   pack: string | null;
   release_date: string | null;
+  market_price: number | null;
   tcgplayer_product_id: number | null;
 };
 // A card joined with this player's Glicko-2 rating for it (r, rd, mu).
@@ -299,7 +300,7 @@ export async function GET(request: NextRequest) {
   async function sampleEligible(offset: number): Promise<Card[]> {
     let rowsQuery = supabase
       .from("cards")
-      .select("card_id, name, image_url, art_url, set, pack, release_date, tcgplayer_product_id")
+      .select("card_id, name, image_url, art_url, set, pack, release_date, market_price, tcgplayer_product_id")
       .eq("eligible", true);
     if (seriesWindowSets.length) rowsQuery = rowsQuery.in("set", seriesWindowSets);
     if (eraSets.length) rowsQuery = rowsQuery.in("set", eraSets);
@@ -329,6 +330,7 @@ export async function GET(request: NextRequest) {
           set: row.set,
           pack: row.pack,
           release_date: row.release_date,
+          market_price: row.market_price,
           tcgplayer_product_id: row.tcgplayer_product_id,
         });
       }
@@ -369,7 +371,7 @@ export async function GET(request: NextRequest) {
     if (!winner) {
       const { data: winnerCard, error: winnerError } = await supabase
         .from("cards")
-        .select("card_id, name, image_url, art_url, set, pack, release_date, tcgplayer_product_id")
+        .select("card_id, name, image_url, art_url, set, pack, release_date, market_price, tcgplayer_product_id")
         .eq("card_id", winnerId)
         .single();
       if (winnerError || !winnerCard) {
@@ -404,6 +406,7 @@ export async function GET(request: NextRequest) {
       set: card.set,
       pack: card.pack,
       release_date: card.release_date,
+      market_price: card.market_price,
       tcgplayer_product_id: card.tcgplayer_product_id,
       r: card.r,
       rd: card.rd,

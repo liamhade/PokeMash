@@ -10,7 +10,7 @@ import FilterModal, {
 } from "@/components/FilterModal";
 import FilterButton from "@/components/FilterButton";
 import CardBack from "@/components/CardBack";
-import { orDash, packName } from "@/lib/cardInfo";
+import { formatPrice, orDash, packName } from "@/lib/cardInfo";
 
 type RankedCard = {
   rank: number;
@@ -50,11 +50,6 @@ const CARD_HEIGHT = 330;
 
 // Hover this long before the wiggle hint fires (ms). One-shot per hover.
 const WIGGLE_DELAY_MS = 6000;
-
-// market_price is 0 when there's no sales data; treat that (and null) as "no price".
-function formatPrice(price: number | null): string {
-  return price ? `$${price.toFixed(2)}` : "—";
-}
 
 // One ranked card: click to flip between the image and a details table, and — as a hint
 // that it's interactive — it wiggles once after the pointer has rested on it a while.

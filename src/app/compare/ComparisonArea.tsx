@@ -2,7 +2,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { flameColor } from "@/lib/streak";
 import { DEFAULT_RATING } from "@/lib/glicko2";
-import { orDash, packName } from "@/lib/cardInfo";
+import { formatPrice, orDash, packName } from "@/lib/cardInfo";
 import RatingDial from "./RatingDial";
 import UndoButton from "@/components/UndoButton";
 import CardBack from "@/components/CardBack";
@@ -18,6 +18,7 @@ export type Card = {
   set?: string | null;
   pack?: string | null;
   release_date?: string | null;
+  market_price?: number | null;
   tcgplayer_product_id?: number | null;
   r?: number;
   rd?: number;
@@ -143,6 +144,7 @@ export default function ComparisonArea({
           ["Pack", packName(card.pack)],
           ["Set", orDash(card.set)],
           ["Released", orDash(card.release_date)],
+          ["Market Price", formatPrice(card.market_price)],
         ];
 
         return (

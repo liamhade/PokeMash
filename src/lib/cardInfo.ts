@@ -12,6 +12,12 @@ export function packName(pack: string | null | undefined): string {
   return orDash(pack ? pack.replace(/\s*\([^)]*\)\s*$/, "") : null);
 }
 
+// market_price is 0 when there's no sales data; treat that (and null/undefined —
+// the Play screen's Card fields are optional) as "no price".
+export function formatPrice(price: number | null | undefined): string {
+  return price ? `$${price.toFixed(2)}` : "—";
+}
+
 // Link for the Buy button: the card's own TCGplayer product page when we have its
 // id (cards.tcgplayer_product_id, backfilled by scripts/backfill-tcgplayer.ts), or a
 // name search for the ~1.4% of cards without one. Add the affiliate partner code
