@@ -49,6 +49,19 @@
 
 # LEARNING
 
+## refresh prices from TCGplayer's per-printing feed
+
+- [ ] In `scripts/refresh-prices.ts`, `printingRank` prices a card's base printing —
+  unlimited Normal/Holofoil (rarity-steered) over Reverse Holofoil over 1st Edition.
+  Walk the Expedition Mew 19/165 case: which printing's price was the old $216.50, why
+  is $411.66 the honest number for our row, and when is a Reverse Holofoil or 1st
+  Edition price ever the one we stamp?
+
+- [ ] The sync UPDATE only touches cards present in `price_stage`, so unmatched or
+  unpriced cards keep their stale import prices instead of being nulled. Why is "stale
+  beats absent" the right call for a price used in FILTERS (not just display), and what
+  would nulling do to a player's min/max price pool mid-session?
+
 ## market price on the Play flip
 
 - [ ] `formatPrice` moved from rankings/page.tsx into lib/cardInfo.ts and its parameter

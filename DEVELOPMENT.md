@@ -108,7 +108,12 @@ column). So after importing new card rows into `cards`, walk this list:
    button's name-search fallback, so a skipped run degrades, never breaks. If the
    script reports a newly unmapped pack, add it to `PACK_GROUP_ALIASES` in the script.
 
-7. **Sanity-check:** `select count(*) from cards where eligible` should match the
+7. **Refresh prices:** `npx tsx scripts/refresh-prices.ts` — re-reads current
+   TCGplayer prices (market + listing bounds, per printing) into `price_stage` via
+   the product ids from step 6 and prints the sync UPDATE. Also worth running on
+   its own every so often: prices drift continuously, imports or not.
+
+8. **Sanity-check:** `select count(*) from cards where eligible` should match the
    stamp script's printed count; the rankings meter denominator (`poolTotal` from
    `/api/rankings?playerId=...`) should show the same number; play a few rounds and
    confirm new-set cards appear with art. Cards missed by the backfill fall back to
