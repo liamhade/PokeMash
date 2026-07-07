@@ -750,3 +750,37 @@
 - [ ] The icon is an inline `<svg>` with `stroke="currentColor"`, so the disabled/enabled `text-neutral-*` classes recolor it for free. What would have to change if it were a raster/`<img>` icon instead, and why does `currentColor` make the single component work in both the (removed) panel context and the new above-the-cards context without per-site restyling?
 
 - [ ] The "move up a hair" nudge used `-translate-y-1.5` on the button, not a larger `mb-*` or a negative `mt-*`. Why does the transform lift only the button while a margin change would also reposition the cards row (given the column is `justify-center`), and when would that distinction actually matter to the layout?
+
+## UI polish pass (font, logo, legend, mobile rhythm, skeletons, accents)
+
+- [ ] The font swap deleted the `Source_Code_Pro` `next/font` import entirely instead of pointing `--font-sans` at a different Google font. What does `font-family: system-ui` cost at page load compared to any `next/font` face, and what do you give up in exchange (think: rendering consistency across a Mac user and a Windows user)?
+
+- [ ] Why does a monospace font make UI text read as "developer tooling" — what typographic properties (letterfit, x-height rhythm, width uniformity) do proportional UI faces like SF Pro exploit that fixed-width faces structurally can't?
+
+- [ ] `LogoWordmark` picks `accentIdx` with `Math.random()` inside `useEffect` rather than in a `useState` initializer. What hydration guarantee does deferring all randomness (and the first keystroke) to the effect give, and what exactly would React complain about if the server rendered a different random frame than the client's first render?
+
+- [ ] The whole animation is prescheduled as one flat list of `setTimeout`s built from `buildScript`, instead of a chain where each step schedules the next. What does the flat list make trivially correct on unmount (see the cleanup), and what would a self-chaining version need to track to be equally safe under React 18's dev-mode double-effect?
+
+- [ ] Removing the Login pill also removed NavBar's only use of `navPillClass`, forcing the import down to `import NavButton from "./NavButton"`. Why does an exported-but-unused class string like `navPillClass` still deserve to exist in NavButton.tsx, and what signal would a lint rule flagging the unused NavBar import have given you if you'd left it?
+
+- [ ] The placeholder was originally justified as "reserving the visual weight" for a future feature. Under the every-element-earns-its-place philosophy, what's the concrete cost a non-functional control imposes on a first-time user that reserved whitespace doesn't?
+
+- [ ] The legend is hidden with opacity + aria-hidden while staying mounted, instead of conditional rendering. What layout behavior does the mounted-but-transparent approach buy on the MOBILE flex column specifically, and why does `transition-opacity` require the element to exist in the DOM on both sides of the change anyway?
+
+- [ ] `legendVisible` is derived as `flameColor(streak) !== null` in ComparisonScreen rather than checking `streak >= 5` where 5 is written out. What breaks silently in the hardcoded version if someone edits STREAK_TIERS' first threshold, and what design principle does deriving both the glow and the legend from the same function express?
+
+- [ ] With `justify-center` on ComparisonArea's column, why does bottom padding (pb-28) shift the children UP by half the padding instead of just adding space below — i.e. what box does justify-center actually center content within, and why did the same pb-40 not bother anyone on desktop?
+
+- [ ] The mobile legend overlay is `pointer-events-none absolute` at z-20 while the board is z-10. Walk the trade: what interaction could the legend steal without pointer-events-none, and why is taking the legend out of normal flow acceptable here when the general rule is to avoid absolute positioning for page content?
+
+- [ ] Why does `getBoundingClientRect()` on the card wrapper exclude the RatingDial hanging under it (`absolute top-full`), while the in-flow undo button DOES contribute to its parent's rect — what does a border-box rect measure, and which CSS properties take a child out of that measurement?
+
+- [ ] The dial band is covered with a hand-tuned constant (DIAL_BAND_H = 52) instead of measuring the dial element per walk. What could drift out of sync with the constant, and why is measuring the dial's live rect mid-slide actually the LESS reliable option here (recall why cardRects already avoids getBoundingClientRect on the card)?
+
+- [ ] The skeleton fills `absolute inset-0` inside the art wrapper — but the art hasn't loaded yet, so what is giving that wrapper its correct card-shaped size before any image bytes arrive (look at what {...CARD_IMAGE} spreads onto the <img>)?
+
+- [ ] `loadedArt` is keyed by image URL and never pruned, and `markLoaded` bails if the URL is already present. Why is the no-prune choice safe for this screen's lifetime, and what rerender-loop hazard does the `prev[url] ? prev : ...` identity-return guard against if onLoad somehow fired repeatedly?
+
+- [ ] The Buy button recolor touched only CardBack.tsx, yet it restyled the buy action on BOTH Rankings and Play. Which earlier refactor made that single-file change possible, and what would the change have looked like without it?
+
+- [ ] "One accent color" is doing functional work beyond aesthetics: in a UI where red already means interactive emphasis (Apply, toggle-on, active pill), what does a lone blue button implicitly signal to users about that action, and when WOULD a second accent color be the right call?
