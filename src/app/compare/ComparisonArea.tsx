@@ -91,6 +91,15 @@ export default function ComparisonArea({
   // can never collide on the same click.
   const [flippedId, setFlippedId] = useState<string | null>(null);
 
+  // Art URLs whose <Image> has finished loading. Until then the slot shows a pulsing
+  // skeleton and holds back the info button (an orphaned `i` on a blank slot reads as
+  // broken). Preloaded art is browser-cached, so its onLoad fires at mount and the
+  // skeleton never shows — this only surfaces on genuinely cold loads.
+  const [loadedArt, setLoadedArt] = useState<Record<string, true>>({});
+  function markLoaded(url: string) {
+    setLoadedArt((prev) => (prev[url] ? prev : { ...prev, [url]: true }));
+  }
+
   // Click on the card body: a flipped card turns back over; a face-up card is a pick
   // (closing the other card's info back if it was open).
   function pickOrFlipBack(card: Card) {
@@ -126,6 +135,7 @@ export default function ComparisonArea({
         // A departing card overlays THIS card's slot (it leaves as this one arrives).
         const exit = exiting.find((e) => e.overId === card.card_id) ?? null;
         const isFlipped = flippedId === card.card_id;
+        const artLoaded = loadedArt[card.image_url] === true;
         // Rows for the info back. Optional fields (older saved pairs) render as an em dash.
         const details: [string, string][] = [
           ["Name", orDash(card.name)],
@@ -199,20 +209,34 @@ export default function ComparisonArea({
               >
                 {/* Front: the card art (it defines the slot's size) + the info button. */}
                 <div className="relative [backface-visibility:hidden]">
+                  {/* Loading skeleton: a card-shaped pulse behind the art (the <img>'s
+                      width/height attrs reserve the slot's aspect box before any pixels
+                      arrive), gone once the art fades in over it. */}
+                  {!artLoaded && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-0 animate-pulse rounded-xl bg-neutral-200/70"
+                    />
+                  )}
                   <Image
                     src={card.image_url}
                     alt={card.name}
                     {...CARD_IMAGE}
+                    onLoad={() => markLoaded(card.image_url)}
                     // Two cards side by side on a phone (44vw each + gap); md and up pins
                     // the original fixed 325px so desktop is unchanged.
-                    className="h-auto w-[44vw] md:w-[325px] rounded-xl"
+                    className={[
+                      "h-auto w-[44vw] md:w-[325px] rounded-xl transition-opacity duration-300",
+                      artLoaded ? "opacity-100" : "opacity-0",
+                    ].join(" ")}
                     priority
                   />
                   {/* Info button: flips to the details back. A tiny corner target, kept
                       spatially clear of the pick surface; faint until the card is
-                      hovered so it never competes with the art. stopPropagation so a
+                      hovered so it never competes with the art (and absent entirely
+                      until the art exists to be asked about). stopPropagation so a
                       flip is never read as a pick. */}
-                  <span
+                  {artLoaded && <span
                     role="button"
                     tabIndex={0}
                     aria-label={`About ${card.name}`}
@@ -230,7 +254,7 @@ export default function ComparisonArea({
                     className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/40 font-serif text-sm italic text-white opacity-80 backdrop-blur-sm transition-opacity hover:bg-black/60 group-hover:opacity-100"
                   >
                     i
-                  </span>
+                  </span>}
                 </div>
                 {/* Back: the same details/referral face the Rankings cards use. */}
                 <CardBack details={details} buyName={card.name} />
