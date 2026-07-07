@@ -49,6 +49,19 @@
 
 # LEARNING
 
+## Go back moves below the pair; the info button gets a darker resting coat
+
+- [ ] The relocated `UndoButton` (`mt-3 md:mt-4 translate-y-5`) visually overlaps the
+  vertical band where `RatingDial` hangs, yet nothing collides or reflows. Which two
+  positioning choices make that band "free real estate" — what takes the dials out of
+  flow, and why does the button's translate not affect the cards' centering?
+
+- [ ] The info button's rest/hover states differ on two axes (`opacity-80` →
+  `group-hover:opacity-100`, `bg-black/40` → `hover:bg-black/60`) with different hover
+  scopes (`group-hover` vs `hover`). Why does brightening on *card* hover but darkening
+  only on *button* hover serve discoverability differently than putting both on one
+  element, and what would be lost if both used `group-hover`?
+
 ## card-info flip: view a matchup card's details without picking it
 
 - [ ] `ComparisonArea`'s pick target changed from a `<button>` to a `role="button"` div
