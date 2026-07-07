@@ -151,8 +151,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // No comparedCount/totalCards: the progress meter is personal, so the client
-    // doesn't render it for the universal list.
+    // No comparedCount: the progress meter is personal, so the client doesn't
+    // render it for the universal list.
     return NextResponse.json({ rankings });
   }
 
@@ -190,22 +190,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: ranksError.message }, { status: 500 });
   }
 
-  // head: true fetches only the count, not 22k rows. Filtered to match the list
-  // so the "x out of y" meter stays meaningful under active filters.
-  let countQuery = supabase.from("cards").select("*", { count: "exact", head: true });
-  if (series.length > 0) {
-    countQuery = countQuery.or(seriesOrFilter(series));
-  }
-  if (hasMin || hasMax) {
-    countQuery = countQuery.not(PRICE_COLUMN, "is", null).neq(PRICE_COLUMN, PRICE_JUNK);
-    if (hasMin) countQuery = countQuery.gte(PRICE_COLUMN, minPrice);
-    if (hasMax) countQuery = countQuery.lte(PRICE_COLUMN, maxPrice);
-  }
-  const { count: totalCards, error: countError } = await countQuery;
-  if (countError) {
-    return NextResponse.json({ error: countError.message }, { status: 500 });
-  }
-
   const rankings = (ranks ?? []).map((row, index) => ({
     // Rank is absolute across pages, so offset by where this page starts.
     rank: from + index + 1,
@@ -217,6 +201,5 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     rankings,
     comparedCount: comparedCount ?? 0,
-    totalCards: totalCards ?? 0,
   });
 }

@@ -27,12 +27,13 @@ type RankedCard = {
   market_price: number | null;
 };
 
-// comparedCount/totalCards drive the personal progress meter; the universal
-// response omits them (community progress isn't "yours"), so they're optional.
+// comparedCount drives the personal progress meter; the universal response omits
+// it (community progress isn't "yours"), so it's optional. There's deliberately no
+// total: the servable pool is trimmed by eligibility rules the DB can't cheaply
+// count, so any denominator we could show would be one the player can never reach.
 type RankingsResponse = {
   rankings: RankedCard[];
   comparedCount?: number;
-  totalCards?: number;
 };
 
 // Whose rankings the page shows: this player's own, or the community's — every
@@ -149,7 +150,7 @@ export default function RankingsPage() {
   // Accumulated across "load more": null = first page still loading. meta holds the
   // personal progress counts (undefined under the universal scope, which sends none).
   const [cards, setCards] = useState<RankedCard[] | null>(null);
-  const [meta, setMeta] = useState<{ comparedCount?: number; totalCards?: number }>({});
+  const [meta, setMeta] = useState<{ comparedCount?: number }>({});
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [filterOpen, setFilterOpen] = useState(false);
@@ -193,7 +194,7 @@ export default function RankingsPage() {
       fetchPage(applied, which, 0).then((data) => {
         if (requestRef.current !== token) return; // superseded by a newer load
         setCards(data.rankings ?? []);
-        setMeta({ comparedCount: data.comparedCount, totalCards: data.totalCards });
+        setMeta({ comparedCount: data.comparedCount });
       });
     },
     [fetchPage],
@@ -298,14 +299,12 @@ export default function RankingsPage() {
           </div>
 
           {/* Progress meter pinned to the bottom of the screen. Personal progress
-              only — the universal response carries no compared/total counts. */}
-          {meta.comparedCount !== undefined && meta.totalCards !== undefined && (
+              only — the universal response carries no compared count. Just the tally:
+              a denominator would be the raw table count, which the eligibility rules
+              make unreachable, so "x out of y (z%)" always under-reported progress. */}
+          {meta.comparedCount !== undefined && (
             <div className="sticky bottom-0 border-t border-neutral-200 bg-white py-4 text-center font-semibold text-neutral-800 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">
-              You&apos;ve compared {meta.comparedCount} out of {meta.totalCards} cards (
-              {meta.totalCards > 0
-                ? Math.round((meta.comparedCount / meta.totalCards) * 100)
-                : 0}
-              %)!
+              You&apos;ve compared {meta.comparedCount.toLocaleString("en-US")} cards
             </div>
           )}
         </>
