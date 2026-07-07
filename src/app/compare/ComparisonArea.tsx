@@ -18,6 +18,7 @@ export type Card = {
   set?: string | null;
   pack?: string | null;
   release_date?: string | null;
+  tcgplayer_product_id?: number | null;
   r?: number;
   rd?: number;
   mu?: number;
@@ -257,7 +258,11 @@ export default function ComparisonArea({
                   </span>}
                 </div>
                 {/* Back: the same details/referral face the Rankings cards use. */}
-                <CardBack details={details} buyName={card.name} />
+                <CardBack
+                  details={details}
+                  buyName={card.name}
+                  buyProductId={card.tcgplayer_product_id}
+                />
               </div>
             </div>
 

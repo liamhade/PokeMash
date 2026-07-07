@@ -1,4 +1,4 @@
-import { tcgplayerSearchUrl } from "@/lib/cardInfo";
+import { tcgplayerUrl } from "@/lib/cardInfo";
 
 // The back face of a flippable card: a details table plus the TCGplayer referral
 // button and its FTC disclosure — shared by Rankings and Play so the affiliate link
@@ -11,11 +11,15 @@ import { tcgplayerSearchUrl } from "@/lib/cardInfo";
 type CardBackProps = {
   // Label/value rows for the details table, in display order.
   details: [string, string][];
-  // The card name the Buy button searches TCGplayer for.
+  // The card name the Buy button falls back to searching TCGplayer for.
   buyName: string;
+  // The card's TCGplayer product id; when present the button links straight to
+  // its product page. Optional: unmatched cards (and pairs restored from older
+  // sessionStorage saves) only have the name.
+  buyProductId?: number | null;
 };
 
-export default function CardBack({ details, buyName }: CardBackProps) {
+export default function CardBack({ details, buyName, buyProductId }: CardBackProps) {
   return (
     <div className="absolute inset-0 flex flex-col justify-center gap-2 rounded-xl bg-white p-3 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
       <table className="w-full text-xs">
@@ -29,12 +33,11 @@ export default function CardBack({ details, buyName }: CardBackProps) {
         </tbody>
       </table>
 
-      {/* Placeholder referral link (name search until the affiliate product link
-          lands). stopPropagation so a buy click doesn't also flip the card back.
-          mt-2 on top of the column's gap-2 gives the button a little breathing
-          room from the details table. */}
+      {/* Referral link to the card's TCGplayer page. stopPropagation so a buy
+          click doesn't also flip the card back. mt-2 on top of the column's gap-2
+          gives the button a little breathing room from the details table. */}
       <a
-        href={tcgplayerSearchUrl(buyName)}
+        href={tcgplayerUrl(buyName, buyProductId)}
         target="_blank"
         rel="noopener noreferrer sponsored"
         onClick={(event) => event.stopPropagation()}

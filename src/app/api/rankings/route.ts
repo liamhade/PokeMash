@@ -48,7 +48,7 @@ const BAYESIAN_SMOOTHING = 5;
 
 // The card columns the rankings list displays (shared by both scopes).
 const CARD_COLUMNS =
-  "card_id, name, image_url, art_url, set, pack, release_date, collector_number, market_price";
+  "card_id, name, image_url, art_url, set, pack, release_date, collector_number, market_price, tcgplayer_product_id";
 
 // Returns ranked cards, highest rating first.
 // Query: ?playerId=... for the player's own list (plus progress info for the

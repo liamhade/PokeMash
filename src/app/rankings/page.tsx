@@ -25,6 +25,7 @@ type RankedCard = {
   release_date: string | null;
   collector_number: string | null;
   market_price: number | null;
+  tcgplayer_product_id: number | null;
 };
 
 // comparedCount drives the personal progress meter; the universal response omits
@@ -140,7 +141,11 @@ function RankingCard({ card }: { card: RankedCard }) {
           </div>
 
           {/* Back: detail table + referral button, shared with the Play screen's flip. */}
-          <CardBack details={details} buyName={card.name} />
+          <CardBack
+            details={details}
+            buyName={card.name}
+            buyProductId={card.tcgplayer_product_id}
+          />
         </div>
       </div>
     </div>
