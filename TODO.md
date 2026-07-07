@@ -812,3 +812,7 @@
 - [ ] CardBack's overflow came from sizing with viewport breakpoints (`md:`) while its box tracks the card. Why are media queries structurally the wrong tool for a component that renders at different sizes on the SAME screen, and what CSS feature (container queries) targets exactly this — plus why was "compact everywhere" still the better fix here?
 
 - [ ] The universal back overflow only became visible after the Space Mono swap, though the md: sizing bug predated it. What made the old font mask the bug, and what does that suggest about re-testing "unrelated" screens after a typography change?
+
+- [ ] The extra space went on as `mt-2` on the button rather than bumping the parent's `gap-2` to `gap-4`. What's the difference in what each would have changed on the card back, and why does the margin better express "space between THESE two siblings"?
+
+- [ ] CardBack's column uses `justify-center` with fixed overall card height, so adding mt-2 didn't push the disclosure off the bottom — where did the 8px actually come from, and at what point would stacking more spacing re-create the overflow bug just fixed?
