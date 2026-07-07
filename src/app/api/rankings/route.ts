@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { withStorageArt } from "@/lib/cardArt";
-import {
-  DROP_RARITIES_FILTER,
-  isEligible,
-  LEGENDARY_COLLECTION,
-  LEGENDARY_COLLECTION_PACK,
-  matchesSeries,
-} from "@/lib/comparisonPool";
+import { LEGENDARY_COLLECTION, LEGENDARY_COLLECTION_PACK } from "@/lib/comparisonPool";
 
 // Price bounds range over market_price — the recent-sales value (see the discussion in
 // /api/comparison/next). 0 is its "no sales data" sentinel, treated as no price.
@@ -55,49 +49,6 @@ const BAYESIAN_SMOOTHING = 5;
 // The card columns the rankings list displays (shared by both scopes).
 const CARD_COLUMNS =
   "card_id, name, image_url, art_url, set, pack, release_date, collector_number, market_price";
-
-// --- Progress-meter denominator ---------------------------------------------
-// One eligible-pool card, reduced to the fields the meter's filters range over.
-type PoolCard = { set: string | null; pack: string | null; market_price: number | null };
-
-// The full eligible comparison pool (every card passing lib/comparisonPool's rules).
-// A plain DB count can't produce this — the name/era rules only run in JS — so we
-// page through the rarity-prefiltered catalog once and check each row. Cached at
-// module scope: the catalog changes rarely, and caching the PROMISE means concurrent
-// first requests share a single build. A failed build clears the cache so the next
-// request retries instead of pinning the error.
-let eligiblePoolCache: Promise<PoolCard[]> | null = null;
-
-function getEligiblePool(supabase: ReturnType<typeof createClient>): Promise<PoolCard[]> {
-  if (!eligiblePoolCache) {
-    eligiblePoolCache = buildEligiblePool(supabase).catch((error) => {
-      eligiblePoolCache = null;
-      throw error;
-    });
-  }
-  return eligiblePoolCache;
-}
-
-async function buildEligiblePool(supabase: ReturnType<typeof createClient>): Promise<PoolCard[]> {
-  // Keyed by card_id to mirror the comparison route's pool de-dup, so a duplicate
-  // source row can't inflate the denominator.
-  const byId = new Map<string, PoolCard>();
-  for (let from = 0; ; from += RANKS_PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from("cards")
-      .select("card_id, name, rarity, set, pack, release_date, market_price")
-      .not("rarity", "in", DROP_RARITIES_FILTER)
-      .order("card_id")
-      .range(from, from + RANKS_PAGE_SIZE - 1);
-    if (error) throw new Error(error.message);
-    for (const row of data ?? []) {
-      if (isEligible(row) && !byId.has(row.card_id)) {
-        byId.set(row.card_id, { set: row.set, pack: row.pack, market_price: row.market_price });
-      }
-    }
-    if (!data || data.length < RANKS_PAGE_SIZE) return [...byId.values()];
-  }
-}
 
 // Returns ranked cards, highest rating first.
 // Query: ?playerId=... for the player's own list (plus progress info for the
@@ -230,33 +181,32 @@ export async function GET(request: NextRequest) {
     if (hasMax) ranksQuery = ranksQuery.lte(`cards.${PRICE_COLUMN}`, maxPrice);
   }
   ranksQuery = ranksQuery.range(from, from + PERSONAL_PAGE_SIZE - 1);
-  // The pool build is independent of the ranks read, so overlap them. A pool failure
+
+  // Meter denominator: the stamped eligible pool under the same series/price
+  // filters as the list (same seriesOrFilter disjunction, same price bounds), so
+  // the numerator and denominator always measure the same population.
+  let poolQuery = supabase
+    .from("cards")
+    .select("card_id", { count: "exact", head: true })
+    .eq("eligible", true);
+  if (series.length > 0) poolQuery = poolQuery.or(seriesOrFilter(series));
+  if (hasMin || hasMax) {
+    poolQuery = poolQuery.not(PRICE_COLUMN, "is", null).neq(PRICE_COLUMN, PRICE_JUNK);
+    if (hasMin) poolQuery = poolQuery.gte(PRICE_COLUMN, minPrice);
+    if (hasMax) poolQuery = poolQuery.lte(PRICE_COLUMN, maxPrice);
+  }
+
+  // The pool count is independent of the ranks read, so overlap them. A count failure
   // never fails the request — the meter just falls back to the plain tally.
-  const [ranksResult, pool] = await Promise.all([
-    ranksQuery,
-    getEligiblePool(supabase).catch((error: Error) => {
-      console.error("eligible pool build failed:", error.message);
-      return null;
-    }),
-  ]);
+  const [ranksResult, poolResult] = await Promise.all([ranksQuery, poolQuery]);
   const { data: ranks, count: comparedCount, error: ranksError } = ranksResult;
   if (ranksError) {
     return NextResponse.json({ error: ranksError.message }, { status: 500 });
   }
-
-  // Meter denominator: eligible cards passing the same series/price filters as the
-  // list, so the numerator and denominator always measure the same population.
-  const priceInRange = (price: number | null) =>
-    price !== null &&
-    price !== PRICE_JUNK &&
-    (!hasMin || price >= minPrice) &&
-    (!hasMax || price <= maxPrice);
-  const poolTotal = pool
-    ?.filter(
-      (card) =>
-        matchesSeries(card, series) && (!(hasMin || hasMax) || priceInRange(card.market_price)),
-    )
-    .length;
+  if (poolResult.error) {
+    console.error("eligible pool count failed:", poolResult.error.message);
+  }
+  const poolTotal = poolResult.error ? undefined : (poolResult.count ?? undefined);
 
   const rankings = (ranks ?? []).map((row, index) => ({
     // Rank is absolute across pages, so offset by where this page starts.

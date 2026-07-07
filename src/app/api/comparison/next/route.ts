@@ -3,12 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { withStorageArt } from "@/lib/cardArt";
 import { DEFAULT_RATING } from "@/lib/glicko2";
-import {
-  DROP_RARITIES_FILTER,
-  isEligible,
-  LEGENDARY_COLLECTION,
-  matchesSeries,
-} from "@/lib/comparisonPool";
+import { LEGENDARY_COLLECTION, matchesSeries } from "@/lib/comparisonPool";
 
 // set/pack/release_date ride along to the client for the card-info flip on Play.
 type Card = {
@@ -21,13 +16,13 @@ type Card = {
 };
 // A card joined with this player's Glicko-2 rating for it (r, rd, mu).
 type RatedCard = Card & { r: number; rd: number; mu: number };
-// The extra columns we read per row: rarity decides pool eligibility, art_url is
-// folded into image_url before the card leaves this route (see lib/cardArt).
-type CardRow = Card & { rarity: string; art_url: string | null };
+// The extra column we read per row: art_url is folded into image_url before the
+// card leaves this route (see lib/cardArt).
+type CardRow = Card & { art_url: string | null };
 
-// The comparison-pool eligibility rules (always-on rarity/name filters) and the
-// series matcher live in lib/comparisonPool, shared with the rankings route's
-// progress-meter denominator.
+// Pool eligibility is the stamped `cards.eligible` column (rules in
+// lib/comparisonPool, applied by scripts/stamp-eligibility.ts); this route just
+// filters on it. Only the series matcher is still needed here in JS.
 
 // Cards to pull per request — a random window into the eligible pool so repeat
 // visits don't always surface the same cards.
@@ -227,19 +222,16 @@ export async function GET(request: NextRequest) {
 
   const supabase = createClient(await cookies());
 
-  // Build the eligible comparison pool. Exclude the always-dropped rarities in the
-  // query, then sample a random window (the DB caps a select at ~1000 rows, so we
-  // offset into the eligible set instead of always taking the first page), and
-  // finally drop modern plain "Rare" in JS — release_date is free text the DB
-  // filter can't compare by year.
+  // Build the comparison pool from the stamped eligible set, sampling a random
+  // window (the DB caps a select at ~1000 rows, so we offset into the eligible set
+  // instead of always taking the first page).
   // The count and sample queries must apply the SAME filters so the random window is
   // drawn from the filtered population. Series (`set`) and price go in the DB query;
   // era is applied in JS below (release_date is free text the DB can't compare by year).
-  // Each query repeats the filter chain (as the file already does for the rarity exclude).
   let countQuery = supabase
     .from("cards")
     .select("card_id", { count: "exact", head: true })
-    .not("rarity", "in", DROP_RARITIES_FILTER);
+    .eq("eligible", true);
   if (seriesWindowSets.length) countQuery = countQuery.in("set", seriesWindowSets);
   if (eraSets.length) countQuery = countQuery.in("set", eraSets);
   if (hasMin || hasMax) {
@@ -300,13 +292,13 @@ export async function GET(request: NextRequest) {
   // Built before sampling because the ELO filter below needs each row's rating.
   const rankByCardId = new Map(ranks.map((rank) => [rank.card_id, rank]));
 
-  // Fetch a random window and reduce it to eligible cards. Repeats the same filter chain
-  // as the count query (the file already duplicates filters across count/rows).
+  // Fetch a random window of eligible cards. Repeats the same filter chain as the
+  // count query so the window is drawn from the counted population.
   async function sampleEligible(offset: number): Promise<Card[]> {
     let rowsQuery = supabase
       .from("cards")
-      .select("card_id, name, image_url, art_url, set, pack, rarity, release_date")
-      .not("rarity", "in", DROP_RARITIES_FILTER);
+      .select("card_id, name, image_url, art_url, set, pack, release_date")
+      .eq("eligible", true);
     if (seriesWindowSets.length) rowsQuery = rowsQuery.in("set", seriesWindowSets);
     if (eraSets.length) rowsQuery = rowsQuery.in("set", eraSets);
     if (hasMin || hasMax) {
@@ -323,7 +315,6 @@ export async function GET(request: NextRequest) {
     const byId = new Map<string, Card>();
     for (const row of (rows ?? []) as CardRow[]) {
       if (
-        isEligible(row) &&
         matchesSeries(row, seriesFilter) &&
         matchesEras(row.release_date, eraFilter) &&
         (!hasMinElo || (rankByCardId.get(row.card_id) ?? DEFAULT_RATING).r >= minElo) &&
