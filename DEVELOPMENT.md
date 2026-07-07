@@ -102,7 +102,13 @@ column). So after importing new card rows into `cards`, walk this list:
                  where o.bucket_id = 'card-art' and o.name = c.card_id || '.webp');
    ```
 
-6. **Sanity-check:** `select count(*) from cards where eligible` should match the
+6. **Re-run the TCGplayer id backfill:** `npx tsx scripts/backfill-tcgplayer.ts` —
+   fills `tcgplayer_stage` over REST and prints the sync UPDATEs to run in the SQL
+   editor (same staging pattern as eligibility). Unmatched cards keep the Buy
+   button's name-search fallback, so a skipped run degrades, never breaks. If the
+   script reports a newly unmapped pack, add it to `PACK_GROUP_ALIASES` in the script.
+
+7. **Sanity-check:** `select count(*) from cards where eligible` should match the
    stamp script's printed count; the rankings meter denominator (`poolTotal` from
    `/api/rankings?playerId=...`) should show the same number; play a few rounds and
    confirm new-set cards appear with art. Cards missed by the backfill fall back to

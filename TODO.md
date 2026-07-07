@@ -49,6 +49,21 @@
 
 # LEARNING
 
+## direct TCGplayer Buy links: product-id backfill
+
+- [ ] In `scripts/backfill-tcgplayer.ts`, pack→group candidates found by name or
+  abbreviation are scored by the fraction of the pack's collector numbers the group
+  actually contains (`MIN_GROUP_SCORE`), instead of trusting a unique abbreviation
+  hit. What wrong links did scoring catch that "unique abbreviation = match" silently
+  accepted (our "Battle Styles (BST)" vs TCGplayer's BST), and why is number-hit
+  fraction a trustworthy arbiter for this join?
+
+- [ ] `tcgplayerUrl` returns a product page when `tcgplayer_product_id` is present
+  and falls back to a name search otherwise, mirroring the `art_url ?? image_url`
+  pattern. Why is "degrade to a worse-but-working link" the right failure posture for
+  newly imported sets that haven't been through the backfill yet, and what UX would a
+  NOT NULL column with a sentinel value have forced instead?
+
 ## stale saved winner: version the sessionStorage key
 
 - [ ] The dashes-on-Pikachu bug could persist indefinitely despite every API path
