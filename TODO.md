@@ -49,6 +49,19 @@
 
 # LEARNING
 
+## stale saved winner: version the sessionStorage key
+
+- [ ] The dashes-on-Pikachu bug could persist indefinitely despite every API path
+  sending the new fields. Trace the exact client-side lifetime of a held winner in
+  `ComparisonScreen` — which line consumes only `next.slice(1)` from each Keep Winner
+  response, and why does that make the restored winner's object immortal until it loses?
+
+- [ ] We fixed it by bumping `COMPARISON_STORAGE_KEY` to `:v2` rather than merging the
+  server's winner fields into the board card. What does key-versioning buy for FUTURE
+  shape changes that field-merging doesn't, and what one-time user-visible cost did we
+  accept for it — why is that the right trade for a per-tab cache but maybe not for
+  localStorage progress?
+
 ## Go back moves below the pair; the info button gets a darker resting coat
 
 - [ ] The relocated `UndoButton` (`mt-3 md:mt-4 translate-y-5`) visually overlaps the
