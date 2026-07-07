@@ -42,7 +42,11 @@ function ratingOf(card: Card): GlickoRating {
 // Persisted on-screen pair, so leaving Play (e.g. for Rankings) and coming back restores
 // the same matchup instead of reshuffling the board. We keep it in sessionStorage, not
 // localStorage: this is a transient, this-tab concern, not long-lived player progress.
-const COMPARISON_STORAGE_KEY = "pokemash:comparison";
+// Bump the version suffix whenever the saved Card shape changes: a restored held winner
+// is never refetched (picks only fold rating fields into it), so a stale save would keep
+// showing outdated fields for as long as that card stays on the board. v2: cards carry
+// set/pack/release_date for the info flip.
+const COMPARISON_STORAGE_KEY = "pokemash:comparison:v2";
 
 type SavedComparison = { cards: Card[]; streak: number; streakCardId: string | null };
 
