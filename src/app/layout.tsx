@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
-import { Bitcount_Prop_Single } from "next/font/google";
+import { Pixelify_Sans, Bitcount_Prop_Single } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 
-// The app-wide UI font is the platform's own sans (SF Pro on Apple devices) — see
-// --font-sans in globals.css. No web font to load; only the pixel rating font below
-// is fetched.
+// App-wide UI font: a legible pixel face (retro game feel, but with real lowercase
+// so body text stays readable). next/font self-hosts it and exposes the CSS variable
+// that globals.css wires into --font-sans; swap the import + variable to try another.
+const pixelifySans = Pixelify_Sans({
+  variable: "--font-pixelify",
+  subsets: ["latin"],
+});
 
 // Pixel font for the Rating dial numbers (--font-elo). Monochrome, so the
 // green/red is applied with normal CSS color in RatingDial.
@@ -27,7 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${bitcountPropSingle.variable} h-full antialiased`}
+      className={`${pixelifySans.variable} ${bitcountPropSingle.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* Impact affiliate site-verification. Rendered as the exact tag Impact supplies
