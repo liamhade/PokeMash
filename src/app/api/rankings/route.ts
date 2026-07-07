@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { withStorageArt } from "@/lib/cardArt";
 import {
   DROP_RARITIES_FILTER,
   isEligible,
@@ -53,7 +54,7 @@ const BAYESIAN_SMOOTHING = 5;
 
 // The card columns the rankings list displays (shared by both scopes).
 const CARD_COLUMNS =
-  "card_id, name, image_url, set, pack, release_date, collector_number, market_price";
+  "card_id, name, image_url, art_url, set, pack, release_date, collector_number, market_price";
 
 // --- Progress-meter denominator ---------------------------------------------
 // One eligible-pool card, reduced to the fields the meter's filters range over.
@@ -190,7 +191,7 @@ export async function GET(request: NextRequest) {
           rank: rankings.length + 1,
           r: Math.round(entry.r),
           raters: entry.raters,
-          ...card,
+          ...withStorageArt(card),
         });
       }
     }
@@ -262,7 +263,7 @@ export async function GET(request: NextRequest) {
     rank: from + index + 1,
     r: row.r,
     // The embedded `cards` relation is returned as an array by the typed client.
-    ...(Array.isArray(row.cards) ? row.cards[0] : row.cards),
+    ...withStorageArt(Array.isArray(row.cards) ? row.cards[0] : row.cards),
   }));
 
   return NextResponse.json({

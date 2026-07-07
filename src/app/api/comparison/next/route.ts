@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { withStorageArt } from "@/lib/cardArt";
 import { DEFAULT_RATING } from "@/lib/glicko2";
 import {
   DROP_RARITIES_FILTER,
@@ -20,8 +21,9 @@ type Card = {
 };
 // A card joined with this player's Glicko-2 rating for it (r, rd, mu).
 type RatedCard = Card & { r: number; rd: number; mu: number };
-// The extra column we need to decide pool eligibility (not sent to the client).
-type CardRow = Card & { rarity: string };
+// The extra columns we read per row: rarity decides pool eligibility, art_url is
+// folded into image_url before the card leaves this route (see lib/cardArt).
+type CardRow = Card & { rarity: string; art_url: string | null };
 
 // The comparison-pool eligibility rules (always-on rarity/name filters) and the
 // series matcher live in lib/comparisonPool, shared with the rankings route's
@@ -303,7 +305,7 @@ export async function GET(request: NextRequest) {
   async function sampleEligible(offset: number): Promise<Card[]> {
     let rowsQuery = supabase
       .from("cards")
-      .select("card_id, name, image_url, set, pack, rarity, release_date")
+      .select("card_id, name, image_url, art_url, set, pack, rarity, release_date")
       .not("rarity", "in", DROP_RARITIES_FILTER);
     if (seriesWindowSets.length) rowsQuery = rowsQuery.in("set", seriesWindowSets);
     if (eraSets.length) rowsQuery = rowsQuery.in("set", eraSets);
@@ -330,7 +332,7 @@ export async function GET(request: NextRequest) {
         byId.set(row.card_id, {
           card_id: row.card_id,
           name: row.name,
-          image_url: row.image_url,
+          image_url: row.art_url ?? row.image_url,
           set: row.set,
           pack: row.pack,
           release_date: row.release_date,
@@ -373,13 +375,16 @@ export async function GET(request: NextRequest) {
     if (!winner) {
       const { data: winnerCard, error: winnerError } = await supabase
         .from("cards")
-        .select("card_id, name, image_url, set, pack, release_date")
+        .select("card_id, name, image_url, art_url, set, pack, release_date")
         .eq("card_id", winnerId)
         .single();
       if (winnerError || !winnerCard) {
         return NextResponse.json({ error: "winnerId not found" }, { status: 404 });
       }
-      winner = { ...winnerCard, ...(rankByCardId.get(winnerId) ?? DEFAULT_RATING) };
+      winner = {
+        ...withStorageArt(winnerCard),
+        ...(rankByCardId.get(winnerId) ?? DEFAULT_RATING),
+      };
     }
 
     // Which cards has the winner already been compared against (as either side)?
