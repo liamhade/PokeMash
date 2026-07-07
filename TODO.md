@@ -796,3 +796,19 @@
 - [ ] StreakLegend's API changed from `visible: boolean` to `streak: number`. Why is passing the rawer value the more future-proof prop here (which component now owns the reached-tier policy), and when is the opposite — a pre-digested boolean — the better interface?
 
 - [ ] Each tier row transitions `-translate-x-2 opacity-0` → `translate-x-0 opacity-100` when reached. Why do transform+opacity animate without triggering layout on neighboring rows, and what would animating `height` or `display` for the same "roll out" effect have cost on the stacked mobile column?
+
+- [ ] DotGothic16 ships only weight 400, yet `font-bold` still renders "bold" text elsewhere in the UI. What is the browser actually doing to fake that weight, and why does it degrade a dot-matrix face so much worse than a smooth outline face?
+
+- [ ] The wordmark had to drop `tracking-tight` for this font after it was fine under Pixelify Sans. What does that say about where letterspacing decisions should live when a brand lockup and a theme font are chosen independently — and what's the risk of tuning component styles to the current font's quirks?
+
+- [ ] The Space Mono swap looked broken at first: the served CSS chunk still inlined var(--font-dotgothic) after both files were edited, surviving even a dev-server restart until .next was deleted. What does that tell you about where Turbopack's persistent cache lives, and what's the fastest way to distinguish "my code is wrong" from "the build is stale" next time a style change doesn't take?
+
+- [ ] Undefined CSS variables fail soft: body { font-family: var(--font-dotgothic), sans-serif } with the variable gone didn't error — the page just fell back to the default sans. Why is that graceful degradation a mixed blessing during a font migration, and which DevTools signal exposes an invalid var() where a compile error would have?
+
+- [ ] The progress meter dropped its denominator instead of computing the true eligible-pool count. Where does that eligibility logic live today, why can't PostgREST count it server-side, and what would have to change (materialized column? view?) before "X of Y" could return honestly?
+
+- [ ] Removing totalCards let the rankings route delete an entire count query, not just a response field. What's the general lesson about UI copy driving backend cost — and why was `head: true` already the right shape for that query while it existed?
+
+- [ ] CardBack's overflow came from sizing with viewport breakpoints (`md:`) while its box tracks the card. Why are media queries structurally the wrong tool for a component that renders at different sizes on the SAME screen, and what CSS feature (container queries) targets exactly this — plus why was "compact everywhere" still the better fix here?
+
+- [ ] The universal back overflow only became visible after the Space Mono swap, though the md: sizing bug predated it. What made the old font mask the bug, and what does that suggest about re-testing "unrelated" screens after a typography change?
