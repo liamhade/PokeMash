@@ -1,5 +1,5 @@
 import Link from "next/link";
-import NavButton, { navPillClass } from "./NavButton";
+import NavButton from "./NavButton";
 import HowItWorks from "./HowItWorks";
 import LogoWordmark from "./LogoWordmark";
 
@@ -24,13 +24,9 @@ export default function NavBar() {
         <NavButton href="/rankings">Rankings</NavButton>
       </nav>
 
+      {/* Login joins here once accounts exist — until then dead UI stays off the bar. */}
       <div className="ml-1 md:ml-auto flex items-center gap-1 md:gap-2">
         <HowItWorks />
-        {/* Placeholder: accounts aren't built yet, so this is an inert pill that
-            reserves the spot (and the visual weight) for the real login flow. */}
-        <button type="button" title="Coming soon" className={navPillClass}>
-          Login
-        </button>
       </div>
     </header>
   );
