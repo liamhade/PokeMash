@@ -104,9 +104,11 @@ export default function ComparisonArea({
 
   return (
     // A column so the "Go back" button can sit centered just above the cards row. my-8
-    // keeps the cards clear of the top and bottom edges; pb-40 remains so the rating dials
-    // have room below. Base (phone) values are tighter; md and up restores desktop spacing.
-    <div className="flex flex-1 flex-col items-center justify-center my-4 md:my-8 pb-28 md:pb-40 relative z-10">
+    // keeps the cards clear of the top and bottom edges; md keeps pb-40 so the rating
+    // dials have room below on desktop. On phones the padding is only the undo button's
+    // translate-y hang — any more skews justify-center and the group rides high in the
+    // viewport with a lopsided gap underneath.
+    <div className="flex flex-1 flex-col items-center justify-center my-4 md:my-8 pb-10 md:pb-40 relative z-10">
       {poolEmpty && (
         <p className="max-w-xs text-center text-neutral-500">
           No cards match these filters. Open{" "}

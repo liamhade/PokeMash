@@ -770,9 +770,11 @@ export default function ComparisonScreen() {
         <KeepWinnerToggle keepWinner={keepWinner} onToggle={() => setKeepWinner((on) => !on)} />
       </div>
 
-      {/* Mobile-only streak legend (it lives in PanelLeft on md+). Same stacked column
-          as desktop, tucked under the Filter trigger on the left edge. */}
-      <div className="px-4 pt-5 md:hidden">
+      {/* Mobile-only streak legend (it lives in PanelLeft on md+). An absolute overlay
+          under the Filter trigger rather than a flex row: it must not reserve a band of
+          layout between the toolbar and the board (the board centers in ALL the space
+          below the toolbar, and the legend is usually invisible anyway). */}
+      <div className="pointer-events-none absolute left-4 top-16 z-20 md:hidden">
         <StreakLegend visible={legendVisible} className="flex-col gap-2" />
       </div>
 
