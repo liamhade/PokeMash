@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
-import { Source_Code_Pro, Bitcount_Prop_Single } from "next/font/google";
+import { Bitcount_Prop_Single } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 
-// App-wide font. next/font/google self-hosts the font at build time and exposes it
-// as a CSS variable (--font-source-code-pro) that globals.css wires into Tailwind's
-// --font-sans. To try a different font, swap this import + call for any Google font
-// (e.g. Inter, Roboto, Poppins) and update the variable name in globals.css.
-const sourceCodePro = Source_Code_Pro({
-  variable: "--font-source-code-pro",
-  subsets: ["latin"],
-});
+// The app-wide UI font is the platform's own sans (SF Pro on Apple devices) — see
+// --font-sans in globals.css. No web font to load; only the pixel rating font below
+// is fetched.
 
 // Pixel font for the Rating dial numbers (--font-elo). Monochrome, so the
 // green/red is applied with normal CSS color in RatingDial.
@@ -32,7 +27,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sourceCodePro.variable} ${bitcountPropSingle.variable} h-full antialiased`}
+      className={`${bitcountPropSingle.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* Impact affiliate site-verification. Rendered as the exact tag Impact supplies

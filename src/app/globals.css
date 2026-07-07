@@ -8,15 +8,17 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-source-code-pro);
+  /* The platform's native UI sans: SF Pro on Apple devices, Segoe/Roboto elsewhere.
+     Nothing to download, and it's the same face the OS renders everywhere else, which
+     is what gives the UI its "native app" feel. */
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  /* Use the app font (Source Code Pro). monospace is the fallback while the web
-     font loads or if it fails — it's a monospace typeface. */
-  font-family: var(--font-sans), monospace;
+  font-family: var(--font-sans);
 }
 
 /* The ▲/▼ delta badge beside a Rating dial: pops in as the dial starts spinning. It
