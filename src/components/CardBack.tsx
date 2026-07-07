@@ -30,13 +30,15 @@ export default function CardBack({ details, buyName }: CardBackProps) {
       </table>
 
       {/* Placeholder referral link (name search until the affiliate product link
-          lands). stopPropagation so a buy click doesn't also flip the card back. */}
+          lands). stopPropagation so a buy click doesn't also flip the card back.
+          mt-2 on top of the column's gap-2 gives the button a little breathing
+          room from the details table. */}
       <a
         href={tcgplayerSearchUrl(buyName)}
         target="_blank"
         rel="noopener noreferrer sponsored"
         onClick={(event) => event.stopPropagation()}
-        className="rounded-lg bg-red-600 px-3 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-red-700"
+        className="mt-2 rounded-lg bg-red-600 px-3 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-red-700"
       >
         Buy on TCGplayer
       </a>
