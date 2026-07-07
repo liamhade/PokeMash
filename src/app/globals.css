@@ -8,10 +8,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* DotGothic16 (see layout.tsx): dot-matrix retro-game face with real lowercase, so
-     the UI keeps its Nintendo-ish personality without body text turning illegible.
-     sans-serif is only the flash-of-unstyled fallback while the font file loads. */
-  --font-sans: var(--font-dotgothic), sans-serif;
+  /* Space Mono (see layout.tsx): a retro-tech monospace — the coding-font structure
+     of the original Source Code Pro with more game-y personality in the glyphs.
+     monospace is only the flash-of-unstyled fallback while the font file loads. */
+  --font-sans: var(--font-space-mono), monospace;
 }
 
 body {

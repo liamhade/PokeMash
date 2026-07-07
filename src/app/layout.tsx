@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { DotGothic16, Bitcount_Prop_Single } from "next/font/google";
+import { Space_Mono, Bitcount_Prop_Single } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 
-// App-wide UI font: a legible dot-matrix face (Game-Boy-era feel, but with real
-// lowercase so body text stays readable). next/font self-hosts it and exposes the
-// CSS variable that globals.css wires into --font-sans; swap the import + variable
-// to try another. Single 400 weight — bold text is browser-synthesized.
-const dotGothic = DotGothic16({
-  weight: "400",
-  variable: "--font-dotgothic",
+// App-wide UI font: a monospace with retro-tech personality — halfway between the
+// original Source Code Pro (clean coding mono) and the pixel faces (game feel).
+// next/font self-hosts it and exposes the CSS variable that globals.css wires into
+// --font-sans; swap the import + variable to try another.
+const spaceMono = Space_Mono({
+  weight: ["400", "700"],
+  variable: "--font-space-mono",
   subsets: ["latin"],
 });
 
@@ -33,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${dotGothic.variable} ${bitcountPropSingle.variable} h-full antialiased`}
+      className={`${spaceMono.variable} ${bitcountPropSingle.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* Impact affiliate site-verification. Rendered as the exact tag Impact supplies
