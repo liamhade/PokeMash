@@ -38,7 +38,7 @@ export default function CardBack({ details, buyName }: CardBackProps) {
         target="_blank"
         rel="noopener noreferrer sponsored"
         onClick={(event) => event.stopPropagation()}
-        className="rounded-lg bg-blue-600 px-3 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+        className="rounded-lg bg-red-600 px-3 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-red-700"
       >
         Buy on TCGplayer
       </a>
