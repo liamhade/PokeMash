@@ -532,3 +532,31 @@
   even though that card is no longer in the `cards` array. Where does the overlay read its
   float from, and why would the number vanish if we'd left the float markup inlined in the
   `cards.map` only?
+
+## Compared-cards percentage + retro logo restore
+
+- [ ] The progress meter's denominator is built by paging the rarity-prefiltered catalog
+  through `isEligible` in JS rather than a DB `count`. Which eligibility rules make the DB
+  count impossible (think free-text `release_date`, name-based energy/trainer matching), and
+  why was showing NO denominator previously judged better than showing the raw count?
+
+- [ ] `eligiblePoolCache` stores the *promise* of the pool build, not the resolved array.
+  What does caching the promise buy when several first requests arrive concurrently, and why
+  must the `.catch` null the cache instead of letting the rejected promise sit there?
+
+- [ ] The percentage's denominator re-applies the same series/price filters as the numerator
+  (`matchesSeries` + `priceInRange`). What misleading number would the meter show under an
+  active filter if only the numerator were filtered?
+
+- [ ] The pool build runs in `Promise.all` beside the ranks query, and a build failure logs
+  and returns `null` (meter degrades to the plain tally) rather than failing the request.
+  Why is "progress decoration must never break the rankings list" the right failure posture?
+
+- [ ] The typed `LogoWordmark` was deleted outright (component, caret keyframes, min-w hit
+  area reservation) when the PNG logo returned, instead of being left behind a prop or flag.
+  What does YAGNI say about keeping dead alternatives "just in case", and where does the
+  wordmark still live if it's ever wanted again?
+
+- [ ] The PNG logo's outline is faked with four 1px `drop-shadow` filters. Why does
+  `drop-shadow` trace the image's alpha edge while `box-shadow` on the same `<img>` would
+  draw a rectangle — and what property of the source asset makes this hack necessary at all?
