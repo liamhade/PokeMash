@@ -1,5 +1,5 @@
 // "Go back" control for Play: restores the previous matchup so the user can reselect.
-// Icon-only (a counterclockwise loop arrow), meant to sit centered just above the pair.
+// Icon-only (a counterclockwise loop arrow), meant to sit centered just below the pair.
 // Disabled when there's nothing to undo (no pick yet, or already stepped back) or while
 // the board is mid-animation.
 type UndoButtonProps = {

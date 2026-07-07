@@ -114,11 +114,6 @@ export default function ComparisonArea({
         </p>
       )}
 
-      {/* Undo control, centered over the gap between the two cards. Present whenever a
-          board is up (greyed when there's nothing to go back to) so the cards don't shift
-          when it becomes actionable. */}
-      {cards && <UndoButton onUndo={onUndo} disabled={!canUndo} className="mb-3 md:mb-4 -translate-y-5" />}
-
       {/* The two cards side by side; the gap values restore the original desktop spacing. */}
       <div className="flex items-center justify-center gap-3 md:gap-8 lg:gap-16">
         {cards?.map((card) => {
@@ -286,6 +281,12 @@ export default function ComparisonArea({
         );
         })}
       </div>
+
+      {/* Undo control, centered under the gap between the two cards (spacing mirrors its
+          old above-the-pair spot). Present whenever a board is up (greyed when there's
+          nothing to go back to) so the cards don't shift when it becomes actionable. It
+          shares the bottom band with the serpents' swim path; they just pass over it. */}
+      {cards && <UndoButton onUndo={onUndo} disabled={!canUndo} className="mt-3 md:mt-4 translate-y-5" />}
     </div>
   );
 }
