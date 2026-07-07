@@ -286,7 +286,7 @@ export default function ComparisonArea({
           old above-the-pair spot). Present whenever a board is up (greyed when there's
           nothing to go back to) so the cards don't shift when it becomes actionable. It
           shares the bottom band with the serpents' swim path; they just pass over it. */}
-      {cards && <UndoButton onUndo={onUndo} disabled={!canUndo} className="mt-3 md:mt-4 translate-y-5" />}
+      {cards && <UndoButton onUndo={onUndo} disabled={!canUndo} className="mt-3 md:mt-4 translate-y-8" />}
     </div>
   );
 }
