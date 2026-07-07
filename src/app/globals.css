@@ -21,6 +21,23 @@ body {
   font-family: var(--font-sans);
 }
 
+/* The typing caret in the LogoWordmark: a steady steps() blink (no fade — real text
+   carets snap). The wordmark fades the whole caret out via opacity when it's done. */
+@keyframes caret-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  95% {
+    opacity: 0;
+  }
+}
+
+.logo-caret {
+  animation: caret-blink 1.1s steps(1) infinite;
+}
+
 /* The ▲/▼ delta badge beside a Rating dial: pops in as the dial starts spinning. It
    leaves by conditional render (RatingDial drops it after the hold), so there's no
    exit animation. */
