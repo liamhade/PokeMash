@@ -232,6 +232,12 @@ const DISPLAY_SCALE = 0.75;
 const SPRITE_W = SPRITE[0].length * PX * DISPLAY_SCALE;
 const SPRITE_H = SPRITE.length * PX * DISPLAY_SCALE;
 
+// The RATING dial band under each card slot. The dial is out of flow (absolute
+// top-full + mt-3 in RatingDial), so the card wrapper's rect does NOT include it —
+// the roam exclusion must be extended down by hand or she strolls over the numbers.
+// mt-3 (12px) + the text-3xl line (~36px) with a little slack.
+const DIAL_BAND_H = 52;
+
 // Each serpent is one big traced sprite — a screen-dominating legendary. To make
 // it swim, the sprite is sliced into vertical columns SNAKE_SLICE_W design-px
 // wide, rendered as <g> bands of ONE svg, and each band oscillates vertically via
@@ -512,10 +518,11 @@ export default function Clefairy({ picks }: { picks: number }) {
             right: left + c.offsetWidth - a.left - a.width / 2,
             top: top - floorY,
             bottom: top + c.offsetHeight - floorY,
-            // The wrapper's bottom includes the rating dial under the slot —
-            // the roam exclusion runs down to here so she never strolls over
-            // the dials either (hide/peek geometry keeps the card box).
-            roamBottom: w.bottom - floorY,
+            // The roam exclusion runs past the wrapper's bottom to cover the
+            // rating dial hanging below it (see DIAL_BAND_H — the dial is
+            // absolutely positioned, so the wrapper rect stops at the card).
+            // Hide/peek geometry keeps the bare card box.
+            roamBottom: w.bottom - floorY + DIAL_BAND_H,
             // The card that just won the last pick (see ComparisonArea): the
             // one she trusts to hide behind when a serpent shows up.
             winner: c.hasAttribute("data-compare-winner"),
