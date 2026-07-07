@@ -225,7 +225,7 @@ export default function ComparisonArea({
                         setFlippedId(card.card_id);
                       }
                     }}
-                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/30 font-serif text-sm italic text-white opacity-60 backdrop-blur-sm transition-opacity hover:bg-black/50 group-hover:opacity-100"
+                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/40 font-serif text-sm italic text-white opacity-80 backdrop-blur-sm transition-opacity hover:bg-black/60 group-hover:opacity-100"
                   >
                     i
                   </span>
