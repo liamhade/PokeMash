@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
-import { Pixelify_Sans, Bitcount_Prop_Single } from "next/font/google";
+import { DotGothic16, Bitcount_Prop_Single } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 
-// App-wide UI font: a legible pixel face (retro game feel, but with real lowercase
-// so body text stays readable). next/font self-hosts it and exposes the CSS variable
-// that globals.css wires into --font-sans; swap the import + variable to try another.
-const pixelifySans = Pixelify_Sans({
-  variable: "--font-pixelify",
+// App-wide UI font: a legible dot-matrix face (Game-Boy-era feel, but with real
+// lowercase so body text stays readable). next/font self-hosts it and exposes the
+// CSS variable that globals.css wires into --font-sans; swap the import + variable
+// to try another. Single 400 weight — bold text is browser-synthesized.
+const dotGothic = DotGothic16({
+  weight: "400",
+  variable: "--font-dotgothic",
   subsets: ["latin"],
 });
 
@@ -31,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${pixelifySans.variable} ${bitcountPropSingle.variable} h-full antialiased`}
+      className={`${dotGothic.variable} ${bitcountPropSingle.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* Impact affiliate site-verification. Rendered as the exact tag Impact supplies

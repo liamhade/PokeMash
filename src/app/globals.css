@@ -8,10 +8,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Pixelify Sans (see layout.tsx): retro-game pixel face with real lowercase, so
+  /* DotGothic16 (see layout.tsx): dot-matrix retro-game face with real lowercase, so
      the UI keeps its Nintendo-ish personality without body text turning illegible.
      sans-serif is only the flash-of-unstyled fallback while the font file loads. */
-  --font-sans: var(--font-pixelify), sans-serif;
+  --font-sans: var(--font-dotgothic), sans-serif;
 }
 
 body {

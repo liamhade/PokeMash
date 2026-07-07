@@ -86,7 +86,9 @@ export default function LogoWordmark() {
   return (
     // aria-hidden: the wrapping <Link> carries the accessible "PokeMash" name, so
     // screen readers aren't fed the letter-by-letter churn.
-    <span aria-hidden className="flex select-none items-baseline text-2xl font-bold tracking-tight">
+    // No font-bold/tracking-tight: DotGothic16 has a single 400 weight, and both
+    // synthetic bolding and negative tracking smear its dot glyphs into each other.
+    <span aria-hidden className="flex select-none items-baseline text-2xl">
       {NAME.slice(0, frame.shown)
         .split("")
         .map((ch, i) => (
