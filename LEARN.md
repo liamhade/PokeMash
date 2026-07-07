@@ -560,3 +560,51 @@
 - [ ] The PNG logo's outline is faked with four 1px `drop-shadow` filters. Why does
   `drop-shadow` trace the image's alpha edge while `box-shadow` on the same `<img>` would
   draw a rectangle — and what property of the source asset makes this hack necessary at all?
+
+## Self-hosted card art + materialized eligibility
+
+- [ ] Prod card art 402'd with `OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED` while every
+  pkmncards source URL still returned 200. Trace the request path a `next/image` src takes
+  on Vercel and explain why cards optimized before the quota ran out kept rendering while
+  new ones broke — what exactly counts as one "transformation"?
+
+- [ ] The backfill resizes to 650px wide even though the Play screen renders cards at
+  325 CSS px. Why is storing literal display size wrong on most modern screens, and why was
+  the JPEG→WebP re-encode a bigger win than the resize here (source was only 734px)?
+
+- [ ] `withStorageArt` folds art_url into image_url server-side and strips it from the
+  payload, with `art_url ?? image_url` as the rule. What operational property does that
+  fallback buy for newly imported sets between maintenance runs, and why should the client
+  never learn where art is hosted?
+
+- [ ] With `images.unoptimized: true`, what would putting Supabase Storage URLs through the
+  optimizer have cost, and why does `getImageProps`-based warming stay correct when the
+  optimizer is off?
+
+- [ ] The backfill uploaded with the anon key through a TEMPORARY insert-only RLS policy on
+  storage.objects, dropped right after. Why insert-only (think: what can't an attacker do to
+  existing objects mid-window), and what's the alternative when a service-role key is at hand?
+
+- [ ] Eligibility used to run in JS per request in three places (window trim, meter build,
+  backfill targets) and is now a stamped `cards.eligible` column. What did each site pay
+  per request before, and what drift risk does materialization introduce — who is the source
+  of truth now, the column or comparisonPool.ts?
+
+- [ ] The stamp script can't UPDATE cards with the publishable key, so it fills
+  `eligible_stage` over REST and a DB admin runs two UPDATEs. Why is an anon-writable staging
+  table acceptable here (when is its content ever read?), and why does PostgREST refuse a
+  bare DELETE without a filter?
+
+- [ ] The stamped count (6,617) was verified equal to prod's JS-computed poolTotal BEFORE
+  the routes switched to the column. Why is that parity check the whole safety argument for
+  the refactor, and what would a mismatch of even one card have told you?
+
+- [ ] The meter's denominator query now uses the same `seriesOrFilter` string and price
+  bounds as the numerator's ranks query. What class of bug does sharing the literal filter
+  implementation (not just the same intent) eliminate — recall the meter previously used a
+  separate JS `matchesSeries` path?
+
+- [ ] The Supabase MCP OAuth failed with "unrecognized client id" — a stale dynamically
+  registered client cached in the macOS Keychain. Where exactly does Claude Code cache MCP
+  OAuth state, which entry gets deleted, and why did relaying the localhost callback URL
+  from a collaborator's browser work (whose account authorized what)?
