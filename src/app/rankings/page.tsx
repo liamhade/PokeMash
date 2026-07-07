@@ -28,12 +28,13 @@ type RankedCard = {
 };
 
 // comparedCount drives the personal progress meter; the universal response omits
-// it (community progress isn't "yours"), so it's optional. There's deliberately no
-// total: the servable pool is trimmed by eligibility rules the DB can't cheaply
-// count, so any denominator we could show would be one the player can never reach.
+// it (community progress isn't "yours"), so it's optional. poolTotal is the true
+// eligible-pool size (counted in JS server-side, since the eligibility rules can't
+// run in the DB) under the same filters — the honest denominator for a percentage.
 type RankingsResponse = {
   rankings: RankedCard[];
   comparedCount?: number;
+  poolTotal?: number;
 };
 
 // Whose rankings the page shows: this player's own, or the community's — every
@@ -150,7 +151,7 @@ export default function RankingsPage() {
   // Accumulated across "load more": null = first page still loading. meta holds the
   // personal progress counts (undefined under the universal scope, which sends none).
   const [cards, setCards] = useState<RankedCard[] | null>(null);
-  const [meta, setMeta] = useState<{ comparedCount?: number }>({});
+  const [meta, setMeta] = useState<{ comparedCount?: number; poolTotal?: number }>({});
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [filterOpen, setFilterOpen] = useState(false);
@@ -194,7 +195,7 @@ export default function RankingsPage() {
       fetchPage(applied, which, 0).then((data) => {
         if (requestRef.current !== token) return; // superseded by a newer load
         setCards(data.rankings ?? []);
-        setMeta({ comparedCount: data.comparedCount });
+        setMeta({ comparedCount: data.comparedCount, poolTotal: data.poolTotal });
       });
     },
     [fetchPage],
@@ -299,12 +300,16 @@ export default function RankingsPage() {
           </div>
 
           {/* Progress meter pinned to the bottom of the screen. Personal progress
-              only — the universal response carries no compared count. Just the tally:
-              a denominator would be the raw table count, which the eligibility rules
-              make unreachable, so "x out of y (z%)" always under-reported progress. */}
+              only — the universal response carries no compared count. The percentage
+              is against poolTotal, the JS-counted eligible pool (NOT the raw table
+              count, which the eligibility rules make unreachable). Capped at 100:
+              cards rated before a pool-rule tightening can exceed today's pool. */}
           {meta.comparedCount !== undefined && (
             <div className="sticky bottom-0 border-t border-neutral-200 bg-white py-4 text-center font-semibold text-neutral-800 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">
               You&apos;ve compared {meta.comparedCount.toLocaleString("en-US")} cards
+              {meta.poolTotal
+                ? ` (${Math.min(100, Math.round((meta.comparedCount / meta.poolTotal) * 100))}%)`
+                : ""}
             </div>
           )}
         </>

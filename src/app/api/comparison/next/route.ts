@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { DEFAULT_RATING } from "@/lib/glicko2";
-import { EXCLUDED_TRAINER_NAMES } from "@/lib/excludedTrainerNames";
+import {
+  DROP_RARITIES_FILTER,
+  isEligible,
+  LEGENDARY_COLLECTION,
+  matchesSeries,
+} from "@/lib/comparisonPool";
 
 // set/pack/release_date ride along to the client for the card-info flip on Play.
 type Card = {
@@ -18,17 +23,9 @@ type RatedCard = Card & { r: number; rd: number; mu: number };
 // The extra column we need to decide pool eligibility (not sent to the client).
 type CardRow = Card & { rarity: string };
 
-// --- Comparison pool eligibility -------------------------------------------
-// Comparing Common/Uncommon cards is boring, and "interesting" differs by era.
-// These rules decide which cards may appear on the Play screen.
-//
-// NOTE: this logic is mirrored in supabase/migrations/20260630_comparison_pool.sql.
-// For now it lives here (the app's read-only key can't create that DB function);
-// move it into the database when someone with DB access can apply the migration.
-
-// Always excluded: boring base rarities + the modern ex card ("Double Rare",
-// which is framed art, not full art). Excluded server-side via a `not in` filter.
-const DROP_RARITIES = ["Common", "Uncommon", "No Rarity", "Double Rare"];
+// The comparison-pool eligibility rules (always-on rarity/name filters) and the
+// series matcher live in lib/comparisonPool, shared with the rankings route's
+// progress-meter denominator.
 
 // Cards to pull per request — a random window into the eligible pool so repeat
 // visits don't always surface the same cards.
@@ -46,17 +43,6 @@ const SAMPLE_RETRIES = 4;
 // sentinel market_price uses for "no sales data" (e.g. Mewtwo Star), treated as no price.
 const PRICE_COLUMN = "market_price";
 const PRICE_JUNK = 0;
-
-// A non-buzzword "Rare" is only worth comparing if it's genuinely vintage: HeartGold
-// & SoulSilver (ends Feb 2011) and earlier. The modern era begins with Black & White
-// (starts Mar 2011). The boundary falls inside 2011, so we compare full release dates
-// (free text like "Apr 25, 2011"), not just the year.
-const MODERN_ERA_START = new Date("2011-03-01");
-function isVintage(releaseDate: string | null): boolean {
-  if (!releaseDate) return false;
-  const date = new Date(releaseDate.trim());
-  return !Number.isNaN(date.getTime()) && date < MODERN_ERA_START;
-}
 
 // --- User-controlled filters (price / era / series) ------------------------
 // Optional filters the player sets via the Filter modal, layered on top of the
@@ -94,26 +80,6 @@ function releaseYear(releaseDate: string | null): number | null {
   return Number.isNaN(date.getTime()) ? null : date.getFullYear();
 }
 
-// "Legendary Collection" is a curated pseudo-series: in the data it's a `pack` inside the
-// `Other` set, not a `set` of its own. We expose it as its own filter option and carve it
-// out of the `Other` option, both handled by matchesSeries (and mapped to the `Other` set
-// for DB windowing). LEGENDARY_COLLECTION is the filter token; the PACK is its data value.
-const LEGENDARY_COLLECTION = "Legendary Collection";
-const LEGENDARY_COLLECTION_PACK = "Legendary Collection (LC)";
-
-// True if the card belongs to any selected series. Most series are matched on the `set`
-// column; the two exceptions keep Legendary Collection and Other disjoint: "Legendary
-// Collection" matches its pack, and "Other" matches the Other set MINUS that pack. No
-// series selected means "no series filter", so everything passes.
-function matchesSeries(row: CardRow, series: string[]): boolean {
-  if (series.length === 0) return true;
-  return series.some((name) => {
-    if (name === LEGENDARY_COLLECTION) return row.pack === LEGENDARY_COLLECTION_PACK;
-    if (name === "Other") return row.set === "Other" && row.pack !== LEGENDARY_COLLECTION_PACK;
-    return row.set === name;
-  });
-}
-
 // True if the card's release year falls in any of the selected eras. No eras
 // selected means "no era filter", so everything passes.
 function matchesEras(releaseDate: string | null, eras: string[]): boolean {
@@ -124,63 +90,6 @@ function matchesEras(releaseDate: string | null, eras: string[]): boolean {
     const range = ERA_YEAR_RANGES[era];
     return range !== undefined && year >= range[0] && year <= range[1];
   });
-}
-
-// Energy cards aren't fun to compare, so drop them. They're named "<X> Energy"
-// (optionally with element symbols like "{G}" or a "Prism Star" tag), so we anchor
-// on "Energy" being the LAST word after stripping those. This deliberately keeps
-// trainers like "Energy Retrieval" / "Ancient Booster Energy Capsule" (Energy is
-// not the final word). Done by name because the data has no card-type column.
-function isEnergyCard(name: string): boolean {
-  const stripped = name
-    .replace(/\{[^}]*\}/g, "") // element symbols, e.g. {G}{R}
-    .replace(/prism star/gi, "") // subtype tag, e.g. "Beast Energy Prism Star"
-    .replace(/\s+/g, " ")
-    .trim();
-  return /\bEnergy$/i.test(stripped);
-}
-
-// "Promo", "Rare" and "Rare Holo" are catch-all rarities that lump boring non-holos
-// / plain modern foils in with the occasional buzzword chase card (e.g. "Deoxys ex",
-// "Umbreon Star"). We keep such a card only when its name carries a featured mechanic.
-// Full-art cards always get their own distinct rarity (e.g. Reshiram 113/114 is
-// "Ultra Rare"), so this never drops a full art. The mechanic is a trailing token,
-// so we anchor on the name's end.
-const FEATURED_MECHANIC = /(\bGX|\bVMAX|\bVSTAR|\bV|\bex|\bEX|\bLV\.?X|\bBREAK|\bPrime|\bLEGEND|\bStar|★)$/;
-function hasFeaturedMechanic(name: string): boolean {
-  return FEATURED_MECHANIC.test(name.trim());
-}
-
-// Rarities judged by name/era rather than rarity alone: a "Rare"/"Rare Holo" is kept
-// with a featured mechanic OR if genuinely vintage (pre-Black & White); a "Promo"
-// only with a mechanic (a promo has no reliable date-era meaning).
-const VINTAGE_ELIGIBLE_RARITIES = new Set(["Rare", "Rare Holo"]);
-
-// Trainer "Item", "Stadium", and "Pokémon Tool" cards aren't fun to compare. The data
-// has no card-type column, so we match by name against a list pulled from the Pokemon
-// TCG API (see excludedTrainerNames.ts). This normalization MUST match how that list
-// was generated.
-function normalizeName(name: string): string {
-  return name
-    .normalize("NFKD")
-    .replace(/[^\x00-\x7f]/g, "") // drop non-ASCII (incl. combining accents)
-    .toLowerCase()
-    .replace(/[^a-z0-9 ]/g, " ") // punctuation -> space, so apostrophes etc. don't matter
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-// The rules a SQL `not in` filter can't express: drop energy cards and Item/Stadium/
-// Tool trainers; keep a "Promo" only with a featured mechanic; keep a "Rare"/"Rare Holo"
-// with a featured mechanic OR if it's genuinely vintage. (The always-dropped rarities
-// are excluded in the query.)
-function isEligible(row: CardRow): boolean {
-  if (isEnergyCard(row.name)) return false;
-  if (EXCLUDED_TRAINER_NAMES.has(normalizeName(row.name))) return false;
-  if (row.rarity === "Promo") return hasFeaturedMechanic(row.name);
-  if (VINTAGE_ELIGIBLE_RARITIES.has(row.rarity))
-    return hasFeaturedMechanic(row.name) || isVintage(row.release_date);
-  return true;
 }
 
 // Fisher-Yates in-place shuffle. We shuffle the card pool per request so that
@@ -320,8 +229,7 @@ export async function GET(request: NextRequest) {
   // query, then sample a random window (the DB caps a select at ~1000 rows, so we
   // offset into the eligible set instead of always taking the first page), and
   // finally drop modern plain "Rare" in JS — release_date is free text the DB
-  // filter can't compare by year. Quote the values so spaces ("No Rarity") parse.
-  const excludeList = `(${DROP_RARITIES.map((rarity) => `"${rarity}"`).join(",")})`;
+  // filter can't compare by year.
   // The count and sample queries must apply the SAME filters so the random window is
   // drawn from the filtered population. Series (`set`) and price go in the DB query;
   // era is applied in JS below (release_date is free text the DB can't compare by year).
@@ -329,7 +237,7 @@ export async function GET(request: NextRequest) {
   let countQuery = supabase
     .from("cards")
     .select("card_id", { count: "exact", head: true })
-    .not("rarity", "in", excludeList);
+    .not("rarity", "in", DROP_RARITIES_FILTER);
   if (seriesWindowSets.length) countQuery = countQuery.in("set", seriesWindowSets);
   if (eraSets.length) countQuery = countQuery.in("set", eraSets);
   if (hasMin || hasMax) {
@@ -396,7 +304,7 @@ export async function GET(request: NextRequest) {
     let rowsQuery = supabase
       .from("cards")
       .select("card_id, name, image_url, set, pack, rarity, release_date")
-      .not("rarity", "in", excludeList);
+      .not("rarity", "in", DROP_RARITIES_FILTER);
     if (seriesWindowSets.length) rowsQuery = rowsQuery.in("set", seriesWindowSets);
     if (eraSets.length) rowsQuery = rowsQuery.in("set", eraSets);
     if (hasMin || hasMax) {
