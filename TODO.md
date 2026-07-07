@@ -49,18 +49,26 @@
 
 # LEARNING
 
-## near-mint verification: null the market price nobody near-mint pays
+## near-mint verification: stamp the page's NM price or nothing
 
-- [ ] The NM check in `refresh-prices.ts` only nulls `market_price` when the history
-  endpoint RETURNED rows and the chosen printing's Near Mint rows sum to zero sales —
-  a failed or empty response keeps the feed price. Why must "no evidence" and "evidence
-  of absence" be treated differently when the action is destructive (erasing a price),
-  and what would a flaky network do to the catalog if they weren't?
+- [ ] `refresh-prices.ts` resolves each verified card's Near Mint SKU (printing ×
+  condition × language) and stamps that SKU's market price, nulling only when
+  TCGplayer prices no NM sku — but a failed details request keeps the feed price
+  untouched. Why must "no evidence" (fetch failed) and "evidence of absence"
+  (TCGplayer says no NM market) lead to opposite outcomes when the action erases
+  or rewrites a price, and what would a flaky network otherwise do to the catalog?
 
-- [ ] Verification costs one request per product but only runs for cards ≥
-  `NM_CHECK_THRESHOLD` ($25 ≈ 2,900 products vs 22,500). What property of cheap cards
-  makes the feed price trustworthy without checking, and how does the threshold trade
-  request volume against the worst-case size of a wrong displayed price?
+- [ ] The first NM rule ("null when zero NM sales this quarter") wrongly blanked
+  Expedition Feraligatr, whose page shows an NM price computed from OLDER sales.
+  What's the general lesson about proxying a system's displayed state ("what would
+  the page show?") through a correlated signal instead of reading the state itself,
+  and why did the proxy fail in exactly the scarce-card cases the check exists for?
+
+- [ ] Verification costs requests only for cards ≥ `NM_CHECK_THRESHOLD` ($25 ≈ 2,500
+  products vs 22,500), so sub-$25 cards show a feed price under a "Near Mint Market
+  Price" label. What property of cheap cards makes that approximation honest, and
+  how does the threshold trade request volume against the worst-case size of a
+  mislabeled price?
 
 ## refresh prices from TCGplayer's per-printing feed
 

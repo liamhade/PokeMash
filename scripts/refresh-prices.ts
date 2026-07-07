@@ -12,13 +12,16 @@
 //
 // NEAR-MINT VERIFICATION: the feed's market price is printing-level, not
 // condition-level — for scarce vintage it can be carried entirely by played-copy
-// sales while the product page's near-mint line reads N/A (Expedition Mew:
-// feed $411.66, page N/A). Showing that number as "the" price misinforms, so for
-// cards at or above NM_CHECK_THRESHOLD the script also asks TCGplayer's public
-// per-product price-history endpoint whether the chosen printing actually sold
-// near-mint this quarter, and nulls market_price when it didn't (the UI renders
-// an em dash, same as cards with no price data). Cheap cards are skipped: they
-// trade near-mint constantly, and one request per card is only polite for the
+// sales while the product page's "Near Mint Comparison Prices" line reads N/A
+// (Expedition Mew: feed $411.66, page N/A) or a different figure (Expedition
+// Feraligatr: feed carried played sales, NM Holofoil is $331.83). The UI labels
+// this column "Near Mint Market Price", so for cards at or above
+// NM_CHECK_THRESHOLD the script resolves the chosen printing's Near Mint SKU
+// (TCGplayer prices per sku = printing × condition × language) and stamps that
+// SKU's market price — the exact number the product page shows near-mint — or
+// null when TCGplayer has none (the UI renders an em dash, same as cards with no
+// price data). Cheap cards keep the feed price unverified: near-mint sales
+// dominate their markets anyway, and one request per card is only polite for the
 // few thousand where a wrong number would sting.
 //
 // Like the other stamp scripts, results go into public.price_stage over REST and
@@ -38,9 +41,16 @@ const PAGE_SIZE = 1000;
 // tcgcsv category 3 = Pokémon.
 const TCGCSV = "https://tcgcsv.com/tcgplayer/3";
 
-// Cards priced at or above this get the near-mint verification request (~2,900
-// cards at $25); below it the feed price is trusted as-is.
+// Cards priced at or above this get the near-mint verification requests (~2,500
+// distinct products at $25); below it the feed price is trusted as-is.
 const NM_CHECK_THRESHOLD = 25;
+
+// TCGplayer's page APIs (public, but undocumented): sku definitions per product,
+// and market prices per sku (batched — the ids come from the details call).
+const TCG_DETAILS = (productId: number) =>
+  `https://mp-search-api.tcgplayer.com/v2/product/${productId}/details`;
+const TCG_SKU_PRICES = "https://mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search";
+const SKU_PRICE_BATCH = 200;
 
 function loadEnv(): { url: string; key: string } {
   const lines = readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n");
@@ -159,61 +169,90 @@ async function main() {
   }
   console.log(`${picks.length}/${cards.length} cards priced (rest keep their old values)`);
 
-  // Near-mint verification (see the header). One request per DISTINCT product —
-  // sold quantities are summed over the quarter's history rows for the chosen
-  // printing + Near Mint. Zero NM sales nulls market_price; the listing bounds
-  // stay (they are real asks either way). A failed request keeps the feed price:
-  // only positive evidence of a dead near-mint market may erase a number.
-  type HistoryRow = { variant: string; condition: string; totalQuantitySold: string };
-  const nmSoldByProduct = new Map<number, Map<string, number>>();
-  const toVerify = [
+  // Near-mint verification (see the header). One details request per DISTINCT
+  // product resolves its Near Mint sku per printing; sku market prices then come
+  // back in batched lookups. Verified cards get the NM sku's market price — or
+  // null when TCGplayer has no NM price — while a failed details request keeps
+  // the feed price: only a positive answer from TCGplayer may change a number.
+  type Sku = { sku: number; condition: string; variant: string; language: string };
+  type SkuPrice = { skuId: number; marketPrice: number | null };
+  const verifyProducts = [
     ...new Set(
       picks
         .filter((p) => p.market_price !== null && p.market_price >= NM_CHECK_THRESHOLD)
         .map((p) => p.product_id),
     ),
   ];
+  const total = verifyProducts.length;
+  // product -> printing (lowercased) -> NM skuId; only products whose details call
+  // succeeded are present, so absence below means "no evidence", not "no price".
+  const nmSkuByProduct = new Map<number, Map<string, number>>();
   let checked = 0;
   await Promise.all(
     Array.from({ length: 6 }, async () => {
-      for (let pid = toVerify.shift(); pid !== undefined; pid = toVerify.shift()) {
+      for (let pid = verifyProducts.shift(); pid !== undefined; pid = verifyProducts.shift()) {
         try {
-          const res = await fetch(
-            `https://infinite-api.tcgplayer.com/price/history/${pid}/detailed?range=quarter`,
-            { headers: { "User-Agent": "PokeMash-backfill/1.0" } },
-          );
+          const res = await fetch(TCG_DETAILS(pid), {
+            headers: { "User-Agent": "PokeMash-backfill/1.0" },
+          });
           if (!res.ok) throw new Error(String(res.status));
-          const rows = ((await res.json()) as { result: HistoryRow[] }).result ?? [];
-          const sold = new Map<string, number>();
-          for (const row of rows) {
-            if (row.condition === "Near Mint") {
-              const key = row.variant.toLowerCase();
-              sold.set(key, (sold.get(key) ?? 0) + Number(row.totalQuantitySold));
+          const skus = ((await res.json()) as { skus: Sku[] }).skus ?? [];
+          const byPrinting = new Map<string, number>();
+          for (const sku of skus) {
+            if (sku.condition === "Near Mint" && sku.language === "English") {
+              byPrinting.set(sku.variant.toLowerCase(), sku.sku);
             }
           }
-          // Only counts as evidence if the product returned history at all.
-          if (rows.length > 0) nmSoldByProduct.set(pid, sold);
+          nmSkuByProduct.set(pid, byPrinting);
         } catch {
           // keep the feed price for this product
         }
-        if (++checked % 500 === 0) console.log(`  verified ${checked}/${toVerify.length + checked}`);
+        if (++checked % 500 === 0) console.log(`  sku lookups ${checked}/${total}`);
       }
     }),
   );
+
+  // Batched market prices for every NM sku found. A sku the response omits or
+  // prices at null has no near-mint market — that's TCGplayer saying N/A.
+  const nmPriceBySku = new Map<number, number>();
+  const skuIds = [...nmSkuByProduct.values()].flatMap((m) => [...m.values()]);
+  for (let i = 0; i < skuIds.length; i += SKU_PRICE_BATCH) {
+    const batch = skuIds.slice(i, i + SKU_PRICE_BATCH);
+    const res = await fetch(TCG_SKU_PRICES, {
+      method: "POST",
+      headers: { "User-Agent": "PokeMash-backfill/1.0", "Content-Type": "application/json" },
+      body: JSON.stringify({ skuIds: batch }),
+    });
+    if (!res.ok) throw new Error(`sku prices: ${res.status}`);
+    for (const row of (await res.json()) as SkuPrice[]) {
+      if (row.marketPrice !== null) nmPriceBySku.set(row.skuId, row.marketPrice);
+    }
+  }
+
+  let stamped = 0;
   let nulled = 0;
   for (const pick of picks) {
-    const sold = nmSoldByProduct.get(pick.product_id);
+    const byPrinting = nmSkuByProduct.get(pick.product_id);
     if (
-      sold !== undefined &&
-      pick.market_price !== null &&
-      pick.market_price >= NM_CHECK_THRESHOLD &&
-      (sold.get(pick.printing.toLowerCase()) ?? 0) === 0
+      byPrinting === undefined ||
+      pick.market_price === null ||
+      pick.market_price < NM_CHECK_THRESHOLD
     ) {
+      continue;
+    }
+    const skuId = byPrinting.get(pick.printing.toLowerCase());
+    const nmPrice = skuId !== undefined ? nmPriceBySku.get(skuId) : undefined;
+    if (nmPrice !== undefined) {
+      pick.market_price = nmPrice;
+      stamped++;
+    } else {
       pick.market_price = null;
       nulled++;
     }
   }
-  console.log(`near-mint check: ${nmSoldByProduct.size} products verified, ${nulled} market prices nulled (no NM sales this quarter)`);
+  console.log(
+    `near-mint check: ${nmSkuByProduct.size}/${total} products verified — ${stamped} cards stamped with the NM price, ${nulled} nulled (no NM market)`,
+  );
 
   const staged = picks.map(({ card_id, market_price, lowest_price, highest_price }) => ({
     card_id,
