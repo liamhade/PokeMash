@@ -4,9 +4,24 @@ import { STREAK_TIERS } from "@/lib/streak";
 // STREAK_TIERS (single source, shared with the card glow). Rendered in two places —
 // PanelLeft on md+ and the phone toolbar area below md — so direction/spacing is the
 // caller's concern via className (e.g. "flex-col gap-2" or "flex-row gap-3").
-export default function StreakLegend({ className }: { className?: string }) {
+// It earns screen space only while a glow is actually showing (`visible`): kept
+// mounted and faded via opacity so appearing never reflows the layout around it.
+export default function StreakLegend({
+  visible,
+  className,
+}: {
+  visible: boolean;
+  className?: string;
+}) {
   return (
-    <ul className={`flex select-none ${className ?? ""}`}>
+    <ul
+      aria-hidden={!visible}
+      className={[
+        "flex select-none transition-opacity duration-500",
+        visible ? "opacity-100" : "opacity-0",
+        className ?? "",
+      ].join(" ")}
+    >
       {STREAK_TIERS.map((tier) => (
         <li key={tier.streak} className="flex items-center gap-2 text-xs text-neutral-500">
           <span

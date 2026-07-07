@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getPlayerId } from "@/lib/playerId";
 import { updateRating, DEFAULT_RATING, type GlickoRating } from "@/lib/glicko2";
+import { flameColor } from "@/lib/streak";
 import FilterModal, {
   EMPTY_FILTERS,
   hasActiveFilters,
@@ -746,6 +747,11 @@ export default function ComparisonScreen() {
     loadNextPair();
   }
 
+  // The legend explains the glow colors, so it appears only while a glow is actually
+  // on the board (same tier walk as the card's flame) — otherwise it's a key to
+  // nothing and just clutters the screen.
+  const legendVisible = flameColor(streak) !== null;
+
   return (
     // Stacks vertically on phones (toolbar over the board); md and up is the original
     // row of PanelLeft | ComparisonArea | PanelRight, untouched.
@@ -767,10 +773,14 @@ export default function ComparisonScreen() {
       {/* Mobile-only streak legend (it lives in PanelLeft on md+). Same stacked column
           as desktop, tucked under the Filter trigger on the left edge. */}
       <div className="px-4 pt-5 md:hidden">
-        <StreakLegend className="flex-col gap-2" />
+        <StreakLegend visible={legendVisible} className="flex-col gap-2" />
       </div>
 
-      <PanelLeft filters={filters} onOpenFilter={() => setFilterOpen(true)} />
+      <PanelLeft
+        filters={filters}
+        onOpenFilter={() => setFilterOpen(true)}
+        legendVisible={legendVisible}
+      />
 
       <ComparisonArea
         cards={cards}
