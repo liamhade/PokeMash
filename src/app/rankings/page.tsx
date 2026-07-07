@@ -306,10 +306,10 @@ export default function RankingsPage() {
               cards rated before a pool-rule tightening can exceed today's pool. */}
           {meta.comparedCount !== undefined && (
             <div className="sticky bottom-0 border-t border-neutral-200 bg-white py-4 text-center font-semibold text-neutral-800 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">
-              You&apos;ve compared {meta.comparedCount.toLocaleString("en-US")} cards
+              You&apos;ve compared {meta.comparedCount.toLocaleString("en-US")}
               {meta.poolTotal
-                ? ` (${Math.min(100, Math.round((meta.comparedCount / meta.poolTotal) * 100))}%)`
-                : ""}
+                ? ` of ${meta.poolTotal.toLocaleString("en-US")} cards (${Math.min(100, Math.round((meta.comparedCount / meta.poolTotal) * 100))}%)`
+                : " cards"}
             </div>
           )}
         </>
