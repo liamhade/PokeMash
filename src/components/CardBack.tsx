@@ -4,8 +4,10 @@ import { tcgplayerSearchUrl } from "@/lib/cardInfo";
 // button and its FTC disclosure — shared by Rankings and Play so the affiliate link
 // and required disclosure live in one place. Expects to sit inside a
 // [transform-style:preserve-3d] flip container and fills whatever slot it's given
-// (absolute inset-0). Text/padding tighten below md so it also fits the narrower
-// phone-width Play cards without overflowing.
+// (absolute inset-0). Sized compact everywhere: the slot's size tracks the CARD, not
+// the viewport (the 238px rankings card is small on a desktop screen too), so
+// viewport-breakpoint upsizing overflowed the six-row universal back — the
+// disclosure fell off the card's bottom edge.
 type CardBackProps = {
   // Label/value rows for the details table, in display order.
   details: [string, string][];
@@ -15,17 +17,13 @@ type CardBackProps = {
 
 export default function CardBack({ details, buyName }: CardBackProps) {
   return (
-    <div className="absolute inset-0 flex flex-col justify-center gap-2 rounded-xl bg-white p-3 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)] md:p-4">
-      <table className="w-full text-xs md:text-sm">
+    <div className="absolute inset-0 flex flex-col justify-center gap-2 rounded-xl bg-white p-3 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
+      <table className="w-full text-xs">
         <tbody>
           {details.map(([label, value]) => (
             <tr key={label} className="border-b border-neutral-100 last:border-0">
-              <td className="py-1.5 pr-2 font-semibold text-neutral-500 md:py-2">
-                {label}
-              </td>
-              <td className="py-1.5 text-right break-words text-neutral-800 md:py-2">
-                {value}
-              </td>
+              <td className="py-1.5 pr-2 font-semibold text-neutral-500">{label}</td>
+              <td className="py-1.5 text-right break-words text-neutral-800">{value}</td>
             </tr>
           ))}
         </tbody>
