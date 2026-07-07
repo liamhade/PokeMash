@@ -784,3 +784,15 @@
 - [ ] The Buy button recolor touched only CardBack.tsx, yet it restyled the buy action on BOTH Rankings and Play. Which earlier refactor made that single-file change possible, and what would the change have looked like without it?
 
 - [ ] "One accent color" is doing functional work beyond aesthetics: in a UI where red already means interactive emphasis (Apply, toggle-on, active pill), what does a lone blue button implicitly signal to users about that action, and when WOULD a second accent color be the right call?
+
+- [ ] Pixelify Sans came back as a `next/font` import while the system stack needed none. What layout-shift risk reappears with any downloaded font, and which next/font mechanism (look up `adjustFontFallback`) papers over it while sans-serif is on screen?
+
+- [ ] Between Press Start 2P, VT323, and Pixelify Sans, why is "has true lowercase with normal proportions" the deciding property for an app-wide UI face rather than for a display-only face like the rating numbers?
+
+- [ ] `play()` clears and empties the shared `timers` pool at the start of each cycle even though every previous timer has fired by then. What failure mode does that hygiene protect against if CYCLE_MS were ever tuned BELOW the script's total duration, and why must the interval handle live outside that pool?
+
+- [ ] The 30s replay means the logo animates while users are mid-comparison. What makes a peripheral looping animation acceptable under minimalism here (think size, frequency, position), and which single CSS media preference must always be able to switch it off?
+
+- [ ] StreakLegend's API changed from `visible: boolean` to `streak: number`. Why is passing the rawer value the more future-proof prop here (which component now owns the reached-tier policy), and when is the opposite — a pre-digested boolean — the better interface?
+
+- [ ] Each tier row transitions `-translate-x-2 opacity-0` → `translate-x-0 opacity-100` when reached. Why do transform+opacity animate without triggering layout on neighboring rows, and what would animating `height` or `display` for the same "roll out" effect have cost on the stacked mobile column?
