@@ -4,11 +4,12 @@ import { EXCLUDED_TRAINER_NAMES } from "@/lib/excludedTrainerNames";
 // Comparing Common/Uncommon cards is boring, and "interesting" differs by era.
 // These rules decide which cards may appear on the Play screen — and, because the
 // rankings progress meter measures progress against the same servable pool, they
-// also produce its denominator. Shared here so the two routes can't drift.
+// also produce its denominator.
 //
-// NOTE: this logic is mirrored in supabase/migrations/20260630_comparison_pool.sql.
-// For now it lives here (the app's read-only key can't create that DB function);
-// move it into the database when someone with DB access can apply the migration.
+// These rules are the SOURCE, not the runtime check: scripts/stamp-eligibility.ts
+// evaluates them over the catalog and stamps the result into `cards.eligible`,
+// which is what the API routes filter on. Re-run the stamp (and the art backfill)
+// after importing new sets or changing anything here.
 
 // Always excluded: boring base rarities + the modern ex card ("Double Rare",
 // which is framed art, not full art). Excluded server-side via a `not in` filter —
@@ -91,6 +92,13 @@ export function isEligible(row: EligibilityRow): boolean {
   if (VINTAGE_ELIGIBLE_RARITIES.has(row.rarity))
     return hasFeaturedMechanic(row.name) || isVintage(row.release_date);
   return true;
+}
+
+// The complete pool rule — the rarity drop plus the name/era rules — i.e. what
+// `cards.eligible` is stamped with. isEligible alone assumes the dropped rarities
+// were already excluded by the caller's query.
+export function isPoolEligible(row: EligibilityRow): boolean {
+  return !DROP_RARITIES.includes(row.rarity) && isEligible(row);
 }
 
 // --- Series filter ----------------------------------------------------------

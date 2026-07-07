@@ -7,9 +7,9 @@
 // a run, point cards.art_url at the uploaded objects (see scripts/README note in
 // DONE.md) — the app serves art_url and falls back to image_url.
 //
-// Scope: the eligible comparison pool (same rules the Play screen uses, imported
-// from src/lib/comparisonPool) PLUS every card that already appears in card_ranks
-// (rankings can show cards that later fell out of the pool).
+// Scope: the eligible comparison pool (the stamped cards.eligible column — run
+// scripts/stamp-eligibility.ts first) PLUS every card that already appears in
+// card_ranks (rankings can show cards that later fell out of the pool).
 //
 // Run with: npx tsx scripts/backfill-card-art.ts
 // Idempotent: cards whose object already exists in the bucket are skipped, so an
@@ -19,7 +19,6 @@
 // (the repo only holds the publishable key); drop the policy after the run.
 
 import { readFileSync } from "node:fs";
-import { DROP_RARITIES, isEligible } from "../src/lib/comparisonPool";
 
 // The Play screen renders cards at 325 CSS px wide; store 2x for retina screens.
 const TARGET_WIDTH = 650;
@@ -57,37 +56,22 @@ async function rest<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-type CardRow = {
-  card_id: string;
-  name: string;
-  rarity: string;
-  release_date: string | null;
-  image_url: string;
-};
-
 // Every card the app can serve art for: the eligible pool plus already-ranked ids.
 async function collectTargets(): Promise<Map<string, string>> {
   const targets = new Map<string, string>(); // card_id -> image_url
-  const byId = new Map<string, CardRow>();
 
-  const notIn = `not.in.(${DROP_RARITIES.map((r) => `"${r}"`).join(",")})`;
   for (let from = 0; ; from += PAGE_SIZE) {
-    const page = await rest<CardRow[]>(
-      `cards?select=card_id,name,rarity,release_date,image_url&rarity=${encodeURIComponent(notIn)}` +
-        `&order=card_id&limit=${PAGE_SIZE}&offset=${from}`,
+    const page = await rest<{ card_id: string; image_url: string | null }[]>(
+      `cards?select=card_id,image_url&eligible=eq.true&order=card_id&limit=${PAGE_SIZE}&offset=${from}`,
     );
     for (const row of page) {
-      if (!byId.has(row.card_id)) byId.set(row.card_id, row);
-      if (row.image_url && isEligible(row) && !targets.has(row.card_id)) {
-        targets.set(row.card_id, row.image_url);
-      }
+      if (row.image_url) targets.set(row.card_id, row.image_url);
     }
     if (page.length < PAGE_SIZE) break;
   }
 
   // Ranked cards outside the eligible pool (looser past rules) still show in the
-  // rankings list, so they need art too. Their rows may not be in the prefiltered
-  // pages above; fetch any stragglers by id.
+  // rankings list, so they need art too; fetch the stragglers by id.
   const rankedIds = new Set<string>();
   for (let from = 0; ; from += PAGE_SIZE) {
     const page = await rest<{ card_id: string }[]>(
@@ -96,17 +80,13 @@ async function collectTargets(): Promise<Map<string, string>> {
     for (const row of page) rankedIds.add(row.card_id);
     if (page.length < PAGE_SIZE) break;
   }
-  const missing = [...rankedIds].filter((id) => !targets.has(id) && !byId.has(id));
+  const missing = [...rankedIds].filter((id) => !targets.has(id));
   for (let i = 0; i < missing.length; i += 100) {
     const chunk = missing.slice(i, i + 100);
-    const rows = await rest<CardRow[]>(
+    const rows = await rest<{ card_id: string; image_url: string | null }[]>(
       `cards?select=card_id,image_url&card_id=in.(${chunk.join(",")})`,
     );
     for (const row of rows) if (row.image_url) targets.set(row.card_id, row.image_url);
-  }
-  for (const id of rankedIds) {
-    const row = byId.get(id);
-    if (row?.image_url && !targets.has(id)) targets.set(id, row.image_url);
   }
   return targets;
 }
