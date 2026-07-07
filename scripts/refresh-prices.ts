@@ -10,6 +10,17 @@
 // Edition only when nothing else is priced — matching what the TCGplayer product
 // page features by default.
 //
+// NEAR-MINT VERIFICATION: the feed's market price is printing-level, not
+// condition-level — for scarce vintage it can be carried entirely by played-copy
+// sales while the product page's near-mint line reads N/A (Expedition Mew:
+// feed $411.66, page N/A). Showing that number as "the" price misinforms, so for
+// cards at or above NM_CHECK_THRESHOLD the script also asks TCGplayer's public
+// per-product price-history endpoint whether the chosen printing actually sold
+// near-mint this quarter, and nulls market_price when it didn't (the UI renders
+// an em dash, same as cards with no price data). Cheap cards are skipped: they
+// trade near-mint constantly, and one request per card is only polite for the
+// few thousand where a wrong number would sting.
+//
 // Like the other stamp scripts, results go into public.price_stage over REST and
 // the script prints the UPDATE a DB admin runs to sync (SQL editor or MCP). Cards
 // absent from the stage (no product id, or TCGplayer reports no market price) keep
@@ -26,6 +37,10 @@ const PAGE_SIZE = 1000;
 
 // tcgcsv category 3 = Pokémon.
 const TCGCSV = "https://tcgcsv.com/tcgplayer/3";
+
+// Cards priced at or above this get the near-mint verification request (~2,900
+// cards at $25); below it the feed price is trusted as-is.
+const NM_CHECK_THRESHOLD = 25;
 
 function loadEnv(): { url: string; key: string } {
   const lines = readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n");
@@ -118,8 +133,11 @@ async function main() {
   console.log(`prices for ${pricesByProduct.size} products across ${groups.length} groups`);
 
   // Pick each card's best-ranked printing that actually has a market price.
-  const staged: {
+  // product_id/printing ride along for the near-mint verification below.
+  const picks: {
     card_id: string;
+    product_id: number;
+    printing: string;
     market_price: number | null;
     lowest_price: number | null;
     highest_price: number | null;
@@ -130,14 +148,79 @@ async function main() {
       .filter((row) => row.marketPrice !== null)
       .sort((a, b) => printingRank(a.subTypeName, holoRarity) - printingRank(b.subTypeName, holoRarity));
     if (priced.length === 0) continue;
-    staged.push({
+    picks.push({
       card_id: card.card_id,
+      product_id: card.tcgplayer_product_id,
+      printing: priced[0].subTypeName,
       market_price: priced[0].marketPrice,
       lowest_price: priced[0].lowPrice,
       highest_price: priced[0].highPrice,
     });
   }
-  console.log(`${staged.length}/${cards.length} cards priced (rest keep their old values)`);
+  console.log(`${picks.length}/${cards.length} cards priced (rest keep their old values)`);
+
+  // Near-mint verification (see the header). One request per DISTINCT product —
+  // sold quantities are summed over the quarter's history rows for the chosen
+  // printing + Near Mint. Zero NM sales nulls market_price; the listing bounds
+  // stay (they are real asks either way). A failed request keeps the feed price:
+  // only positive evidence of a dead near-mint market may erase a number.
+  type HistoryRow = { variant: string; condition: string; totalQuantitySold: string };
+  const nmSoldByProduct = new Map<number, Map<string, number>>();
+  const toVerify = [
+    ...new Set(
+      picks
+        .filter((p) => p.market_price !== null && p.market_price >= NM_CHECK_THRESHOLD)
+        .map((p) => p.product_id),
+    ),
+  ];
+  let checked = 0;
+  await Promise.all(
+    Array.from({ length: 6 }, async () => {
+      for (let pid = toVerify.shift(); pid !== undefined; pid = toVerify.shift()) {
+        try {
+          const res = await fetch(
+            `https://infinite-api.tcgplayer.com/price/history/${pid}/detailed?range=quarter`,
+            { headers: { "User-Agent": "PokeMash-backfill/1.0" } },
+          );
+          if (!res.ok) throw new Error(String(res.status));
+          const rows = ((await res.json()) as { result: HistoryRow[] }).result ?? [];
+          const sold = new Map<string, number>();
+          for (const row of rows) {
+            if (row.condition === "Near Mint") {
+              const key = row.variant.toLowerCase();
+              sold.set(key, (sold.get(key) ?? 0) + Number(row.totalQuantitySold));
+            }
+          }
+          // Only counts as evidence if the product returned history at all.
+          if (rows.length > 0) nmSoldByProduct.set(pid, sold);
+        } catch {
+          // keep the feed price for this product
+        }
+        if (++checked % 500 === 0) console.log(`  verified ${checked}/${toVerify.length + checked}`);
+      }
+    }),
+  );
+  let nulled = 0;
+  for (const pick of picks) {
+    const sold = nmSoldByProduct.get(pick.product_id);
+    if (
+      sold !== undefined &&
+      pick.market_price !== null &&
+      pick.market_price >= NM_CHECK_THRESHOLD &&
+      (sold.get(pick.printing.toLowerCase()) ?? 0) === 0
+    ) {
+      pick.market_price = null;
+      nulled++;
+    }
+  }
+  console.log(`near-mint check: ${nmSoldByProduct.size} products verified, ${nulled} market prices nulled (no NM sales this quarter)`);
+
+  const staged = picks.map(({ card_id, market_price, lowest_price, highest_price }) => ({
+    card_id,
+    market_price,
+    lowest_price,
+    highest_price,
+  }));
 
   // Replace the stage's contents. (PostgREST requires a filter on DELETE; this
   // one matches every row.)

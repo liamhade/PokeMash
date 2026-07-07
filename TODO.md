@@ -49,6 +49,19 @@
 
 # LEARNING
 
+## near-mint verification: null the market price nobody near-mint pays
+
+- [ ] The NM check in `refresh-prices.ts` only nulls `market_price` when the history
+  endpoint RETURNED rows and the chosen printing's Near Mint rows sum to zero sales —
+  a failed or empty response keeps the feed price. Why must "no evidence" and "evidence
+  of absence" be treated differently when the action is destructive (erasing a price),
+  and what would a flaky network do to the catalog if they weren't?
+
+- [ ] Verification costs one request per product but only runs for cards ≥
+  `NM_CHECK_THRESHOLD` ($25 ≈ 2,900 products vs 22,500). What property of cheap cards
+  makes the feed price trustworthy without checking, and how does the threshold trade
+  request volume against the worst-case size of a wrong displayed price?
+
 ## refresh prices from TCGplayer's per-printing feed
 
 - [ ] In `scripts/refresh-prices.ts`, `printingRank` prices a card's base printing —
