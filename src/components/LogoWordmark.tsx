@@ -2,71 +2,85 @@
 
 import { useEffect, useState } from "react";
 
-// The animated PokeMash wordmark: on each load it types the name out with a caret,
-// pauses, backspaces to one randomly chosen letter, and retypes it in the flipped
-// brand color (a "Poke" letter comes back red, a "Mash" letter comes back dark) —
-// a small typo-correction vignette that lands differently every visit. Once done,
-// the caret blinks a moment longer and fades.
+// The animated PokeMash wordmark: types the whole name in black with a caret,
+// pauses, erases "Mash", and retypes it in brand red — then the caret fades.
+// The vignette replays from a blank line every CYCLE_MS.
 const NAME = "PokeMash";
-// First index of the red half of the base scheme ("Poke" dark / "Mash" red, echoing
-// the old raster logo's colors).
+// Where "Mash" starts: everything from here is erased and retyped in red.
 const RED_FROM = NAME.indexOf("Mash");
 
 const TYPE_MS = 90;
 const ERASE_MS = 55;
+const CYCLE_MS = 30_000;
 
-// One rendered frame of the animation: how many letters are shown, and which letter
-// (if any) wears the flipped accent color — null until the retype reaches it.
-type Frame = { shown: number; accentIdx: number | null };
+// One rendered frame: how many letters are shown, and whether the "Mash" half has
+// been retyped red yet (false during the first all-black pass and the erase).
+type Frame = { shown: number; mashRed: boolean };
 
-// The full keystroke script for a given accent letter, as frames with the delay to
-// wait BEFORE showing each. Type everything → pause → backspace to the accent
-// letter → beat → retype it (accented) and the letters after it.
-function buildScript(accentIdx: number): { frame: Frame; delay: number }[] {
+// The keystroke script, as frames with the delay to wait BEFORE showing each:
+// type everything black → pause → backspace through "Mash" → beat → retype it red.
+// Deterministic, so it's built once at module scope.
+const SCRIPT: { frame: Frame; delay: number }[] = (() => {
   const steps: { frame: Frame; delay: number }[] = [];
   for (let i = 1; i <= NAME.length; i++) {
-    steps.push({ frame: { shown: i, accentIdx: null }, delay: TYPE_MS });
+    steps.push({ frame: { shown: i, mashRed: false }, delay: TYPE_MS });
   }
-  steps.push({ frame: { shown: NAME.length, accentIdx: null }, delay: 700 });
-  for (let i = NAME.length - 1; i >= accentIdx; i--) {
-    steps.push({ frame: { shown: i, accentIdx: null }, delay: ERASE_MS });
+  steps.push({ frame: { shown: NAME.length, mashRed: false }, delay: 700 });
+  for (let i = NAME.length - 1; i >= RED_FROM; i--) {
+    steps.push({ frame: { shown: i, mashRed: false }, delay: ERASE_MS });
   }
-  steps.push({ frame: { shown: accentIdx, accentIdx: null }, delay: 350 });
-  for (let i = accentIdx + 1; i <= NAME.length; i++) {
-    steps.push({ frame: { shown: i, accentIdx }, delay: TYPE_MS });
+  steps.push({ frame: { shown: RED_FROM, mashRed: false }, delay: 350 });
+  for (let i = RED_FROM + 1; i <= NAME.length; i++) {
+    steps.push({ frame: { shown: i, mashRed: true }, delay: TYPE_MS });
   }
   return steps;
-}
+})();
 
 export default function LogoWordmark() {
-  // Starts empty on the server and types in after hydration; the accent letter is
-  // only chosen client-side (in the effect) so SSR and hydration render the same
-  // empty frame.
-  const [frame, setFrame] = useState<Frame>({ shown: 0, accentIdx: null });
+  // Starts empty on the server and types in after hydration, so SSR and the
+  // hydration pass render the same blank frame.
+  const [frame, setFrame] = useState<Frame>({ shown: 0, mashRed: false });
   const [done, setDone] = useState(false);
 
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
-    // Reduced motion: skip the theater, show the finished wordmark. Scheduled (not
-    // set synchronously) so the effect never renders cascades of its own.
+    // Reduced motion: skip the theater, show the finished wordmark, no replays.
+    // Scheduled (not set synchronously) so the effect never cascades renders.
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       timers.push(
         setTimeout(() => {
-          setFrame({ shown: NAME.length, accentIdx: null });
+          setFrame({ shown: NAME.length, mashRed: true });
           setDone(true);
         }, 0),
       );
-    } else {
-      const script = buildScript(Math.floor(Math.random() * NAME.length));
-      let at = 400; // beat after load before the first keystroke
-      for (const step of script) {
+      return () => timers.forEach(clearTimeout);
+    }
+    // One full playthrough: blank the line (caret back on), then run the script.
+    // Every timer of the previous cycle has fired by the next one (the script is
+    // a few seconds, the cycle 30), so resetting the pool is just hygiene.
+    function play() {
+      timers.forEach(clearTimeout);
+      timers.length = 0;
+      timers.push(
+        setTimeout(() => {
+          setFrame({ shown: 0, mashRed: false });
+          setDone(false);
+        }, 0),
+      );
+      let at = 400; // beat on the blank line before the first keystroke
+      for (const step of SCRIPT) {
         at += step.delay;
         timers.push(setTimeout(() => setFrame(step.frame), at));
       }
       // Let the caret linger a moment on the finished name, then fade it out.
       timers.push(setTimeout(() => setDone(true), at + 1200));
     }
-    return () => timers.forEach(clearTimeout);
+    play();
+    const cycle = setInterval(play, CYCLE_MS);
+    return () => {
+      clearInterval(cycle);
+      timers.forEach(clearTimeout);
+    };
   }, []);
 
   return (
@@ -75,16 +89,14 @@ export default function LogoWordmark() {
     <span aria-hidden className="flex select-none items-baseline text-2xl font-bold tracking-tight">
       {NAME.slice(0, frame.shown)
         .split("")
-        .map((ch, i) => {
-          const baseRed = i >= RED_FROM;
-          // The retyped letter wears the OTHER half's color.
-          const red = i === frame.accentIdx ? !baseRed : baseRed;
-          return (
-            <span key={i} className={red ? "text-red-600" : "text-neutral-900"}>
-              {ch}
-            </span>
-          );
-        })}
+        .map((ch, i) => (
+          <span
+            key={i}
+            className={i >= RED_FROM && frame.mashRed ? "text-red-600" : "text-neutral-900"}
+          >
+            {ch}
+          </span>
+        ))}
       <span
         className={[
           "logo-caret ml-0.5 h-[1.05em] w-[2px] self-center rounded-full bg-neutral-400",
