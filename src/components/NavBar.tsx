@@ -13,7 +13,7 @@ import AccountControl from "./AccountControl";
 // the page.
 export default function NavBar() {
   return (
-    <header className="sticky top-0 z-50 relative flex items-center bg-white pl-4 pr-2 md:px-6 py-2 shadow-md">
+    <header className="sticky top-0 z-50 relative flex items-center bg-white pl-4 pr-1 md:px-6 py-2 shadow-md">
       <Link href="/" className="-ml-1 flex items-center">
         {/* The original retro logo (pokeball + bubbly Pokemon-style wordmark). The
             source PNG's outline is thin and light. Until the asset is redrawn (see

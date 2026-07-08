@@ -974,3 +974,7 @@
 - [ ] In `NavBar.tsx`, why does changing only the account div's mobile gap (`gap-1` → `gap-0`) shift Play/Rankings/About rightward while leaving the avatar fixed, when the avatar lives INSIDE that same div? (Hint: which element is the right-aligned block anchored to, and which way does a shrinking block's left edge move?)
 
 - [ ] Reducing the About↔avatar gap was the only lever to move the trio right without touching the avatar, because the avatar is pinned at the header's right padding. What would it have taken to shift the trio right by MORE than the 4px that gap held, and why does the "don't move the avatar" constraint cap the achievable shift?
+
+- [ ] After `gap-0` exhausted the shift-without-moving-the-avatar lever, the only way further right was trimming the header's mobile right padding (`pr-2` → `pr-1`), which moves the avatar too. Why is the header padding the ONLY remaining lever once the block is right-anchored and its internal gap is zero?
+
+- [ ] `pr-1` (4px) was chosen over `pr-0` to avoid the cluster sitting flush against the iOS screen edge. What device-specific reasons (safe areas, rounded corners, touch ergonomics) make a small non-zero edge inset worth keeping even when asked to push content "right a little more"?
