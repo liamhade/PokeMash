@@ -110,12 +110,15 @@ column). So after importing new card rows into `cards`, walk this list:
 
 7. **Refresh prices:** `npx tsx scripts/refresh-prices.ts` — re-reads current
    TCGplayer prices (market + listing bounds, per printing) into `price_stage` via
-   the product ids from step 6 and prints the sync UPDATE. Cards ≥ $25 also get
-   near-mint verification: the card's Near Mint SKU is resolved via TCGplayer's
-   page APIs and its market price stamped verbatim (the number on the page's
-   "Near Mint Comparison Prices" line), or nulled to an em dash when TCGplayer
-   prices no NM sku. Also worth running on its own every so often: prices drift
-   continuously, imports or not.
+   the product ids from step 6 and prints the sync UPDATE. Vintage cards
+   (pre-Black & White) ≥ $25 also get near-mint verification: the card's Near
+   Mint SKU is resolved via TCGplayer's page APIs and its market price stamped
+   verbatim (the number on the page's "Near Mint Comparison Prices" line), or
+   nulled to an em dash when TCGplayer prices no NM sku. Modern cards skip the
+   check (they trade NM constantly). WOTC packs whose scans show the 1st Edition
+   stamp are always verified and priced as 1st Edition — Base Set resolves its
+   NM sku on the Shadowless group (where TCGplayer files Base 1st Editions).
+   Also worth running on its own every so often: prices drift, imports or not.
 
 8. **Sanity-check:** `select count(*) from cards where eligible` should match the
    stamp script's printed count; the rankings meter denominator (`poolTotal` from

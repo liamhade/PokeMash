@@ -31,7 +31,9 @@ export type EligibilityRow = {
 // (starts Mar 2011). The boundary falls inside 2011, so we compare full release dates
 // (free text like "Apr 25, 2011"), not just the year.
 const MODERN_ERA_START = new Date("2011-03-01");
-function isVintage(releaseDate: string | null): boolean {
+// Exported for scripts/refresh-prices.ts: near-mint price verification only makes
+// sense for vintage cards (modern cards trade near-mint constantly).
+export function isVintage(releaseDate: string | null): boolean {
   if (!releaseDate) return false;
   const date = new Date(releaseDate.trim());
   return !Number.isNaN(date.getTime()) && date < MODERN_ERA_START;

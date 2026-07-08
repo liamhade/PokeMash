@@ -49,6 +49,22 @@
 
 # LEARNING
 
+## price the printing in the picture (1st Edition scans, vintage-only checks)
+
+- [ ] Our WOTC scans all carry the 1st Edition stamp, so `refresh-prices.ts` prices
+  those packs' 1st Edition NM sku — except Base Set, whose 1st Editions TCGplayer
+  files under the separate Shadowless group, resolved by collector number with
+  leading zeros stripped ("004/102" vs our "4/102"). The first run silently kept
+  Unlimited prices for all of Base Set — why did the zero-padding bug produce
+  "wrong prices kept" rather than a crash or an empty result, and what kind of
+  check would have caught it before the sync?
+
+- [ ] The NM check now skips modern cards entirely (`isVintage`, the same
+  pre-Black & White boundary the rarity rules use) instead of checking everything
+  ≥ $25. What property of modern card markets makes the feed price ≈ the NM price
+  there, and what does reusing the pool's exported `isVintage` buy over a second,
+  slightly different "vintage" definition living in the script?
+
 ## near-mint verification: stamp the page's NM price or nothing
 
 - [ ] `refresh-prices.ts` resolves each verified card's Near Mint SKU (printing ×

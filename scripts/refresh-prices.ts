@@ -10,19 +10,27 @@
 // Edition only when nothing else is priced — matching what the TCGplayer product
 // page features by default.
 //
-// NEAR-MINT VERIFICATION: the feed's market price is printing-level, not
-// condition-level — for scarce vintage it can be carried entirely by played-copy
-// sales while the product page's "Near Mint Comparison Prices" line reads N/A
-// (Expedition Mew: feed $411.66, page N/A) or a different figure (Expedition
-// Feraligatr: feed carried played sales, NM Holofoil is $331.83). The UI labels
-// this column "Near Mint Market Price", so for cards at or above
-// NM_CHECK_THRESHOLD the script resolves the chosen printing's Near Mint SKU
-// (TCGplayer prices per sku = printing × condition × language) and stamps that
-// SKU's market price — the exact number the product page shows near-mint — or
-// null when TCGplayer has none (the UI renders an em dash, same as cards with no
-// price data). Cheap cards keep the feed price unverified: near-mint sales
-// dominate their markets anyway, and one request per card is only polite for the
-// few thousand where a wrong number would sting.
+// NEAR-MINT VERIFICATION (vintage only): the feed's market price is
+// printing-level, not condition-level — for scarce vintage it can be carried
+// entirely by played-copy sales while the product page's "Near Mint Comparison
+// Prices" line reads N/A (Expedition Mew: feed $411.66, page N/A) or a different
+// figure (Expedition Feraligatr: NM Holofoil is $331.83). The UI labels this
+// column "Near Mint Market Price", so for VINTAGE cards (pre-Black & White, the
+// isVintage boundary) at or above NM_CHECK_THRESHOLD the script resolves the
+// chosen printing's Near Mint SKU (TCGplayer prices per sku = printing ×
+// condition × language) and stamps that SKU's market price — the exact number
+// the product page shows near-mint — or null when TCGplayer has none (the UI
+// renders an em dash, same as cards with no price data). Modern cards always
+// keep the feed price: they trade near-mint constantly, so feed ≈ NM there.
+//
+// FIRST EDITION: our art for the WOTC packs that had 1st Edition print runs
+// (FIRST_EDITION_SCAN_PACKS) is scanned from 1st Edition copies — the stamp is
+// visible on the card — so pricing those cards' Unlimited printing would
+// contradict the picture. Cards in those packs are ALWAYS verified (any price)
+// against their 1st Edition NM sku. Base Set is the special case: TCGplayer
+// files its 1st Edition (= Shadowless) cards under the separate "Base Set
+// (Shadowless)" group, so Base Set cards resolve their NM sku on the Shadowless
+// product matched by collector number instead.
 //
 // Like the other stamp scripts, results go into public.price_stage over REST and
 // the script prints the UPDATE a DB admin runs to sync (SQL editor or MCP). Cards
@@ -35,15 +43,37 @@
 // Re-run whenever prices feel stale — they move continuously.
 
 import { readFileSync } from "node:fs";
+import { isVintage } from "../src/lib/comparisonPool";
 
 const PAGE_SIZE = 1000;
 
 // tcgcsv category 3 = Pokémon.
 const TCGCSV = "https://tcgcsv.com/tcgplayer/3";
 
-// Cards priced at or above this get the near-mint verification requests (~2,500
-// distinct products at $25); below it the feed price is trusted as-is.
+// Vintage cards priced at or above this get the near-mint verification requests;
+// below it the feed price is trusted as-is. (First-edition packs are always
+// verified regardless of price — see the header.)
 const NM_CHECK_THRESHOLD = 25;
+
+// WOTC packs whose pkmncards scans show the 1st Edition stamp (verified by eye:
+// Base Set, Jungle, Gym Heroes, Team Rocket, Neo Genesis/Discovery all carry it).
+// Base Set 2, Legendary Collection, Southern Islands, promos, and everything from
+// E-Card on had no 1st Edition print run, so their scans can't mismatch.
+const FIRST_EDITION_SCAN_PACKS = new Set([
+  "Base Set (BS)",
+  "Jungle (JU)",
+  "Fossil (FO)",
+  "Team Rocket (RO)",
+  "Gym Heroes (G1)",
+  "Gym Challenge (G2)",
+  "Neo Genesis (N1)",
+  "Neo Discovery (N2)",
+  "Neo Revelation (N3)",
+  "Neo Destiny (N4)",
+]);
+// Base Set 1st Editions live in TCGplayer's separate Shadowless group.
+const BASE_SET_PACK = "Base Set (BS)";
+const SHADOWLESS_GROUP_ID = 1663;
 
 // TCGplayer's page APIs (public, but undocumented): sku definitions per product,
 // and market prices per sku (batched — the ids come from the details call).
@@ -91,7 +121,14 @@ async function tcgcsv<T>(path: string): Promise<T> {
   return ((await res.json()) as { results: T }).results;
 }
 
-type CardRow = { card_id: string; rarity: string | null; tcgplayer_product_id: number };
+type CardRow = {
+  card_id: string;
+  rarity: string | null;
+  pack: string | null;
+  release_date: string | null;
+  collector_number: string | null;
+  tcgplayer_product_id: number;
+};
 type PriceRow = {
   productId: number;
   subTypeName: string;
@@ -101,14 +138,15 @@ type PriceRow = {
 };
 
 // Rank a printing for "the price of this card": lower is preferred. Tier 1 is the
-// unlimited base printing — Holofoil before Normal for Holo rarities (a modern
-// "Rare Holo" product can also exist as cheaper non-holo pack filler), Normal first
-// otherwise. Reverse Holofoil is a variant, and 1st Edition a collector premium, so
-// they only price cards that exist in no other printing.
-function printingRank(subTypeName: string, holoRarity: boolean): number {
+// card's base printing — 1st Edition for the packs whose scans show the stamp,
+// unlimited otherwise — with Holofoil before Normal for Holo rarities (a modern
+// "Rare Holo" product can also exist as cheaper non-holo pack filler). Reverse
+// Holofoil is a variant, and printings from the wrong edition only price cards
+// that exist in no other printing.
+function printingRank(subTypeName: string, holoRarity: boolean, firstEdition: boolean): number {
   const sub = subTypeName.toLowerCase();
-  if (sub.includes("1st edition")) return 30;
   if (sub.includes("reverse")) return 20;
+  if (sub.includes("1st edition") !== firstEdition) return 30;
   const holoish = sub.includes("holofoil");
   return holoRarity === holoish ? 10 : 11;
 }
@@ -119,7 +157,7 @@ async function main() {
   for (let from = 0; ; from += PAGE_SIZE) {
     const page = (await (
       await rest(
-        `cards?select=card_id,rarity,tcgplayer_product_id&tcgplayer_product_id=not.is.null&order=card_id&limit=${PAGE_SIZE}&offset=${from}`,
+        `cards?select=card_id,rarity,pack,release_date,collector_number,tcgplayer_product_id&tcgplayer_product_id=not.is.null&order=card_id&limit=${PAGE_SIZE}&offset=${from}`,
       )
     ).json()) as CardRow[];
     cards.push(...page);
@@ -142,27 +180,60 @@ async function main() {
   );
   console.log(`prices for ${pricesByProduct.size} products across ${groups.length} groups`);
 
+  // Base Set cards resolve their NM sku on the Shadowless product with the same
+  // collector number (see the header), so index that group's products by number.
+  type Product = { productId: number; extendedData?: { name: string; value: string }[] };
+  // Left of "/", leading zeros stripped: the Shadowless group zero-pads ("004/102")
+  // where our catalog doesn't ("4/102"). Same normalization as backfill-tcgplayer.
+  const numberKey = (value: string | null) => {
+    const left = value?.trim().split("/")[0].trim().toLowerCase();
+    return left ? left.replace(/\d+/g, (run) => String(Number(run))) : null;
+  };
+  const shadowlessByNumber = new Map<string, number>();
+  for (const product of await tcgcsv<Product[]>(`${SHADOWLESS_GROUP_ID}/products`)) {
+    const key = numberKey(product.extendedData?.find((e) => e.name === "Number")?.value ?? null);
+    if (key) shadowlessByNumber.set(key, product.productId);
+  }
+
   // Pick each card's best-ranked printing that actually has a market price.
-  // product_id/printing ride along for the near-mint verification below.
+  // The verification fields ride along: which product to resolve the NM sku on,
+  // and whether this card must be priced as a 1st Edition.
   const picks: {
     card_id: string;
-    product_id: number;
     printing: string;
+    holoRarity: boolean;
+    firstEdition: boolean;
+    nmProductId: number | undefined;
+    verify: boolean;
     market_price: number | null;
     lowest_price: number | null;
     highest_price: number | null;
   }[] = [];
   for (const card of cards) {
     const holoRarity = card.rarity?.toLowerCase().includes("holo") ?? false;
+    const firstEdition = card.pack !== null && FIRST_EDITION_SCAN_PACKS.has(card.pack);
     const priced = (pricesByProduct.get(card.tcgplayer_product_id) ?? [])
       .filter((row) => row.marketPrice !== null)
-      .sort((a, b) => printingRank(a.subTypeName, holoRarity) - printingRank(b.subTypeName, holoRarity));
+      .sort(
+        (a, b) =>
+          printingRank(a.subTypeName, holoRarity, firstEdition) -
+          printingRank(b.subTypeName, holoRarity, firstEdition),
+      );
     if (priced.length === 0) continue;
+    const market = priced[0].marketPrice;
     picks.push({
       card_id: card.card_id,
-      product_id: card.tcgplayer_product_id,
       printing: priced[0].subTypeName,
-      market_price: priced[0].marketPrice,
+      holoRarity,
+      firstEdition,
+      nmProductId:
+        card.pack === BASE_SET_PACK
+          ? shadowlessByNumber.get(numberKey(card.collector_number) ?? "")
+          : card.tcgplayer_product_id,
+      verify:
+        firstEdition ||
+        (isVintage(card.release_date) && market !== null && market >= NM_CHECK_THRESHOLD),
+      market_price: market,
       lowest_price: priced[0].lowPrice,
       highest_price: priced[0].highPrice,
     });
@@ -179,8 +250,8 @@ async function main() {
   const verifyProducts = [
     ...new Set(
       picks
-        .filter((p) => p.market_price !== null && p.market_price >= NM_CHECK_THRESHOLD)
-        .map((p) => p.product_id),
+        .filter((p) => p.verify && p.nmProductId !== undefined)
+        .map((p) => p.nmProductId as number),
     ),
   ];
   const total = verifyProducts.length;
@@ -229,18 +300,24 @@ async function main() {
     }
   }
 
+  // Which NM sku prices this card: for 1st Edition packs, any "1st edition"
+  // variant (holo-matched when there's a choice — the pack's holos and non-holos
+  // are separate skus); otherwise the exact printing the feed pick chose.
+  function nmSkuFor(pick: (typeof picks)[number], byPrinting: Map<string, number>): number | undefined {
+    if (!pick.firstEdition) return byPrinting.get(pick.printing.toLowerCase());
+    const candidates = [...byPrinting.keys()].filter((v) => v.includes("1st edition"));
+    const holoMatched = candidates.filter((v) => v.includes("holofoil") === pick.holoRarity);
+    const variant = holoMatched[0] ?? candidates[0];
+    return variant === undefined ? undefined : byPrinting.get(variant);
+  }
+
   let stamped = 0;
   let nulled = 0;
   for (const pick of picks) {
-    const byPrinting = nmSkuByProduct.get(pick.product_id);
-    if (
-      byPrinting === undefined ||
-      pick.market_price === null ||
-      pick.market_price < NM_CHECK_THRESHOLD
-    ) {
-      continue;
-    }
-    const skuId = byPrinting.get(pick.printing.toLowerCase());
+    if (!pick.verify || pick.nmProductId === undefined) continue;
+    const byPrinting = nmSkuByProduct.get(pick.nmProductId);
+    if (byPrinting === undefined) continue; // details fetch failed: keep the feed price
+    const skuId = nmSkuFor(pick, byPrinting);
     const nmPrice = skuId !== undefined ? nmPriceBySku.get(skuId) : undefined;
     if (nmPrice !== undefined) {
       pick.market_price = nmPrice;
