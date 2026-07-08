@@ -1,15 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
+import { avatarSrc } from "@/lib/avatars";
+import { ensureProfile, saveAvatar, type Profile } from "@/lib/profile";
+import AvatarPicker from "./AvatarPicker";
 import { navPillClass } from "./NavButton";
 
 // The nav bar's account corner. Signed out it's a single "Sign in" pill opening
 // a modal with one Google button — with OAuth, signing up and logging in are the
 // same action, so one entry point covers both (two buttons would just be clutter
-// that dead-ends in the identical Google screen). Signed in, the pill becomes a
-// person icon whose dropdown shows the account email and a sign-out button.
+// that dead-ends in the identical Google screen). Signed in, the pill becomes
+// the player's chosen avatar (person icon until they pick one) whose dropdown
+// shows who they are plus Friends / Choose avatar / Sign out.
 // Modal follows HowItWorks' overlay conventions: click-outside or × to close.
 
 // Google's four-color "G", inlined per their sign-in branding guidelines.
@@ -40,17 +45,44 @@ export default function AccountControl() {
   // undefined = session not read yet; render nothing for that first beat rather
   // than flash "Sign in" at a signed-in user (the read is local and resolves fast).
   const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     // onAuthStateChange fires immediately with the current session
     // (INITIAL_SESSION), so one subscription covers first paint and changes.
     const { data: sub } = createClient().auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      // Drop the profile with the session; a new sign-in reloads it below.
+      if (!session) setProfile(null);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Load (and on first sign-in, create) the profile behind the session — it
+  // carries the avatar shown in the pill. Keyed on the user id so a sign-in
+  // after sign-out reloads it.
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    ensureProfile().then((loaded) => {
+      if (!cancelled) setProfile(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  async function chooseAvatar(slug: string) {
+    if (!userId) return;
+    // Optimistic: the pill updates instantly; the row is theirs by RLS.
+    setProfile((prev) => (prev ? { ...prev, avatar: slug } : prev));
+    setPickerOpen(false);
+    await saveAvatar(userId, slug);
+  }
 
   async function signInWithGoogle() {
     // Full-page redirect to Google; we come back through /auth/callback.
@@ -123,6 +155,10 @@ export default function AccountControl() {
     );
   }
 
+  const avatar = avatarSrc(profile?.avatar);
+  const menuItemClass =
+    "block w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-neutral-800 transition-colors hover:bg-neutral-50 hover:text-red-600";
+
   return (
     <div className="relative">
       <button
@@ -132,20 +168,32 @@ export default function AccountControl() {
         aria-expanded={menuOpen}
         className={navPillClass}
       >
-        {/* Minimal person glyph; currentColor picks up the pill's hover red. */}
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="8" r="3.6" />
-          <path d="M4.5 20c1.4-3.4 4.2-5 7.5-5s6.1 1.6 7.5 5" />
-        </svg>
+        {avatar ? (
+          /* Their chosen Pokémon; pixelated so the 96px sprite stays crisp. */
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={avatar}
+            alt=""
+            width={26}
+            height={26}
+            className="h-[26px] w-[26px] [image-rendering:pixelated]"
+          />
+        ) : (
+          /* Minimal person glyph; currentColor picks up the pill's hover red. */
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="8" r="3.6" />
+            <path d="M4.5 20c1.4-3.4 4.2-5 7.5-5s6.1 1.6 7.5 5" />
+          </svg>
+        )}
       </button>
 
       {menuOpen && (
@@ -154,15 +202,32 @@ export default function AccountControl() {
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
           <div className="absolute right-0 top-full z-50 mt-2 w-max max-w-[80vw] rounded-xl border border-neutral-100 bg-white p-2 shadow-xl">
             <p className="truncate px-3 py-2 text-sm text-neutral-500">{user.email}</p>
+            <Link href="/friends" onClick={() => setMenuOpen(false)} className={menuItemClass}>
+              Friends
+            </Link>
             <button
               type="button"
-              onClick={signOut}
-              className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-neutral-800 transition-colors hover:bg-neutral-50 hover:text-red-600"
+              onClick={() => {
+                setMenuOpen(false);
+                setPickerOpen(true);
+              }}
+              className={menuItemClass}
             >
+              Choose avatar
+            </button>
+            <button type="button" onClick={signOut} className={menuItemClass}>
               Sign out
             </button>
           </div>
         </>
+      )}
+
+      {pickerOpen && (
+        <AvatarPicker
+          current={profile?.avatar ?? null}
+          onSelect={chooseAvatar}
+          onClose={() => setPickerOpen(false)}
+        />
       )}
     </div>
   );
