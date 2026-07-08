@@ -800,9 +800,9 @@ export default function Clefairy({ picks }: { picks: number }) {
       // continuous run all the way there, with her first peek chained onto the
       // ARRIVAL (a fixed-time peek could fire mid-run and yank her to the card
       // top in a single 350ms hop: the "teleport"). The flee doesn't start at
-      // visit time though: it's scheduled for when the serpent's head is
-      // actually ~140px on screen plus a beat to "notice" it — she must react
-      // to the monster, not to a timer the player can't see.
+      // visit time though: it's scheduled for the instant the serpent's head
+      // crosses onto the screen — she must react to the monster, not to a
+      // timer the player can't see.
       const herX = xRef.current;
       const off = (c: CardRect) => Math.abs((c.left + c.right) / 2 - herX);
       const card = cards.find((c) => c.winner) ?? cards.reduce((a, b) => (off(a) <= off(b) ? a : b));
@@ -848,9 +848,9 @@ export default function Clefairy({ picks }: { picks: number }) {
       const y = Math.min(0, lowest + 6 + dim.stripH);
       const crossMs = VISIT_MS - 600;
       const crossSpeed = Math.abs(endX - startX) / (crossMs / 1000);
-      // She notices him once his head is well on screen (it spawns 24px off
-      // the edge), then bolts.
-      after(((24 + 140) / crossSpeed) * 1000 + 300, flee);
+      // She bolts the instant his head crosses the screen edge (it spawns
+      // 24px off it).
+      after((24 / crossSpeed) * 1000, flee);
       serpentRef.current = { x: startX, y };
       setSerpent({ kind, x: startX, y, ms: 0, dir });
       flightAfter(60, () => {

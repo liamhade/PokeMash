@@ -998,3 +998,7 @@
 - [ ] In `ComparisonScreen.tsx`'s fresh-mode refill, the response is re-checked against the CURRENT board and queue even though the request already carried an `excludeId` list — under what sequence of picks and in-flight fetches can the server's exclusions be correct at request time yet stale by the time the response lands?
 
 - [ ] Keep Winner mode was fast because a 3-deep challenger queue absorbed fetch latency, while fresh mode's one-shot preload was consumed every pick. Why does a queue (with per-pick top-offs) beat "prefetch exactly one" whenever consumption can outpace production, and what determines the right depth?
+
+- [ ] In `serpentVisit`, the flee delay is `(24 / crossSpeed) * 1000` — why must the trigger be computed from `crossSpeed` and the 24px spawn offset rather than a fixed millisecond delay, and what would a hardcoded delay get wrong across different screen widths?
+
+- [ ] The old flee waited for the head to be ~140px on screen plus a 300ms "notice" beat — deliberate anticipation staging (react to what the player can see). The user read that same delay as sluggishness. What does this say about how animation-timing principles like anticipation translate (or don't) to ambient background characters, and who arbitrates when a crafted delay reads as lag?
