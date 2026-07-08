@@ -40,6 +40,24 @@ the browser on every save, so you see changes in real time.
 Other scripts: `npm run build` (production build), `npm run start` (serve the
 production build), `npm run lint` (ESLint).
 
+## Google sign-in (Supabase Auth) — one-time dashboard setup
+
+The sign-in flow is pure Supabase Auth (no extra env vars — the publishable key
+covers it), but it only works once the project is configured in the dashboard:
+
+1. **Google credentials:** in Google Cloud Console, create an OAuth 2.0 Client ID
+   (type "Web application") with the authorized redirect URI
+   `https://wmhbvlggntwisedrvncq.supabase.co/auth/v1/callback`.
+2. **Enable the provider:** Supabase dashboard → Authentication → Sign In / Providers
+   → Google → paste the client ID + secret.
+3. **Allow our redirect targets:** Authentication → URL Configuration → set the
+   Site URL to the production domain and add `http://localhost:3000/**` (and the
+   prod domain's `/**`) to Redirect URLs — `signInWithOAuth` sends users back to
+   `{origin}/auth/callback`, which must be on this allowlist.
+
+Until step 2 is done, "Continue with Google" bounces off Supabase with a
+"provider is not enabled" error; everything else in the app still works.
+
 ## Branch & commit workflow
 
 We collaborate on `main`, so **all of my work happens on a separate branch** to avoid
@@ -102,7 +120,25 @@ column). So after importing new card rows into `cards`, walk this list:
                  where o.bucket_id = 'card-art' and o.name = c.card_id || '.webp');
    ```
 
-6. **Sanity-check:** `select count(*) from cards where eligible` should match the
+6. **Re-run the TCGplayer id backfill:** `npx tsx scripts/backfill-tcgplayer.ts` —
+   fills `tcgplayer_stage` over REST and prints the sync UPDATEs to run in the SQL
+   editor (same staging pattern as eligibility). Unmatched cards keep the Buy
+   button's name-search fallback, so a skipped run degrades, never breaks. If the
+   script reports a newly unmapped pack, add it to `PACK_GROUP_ALIASES` in the script.
+
+7. **Refresh prices:** `npx tsx scripts/refresh-prices.ts` — re-reads current
+   TCGplayer prices (market + listing bounds, per printing) into `price_stage` via
+   the product ids from step 6 and prints the sync UPDATE. Vintage cards
+   (pre-Black & White) ≥ $25 also get near-mint verification: the card's Near
+   Mint SKU is resolved via TCGplayer's page APIs and its market price stamped
+   verbatim (the number on the page's "Near Mint Comparison Prices" line), or
+   nulled to an em dash when TCGplayer prices no NM sku. Modern cards skip the
+   check (they trade NM constantly). WOTC packs whose scans show the 1st Edition
+   stamp are always verified and priced as 1st Edition — Base Set resolves its
+   NM sku on the Shadowless group (where TCGplayer files Base 1st Editions).
+   Also worth running on its own every so often: prices drift, imports or not.
+
+8. **Sanity-check:** `select count(*) from cards where eligible` should match the
    stamp script's printed count; the rankings meter denominator (`poolTotal` from
    `/api/rankings?playerId=...`) should show the same number; play a few rounds and
    confirm new-set cards appear with art. Cards missed by the backfill fall back to

@@ -5,7 +5,8 @@ import { withStorageArt } from "@/lib/cardArt";
 import { DEFAULT_RATING } from "@/lib/glicko2";
 import { LEGENDARY_COLLECTION, matchesSeries } from "@/lib/comparisonPool";
 
-// set/pack/release_date ride along to the client for the card-info flip on Play.
+// set/pack/release_date, market_price, and the TCGplayer product id ride along
+// to the client for the card-info flip on Play.
 type Card = {
   card_id: string;
   name: string;
@@ -13,6 +14,8 @@ type Card = {
   set: string | null;
   pack: string | null;
   release_date: string | null;
+  market_price: number | null;
+  tcgplayer_product_id: number | null;
 };
 // A card joined with this player's Glicko-2 rating for it (r, rd, mu).
 type RatedCard = Card & { r: number; rd: number; mu: number };
@@ -181,18 +184,21 @@ const FRESH_COUNT_MAX = 5;
 // Picks the next cards for a player to compare.
 // Query: ?playerId=...  and optionally &winnerId=... (Keep Winner mode: returns
 // the winner plus `count` (default 1) fresh challengers instead of a brand-new pair).
+// Without winnerId, returns `count` (default 1) PAIRS, flattened consecutively
+// ([a1, b1, a2, b2, …]) with every card distinct — the client queues them, and a
+// queued pair sharing a card with the board can't take the overlap animation path.
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const playerId = params.get("playerId");
   const winnerId = params.get("winnerId");
-  // Optional: card ids (comma-separated) to exclude from the challenger pool even if not
-  // yet in history. The client uses this to PRELOAD challengers for the on-screen winner
-  // while the current pair is still up — passing the current opponent plus any challengers
-  // already queued, so none of them is served right back (the same guarantee the post-pick
-  // history normally provides once results are saved).
+  // Optional: card ids (comma-separated) to exclude from the pool even if not yet in
+  // history. The client uses this to PRELOAD while the current pair is still up —
+  // passing the on-board cards plus everything already queued, so none of them is
+  // served right back (the same guarantee the post-pick history normally provides
+  // once results are saved).
   const excludeIds = (params.get("excludeId") ?? "").split(",").filter(Boolean);
-  // How many challengers to return in Keep Winner mode (the client batches its preload
-  // queue into one request); capped so `count` can't dump the whole pool.
+  // How many challengers (Keep Winner) or pairs (fresh mode) to return — the client
+  // batches its preload queue into one request; capped so `count` can't dump the pool.
   const freshCount = Math.min(FRESH_COUNT_MAX, Math.max(1, Number(params.get("count")) || 1));
   if (!playerId) {
     return NextResponse.json({ error: "playerId is required" }, { status: 400 });
@@ -297,7 +303,7 @@ export async function GET(request: NextRequest) {
   async function sampleEligible(offset: number): Promise<Card[]> {
     let rowsQuery = supabase
       .from("cards")
-      .select("card_id, name, image_url, art_url, set, pack, release_date")
+      .select("card_id, name, image_url, art_url, set, pack, release_date, market_price, tcgplayer_product_id")
       .eq("eligible", true);
     if (seriesWindowSets.length) rowsQuery = rowsQuery.in("set", seriesWindowSets);
     if (eraSets.length) rowsQuery = rowsQuery.in("set", eraSets);
@@ -327,6 +333,8 @@ export async function GET(request: NextRequest) {
           set: row.set,
           pack: row.pack,
           release_date: row.release_date,
+          market_price: row.market_price,
+          tcgplayer_product_id: row.tcgplayer_product_id,
         });
       }
     }
@@ -366,7 +374,7 @@ export async function GET(request: NextRequest) {
     if (!winner) {
       const { data: winnerCard, error: winnerError } = await supabase
         .from("cards")
-        .select("card_id, name, image_url, art_url, set, pack, release_date")
+        .select("card_id, name, image_url, art_url, set, pack, release_date, market_price, tcgplayer_product_id")
         .eq("card_id", winnerId)
         .single();
       if (winnerError || !winnerCard) {
@@ -388,7 +396,18 @@ export async function GET(request: NextRequest) {
     const fresh = supply_winner_with_fresh_cards(winner, ratedCards, comparedOpponentIds, freshCount);
     chosen = [winner, ...fresh];
   } else {
-    chosen = information_rich_pair(ratedCards);
+    const excluded = new Set(excludeIds);
+    let pool = ratedCards.filter((card) => !excluded.has(card.card_id));
+    // A restrictive filter can leave too few cards once the board/queue is excluded;
+    // serve from the full pool instead of nothing (the client tolerates an overlapping
+    // pair via its slower sequential swap path).
+    if (pool.length < 2) pool = ratedCards;
+    chosen = [];
+    for (let i = 0; i < freshCount && pool.length >= 2; i++) {
+      const pair = information_rich_pair(pool);
+      chosen.push(...pair);
+      pool = pool.filter((card) => card !== pair[0] && card !== pair[1]);
+    }
   }
 
   return NextResponse.json({
@@ -401,6 +420,8 @@ export async function GET(request: NextRequest) {
       set: card.set,
       pack: card.pack,
       release_date: card.release_date,
+      market_price: card.market_price,
+      tcgplayer_product_id: card.tcgplayer_product_id,
       r: card.r,
       rd: card.rd,
       mu: card.mu,

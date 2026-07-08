@@ -31,7 +31,9 @@ export type EligibilityRow = {
 // (starts Mar 2011). The boundary falls inside 2011, so we compare full release dates
 // (free text like "Apr 25, 2011"), not just the year.
 const MODERN_ERA_START = new Date("2011-03-01");
-function isVintage(releaseDate: string | null): boolean {
+// Exported for scripts/refresh-prices.ts: near-mint price verification only makes
+// sense for vintage cards (modern cards trade near-mint constantly).
+export function isVintage(releaseDate: string | null): boolean {
   if (!releaseDate) return false;
   const date = new Date(releaseDate.trim());
   return !Number.isNaN(date.getTime()) && date < MODERN_ERA_START;
@@ -42,13 +44,15 @@ function isVintage(releaseDate: string | null): boolean {
 // on "Energy" being the LAST word after stripping those. This deliberately keeps
 // trainers like "Energy Retrieval" / "Ancient Booster Energy Capsule" (Energy is
 // not the final word). Done by name because the data has no card-type column.
+// The one naming exception: the "Holon Energy FF/GL/WP" trio suffixes the element
+// letters AFTER "Energy" — the only energies in the catalog not ending in it.
 function isEnergyCard(name: string): boolean {
   const stripped = name
     .replace(/\{[^}]*\}/g, "") // element symbols, e.g. {G}{R}
     .replace(/prism star/gi, "") // subtype tag, e.g. "Beast Energy Prism Star"
     .replace(/\s+/g, " ")
     .trim();
-  return /\bEnergy$/i.test(stripped);
+  return /\bEnergy$/i.test(stripped) || /^Holon Energy\b/i.test(stripped);
 }
 
 // "Promo", "Rare" and "Rare Holo" are catch-all rarities that lump boring non-holos
@@ -70,24 +74,44 @@ const VINTAGE_ELIGIBLE_RARITIES = new Set(["Rare", "Rare Holo"]);
 // Trainer "Item", "Stadium", and "Pokémon Tool" cards aren't fun to compare. The data
 // has no card-type column, so we match by name against a list pulled from the Pokemon
 // TCG API (see excludedTrainerNames.ts). This normalization MUST match how that list
-// was generated.
+// was generated — the API writes the Prism Star tag as "◇" (dropped with the other
+// non-ASCII), while our catalog spells it out, so the words are stripped too or
+// "Wondrous Labyrinth Prism Star" would never match the list's "wondrous labyrinth".
 function normalizeName(name: string): string {
   return name
     .normalize("NFKD")
+    .replace(/[’‘]/g, "'") // curly -> ASCII apostrophe BEFORE the non-ASCII drop:
+    // the catalog writes "Hero’s Cape" but the list came from ASCII "Hero's Cape";
+    // deleting the curly form ("heros cape") can never match the list ("hero s cape")
     .replace(/[^\x00-\x7f]/g, "") // drop non-ASCII (incl. combining accents)
     .toLowerCase()
+    .replace(/prism star/g, " ") // subtype tag, spelled out in our data
     .replace(/[^a-z0-9 ]/g, " ") // punctuation -> space, so apostrophes etc. don't matter
     .replace(/\s+/g, " ")
     .trim();
 }
 
-// The rules a SQL `not in` filter can't express: drop energy cards and Item/Stadium/
-// Tool trainers; keep a "Promo" only with a featured mechanic; keep a "Rare"/"Rare Holo"
-// with a featured mechanic OR if it's genuinely vintage. (The always-dropped rarities
-// are excluded in the query.)
+// Prism Star Supporter trainers. Prism Star was a discontinued Sun & Moon-era mechanic,
+// so this is a closed set. Supporters are kept as a category (so these aren't in the
+// Item/Stadium/Tool list), and their "Rare Prism Star" rarity is judged by no rarity
+// rule — so they fall through to eligible. Matched on the FULL lowercased name, NOT
+// normalizeName: that strips "Prism Star", which would also drop the full-art Cyrus/
+// Lance/Lysandre/Lusamine Supporter cards we deliberately keep.
+const EXCLUDED_PRISM_STAR_TRAINERS = new Set([
+  "cyrus prism star",
+  "lance prism star",
+  "lusamine prism star",
+  "lysandre prism star",
+]);
+
+// The rules a SQL `not in` filter can't express: drop energy cards, Item/Stadium/Tool
+// trainers, and Prism Star Supporter trainers; keep a "Promo" only with a featured
+// mechanic; keep a "Rare"/"Rare Holo" with a featured mechanic OR if it's genuinely
+// vintage. (The always-dropped rarities are excluded in the query.)
 export function isEligible(row: EligibilityRow): boolean {
   if (isEnergyCard(row.name)) return false;
   if (EXCLUDED_TRAINER_NAMES.has(normalizeName(row.name))) return false;
+  if (EXCLUDED_PRISM_STAR_TRAINERS.has(row.name.trim().toLowerCase())) return false;
   if (row.rarity === "Promo") return hasFeaturedMechanic(row.name);
   if (VINTAGE_ELIGIBLE_RARITIES.has(row.rarity))
     return hasFeaturedMechanic(row.name) || isVintage(row.release_date);

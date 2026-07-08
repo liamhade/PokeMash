@@ -2,6 +2,12 @@
 
 ## FUNCTIONAL
 
+- [ ] (**consolidate components**) combine panelRight and panelLeft into the comparison screen, since that's the only place that we would need the information.
+
+- [ ] (**anon->sign-up**) The user gets 20 free comparisons (that number should be easily adjustable in the backend code). After that, the user is prompted with a sign-in modal in the center of the screen (the rest of the screen should be blurred). All sign-in functionalities should leverage `Supabases` built-in sign-in functionalites. The user should be prompted to sign-in with their Google account (OAuth, which Supabase natively supports). After a user signs-in, the comparisons / rankings that they performed while anonymous should automatically transfer over to their current account.
+
+	- [x] (**account handling**) A red `Sign Up` Pill button will be created in the upper right in the `Nav Bar`. When the user clicks it, the same modal that pops-up in the **anon->sign-up** ticket should appear. The user should be prompted to sign-in with their Google Account (OAuth). Once the user signs in, a person icon appears in the upper-right. If they click on the person icon, it shows a dropdown modal that contains their email address that they are signed in with, as well as a sign-out button. *(Shipped as a single "Sign in" pill — with OAuth, sign-up and login are the same action; see DONE.md. The parent ticket's 20-free-comparisons prompt gate is still open.)*
+
 - [ ] (**move comparison pool rule into the database**)
 	- *PROBLEM*: The rarity rule above lives in TypeScript because the app's read-only key can't create DB objects. That means an extra `cards` read per request and logic split from the data.
 	- *SOLUTION*: Apply `supabase/migrations/20260630_comparison_pool.sql` (creates `comparison_pool()`), then switch `/api/comparison/next` back to `supabase.rpc("comparison_pool")`. Needs someone with Supabase DB access.
@@ -24,6 +30,10 @@
 	- *Series list is static* in `FilterModal` (`SERIES`) and mirrored by the API's `ERA_SETS` — both must be regenerated when a new series ships. A `distinct_sets()` RPC (needs DB access) would let the dropdown load live, like the old rarity filter did.
 	- *Price gaps*: ~10% of cards have null `market_price` (silently excluded when a price bound is set); some rows have messy prices (e.g. `market_price` 0 with a high `lowest_price`).
 
+- [ ] (**scheduled price refresh**)
+	- *PROBLEM*: Card prices in `cards` (market/lowest/highest) are a snapshot from the last manual run of `scripts/refresh-prices.ts` (DEVELOPMENT.md step 7) — they drift until someone reruns it and applies the printed sync UPDATE by hand.
+	- *SOLUTION*: Port the refresh to a scheduled job — e.g. a Supabase Edge Function on a nightly/weekly cron (pg_cron + pg_net, or an external scheduler hitting the function) running with the service key so it can update `cards` directly, no staging table or manual SQL step. Must carry over the whole verification layer: vintage (pre-Black & White) ≥ $25 gets NM-sku verification; the ten WOTC 1st-Edition-scan packs are always verified and priced as 1st Edition (Base Set via the Shadowless group); modern cards take the feed price as-is. Source feed (tcgcsv.com) updates daily, so anything more frequent than nightly is wasted. Keep prices in Supabase regardless — pool price-filtering and rankings query `market_price` in SQL, and live pulls would put TCGplayer's undocumented APIs on the request path.
+
 <!-- Flesh this out more -->
 - [ ] (**compare from `See Rankings`**) Add abilitity to click on card from `See Rankings` to compare that card on `Play` to another card.
 
@@ -42,6 +52,128 @@
 - [ ] If the user selects a 
 
 # LEARNING
+
+## Prism Star Supporter leak (Lysandre etc.)
+
+- [ ] `EXCLUDED_PRISM_STAR_TRAINERS` matches on `row.name.trim().toLowerCase()` instead of
+  routing through `normalizeName` like `EXCLUDED_TRAINER_NAMES` does. Trace what would go
+  wrong for the full-art "Cyrus"/"Lysandre" Supporter cards if these four were added to the
+  normalized list instead — which specific step of `normalizeName` causes the collision?
+
+- [ ] This was the third "name-join vs. generated-list" leak, and the prior session said a
+  third should trigger a switch to typed card data (via `tcgplayer_product_id`). Why is an
+  explicit 4-name set defensible *here* specifically (what property of the Prism Star
+  mechanic makes it closed), even though the general advice is to stop patching names?
+
+## iOS nav avatar squish (max-width + fixed height)
+
+- [ ] The avatar `<img>` already had `w-[52px] h-[52px]`, yet it rendered narrower
+  than 52px on iOS. Explain the interaction between Tailwind Preflight's
+  `img { max-width: 100% }`, the explicit `h-[52px]`, and a flex-shrunk pill that
+  produced a compressed *width* but not a compressed height.
+
+- [ ] The fix combined two independent levers: reclaiming row space (smaller logo,
+  `-ml-1`) and pinning the avatar (`shrink-0` on the pill + `max-w-none shrink-0` on
+  the img). Why isn't either lever sufficient alone — what does each one fail to
+  guarantee on the narrowest viewports?
+
+## Google sign-in: session identity + anonymous-history transfer
+
+- [ ] `getPlayerId` became async (session user id ?? anon localStorage UUID) and
+  `handlePick` chains it into the fire-and-forget POST promise instead of awaiting it
+  at the top. Why must the pick handler itself stay synchronous (think: what work the
+  next lines do), and which of the other call sites could have tolerated an await-at-top?
+
+- [ ] `transfer_player_data` is SECURITY DEFINER, takes only the anonymous id, derives
+  the destination from `auth.uid()`, and has EXECUTE revoked from `anon`. Walk the abuse
+  each of those three choices blocks — and why is mere possession of the anonymous UUID
+  acceptable as proof of ownership of that history?
+
+- [ ] The transfer is offered only to FRESH accounts, and the function re-checks that
+  server-side. Why can't two histories simply be unioned (what would two `card_ranks`
+  rows for the same `(player, card)` mean in Glicko terms), and why is the client-side
+  freshness check alone not enough?
+
+- [ ] One "Sign in" pill shipped instead of the planned Sign Up + Login pair, because
+  OAuth makes them the identical action. When are two entry points into one flow
+  signposting rather than clutter, and where did the "sign up" meaning move instead?
+
+## price the printing in the picture (1st Edition scans, vintage-only checks)
+
+- [ ] Our WOTC scans all carry the 1st Edition stamp, so `refresh-prices.ts` prices
+  those packs' 1st Edition NM sku — except Base Set, whose 1st Editions TCGplayer
+  files under the separate Shadowless group, resolved by collector number with
+  leading zeros stripped ("004/102" vs our "4/102"). The first run silently kept
+  Unlimited prices for all of Base Set — why did the zero-padding bug produce
+  "wrong prices kept" rather than a crash or an empty result, and what kind of
+  check would have caught it before the sync?
+
+- [ ] The NM check now skips modern cards entirely (`isVintage`, the same
+  pre-Black & White boundary the rarity rules use) instead of checking everything
+  ≥ $25. What property of modern card markets makes the feed price ≈ the NM price
+  there, and what does reusing the pool's exported `isVintage` buy over a second,
+  slightly different "vintage" definition living in the script?
+
+## near-mint verification: stamp the page's NM price or nothing
+
+- [ ] `refresh-prices.ts` resolves each verified card's Near Mint SKU (printing ×
+  condition × language) and stamps that SKU's market price, nulling only when
+  TCGplayer prices no NM sku — but a failed details request keeps the feed price
+  untouched. Why must "no evidence" (fetch failed) and "evidence of absence"
+  (TCGplayer says no NM market) lead to opposite outcomes when the action erases
+  or rewrites a price, and what would a flaky network otherwise do to the catalog?
+
+- [ ] The first NM rule ("null when zero NM sales this quarter") wrongly blanked
+  Expedition Feraligatr, whose page shows an NM price computed from OLDER sales.
+  What's the general lesson about proxying a system's displayed state ("what would
+  the page show?") through a correlated signal instead of reading the state itself,
+  and why did the proxy fail in exactly the scarce-card cases the check exists for?
+
+- [ ] Verification costs requests only for cards ≥ `NM_CHECK_THRESHOLD` ($25 ≈ 2,500
+  products vs 22,500), so sub-$25 cards show a feed price under a "Near Mint Market
+  Price" label. What property of cheap cards makes that approximation honest, and
+  how does the threshold trade request volume against the worst-case size of a
+  mislabeled price?
+
+## refresh prices from TCGplayer's per-printing feed
+
+- [ ] In `scripts/refresh-prices.ts`, `printingRank` prices a card's base printing —
+  unlimited Normal/Holofoil (rarity-steered) over Reverse Holofoil over 1st Edition.
+  Walk the Expedition Mew 19/165 case: which printing's price was the old $216.50, why
+  is $411.66 the honest number for our row, and when is a Reverse Holofoil or 1st
+  Edition price ever the one we stamp?
+
+- [ ] The sync UPDATE only touches cards present in `price_stage`, so unmatched or
+  unpriced cards keep their stale import prices instead of being nulled. Why is "stale
+  beats absent" the right call for a price used in FILTERS (not just display), and what
+  would nulling do to a player's min/max price pool mid-session?
+
+## market price on the Play flip
+
+- [ ] `formatPrice` moved from rankings/page.tsx into lib/cardInfo.ts and its parameter
+  widened from `number | null` to `number | null | undefined`. Which caller forces
+  `undefined` into the signature, and why does the 0-sentinel ("no sales data") handling
+  survive the widening without any code change?
+
+- [ ] The pair-coder rule says two similar lines aren't a pattern worth extracting — yet
+  `formatPrice` was consolidated at its second use instead of copied. What makes a
+  domain RULE (market_price's 0 sentinel means "no price") different from incidental
+  similarity, and what user-visible bug does divergence between the two flips invite?
+
+## direct TCGplayer Buy links: product-id backfill
+
+- [ ] In `scripts/backfill-tcgplayer.ts`, pack→group candidates found by name or
+  abbreviation are scored by the fraction of the pack's collector numbers the group
+  actually contains (`MIN_GROUP_SCORE`), instead of trusting a unique abbreviation
+  hit. What wrong links did scoring catch that "unique abbreviation = match" silently
+  accepted (our "Battle Styles (BST)" vs TCGplayer's BST), and why is number-hit
+  fraction a trustworthy arbiter for this join?
+
+- [ ] `tcgplayerUrl` returns a product page when `tcgplayer_product_id` is present
+  and falls back to a name search otherwise, mirroring the `art_url ?? image_url`
+  pattern. Why is "degrade to a worse-but-working link" the right failure posture for
+  newly imported sets that haven't been through the backfill yet, and what UX would a
+  NOT NULL column with a sentinel value have forced instead?
 
 ## stale saved winner: version the sessionStorage key
 
@@ -810,3 +942,67 @@
 - [ ] The extra space went on as `mt-2` on the button rather than bumping the parent's `gap-2` to `gap-4`. What's the difference in what each would have changed on the card back, and why does the margin better express "space between THESE two siblings"?
 
 - [ ] CardBack's column uses `justify-center` with fixed overall card height, so adding mt-2 didn't push the disclosure off the bottom — where did the 8px actually come from, and at what point would stacking more spacing re-create the overflow bug just fixed?
+
+- [ ] `add_friend` and `ensure_profile` are SECURITY DEFINER with EXECUTE revoked from anon, while avatar updates go straight through RLS with a column-level `grant update (display_name, avatar)`. What decides which of the two mechanisms a given write needs — and why would a plain select policy on profiles for code lookup have made every profile enumerable?
+
+- [ ] `friendships` stores one canonical row with `check (user_a < user_b)` instead of two mirrored rows. What does each approach cost at query time (see the `or` conditions in the RLS policy and `removeFriend`), and which invariant does the single-row design make impossible to violate rather than merely unlikely?
+
+- [ ] In `rankings/page.tsx`, `useSearchParams` forced the screen behind a `Suspense` boundary. What does Next actually do at build time to a static page that reads search params without one, and why can't the framework just default the params to empty during prerender?
+
+- [ ] The friend view resolves `friendName` client-side through the friends RLS policy, but the rankings data itself comes from the open `/api/rankings?playerId=` endpoint. What privacy line does this feature actually enforce versus merely suggest, and what would have to move server-side before "only friends can see your rankings" is literally true?
+
+- [ ] `isEnergyCard` needed a `/^Holon Energy\b/` special case because the FF/GL/WP trio puts the element letters after "Energy". Why is anchoring on "Energy$" still the right general rule instead of matching the word anywhere in the name — which card types would a contains-match wrongly judge, and what did the `\menergy\M` DB sweep prove about the exception list being complete?
+
+- [ ] Wondrous Labyrinth leaked because two data sources spell the same tag differently ("◇" vs "Prism Star") on either side of a normalized-name join. When matching entities by name across sources, why must the normalization function be treated as part of the data contract — and what's the cheapest guard that would have caught this class of drift when the list was generated?
+
+- [ ] Doubling the pill avatar to 52px made the whole nav bar ~16px taller because the pill's own py-2 padding rides on top of the image box. If the bar height had to stay fixed instead, which single element's padding/size would you change, and why is `image-rendering: pixelated` what keeps a 96px sprite acceptable at any of these sizes?
+
+- [ ] The eligibility fix changed only source rules, but users see the effect only after stamp-eligibility + the sync UPDATEs re-materialize `cards.eligible`. What staleness risks does a stamped column introduce compared to evaluating `isPoolEligible` per request, and what in this session's 6617→6606 count made the re-stamp safe to apply without a full diff review?
+
+- [ ] Hero's Cape leaked because `normalizeName` DELETED the catalog's curly "’" (non-ASCII) while the list's ASCII "'" became a SPACE — "heros cape" vs "hero s cape". Why must every character class handled by a normalizer used on both sides of a join map to the same output regardless of source encoding, and which normalization step (NFKD, drop, punctuation-to-space) is the right place for each kind of character?
+
+- [ ] Two sessions in a row, pool leaks came from the same root: a name-based join against a generated list where the two sides spell things differently ("◇" vs "Prism Star", "'" vs "’"). At what point does patching the normalizer lose to switching the exclusion source to typed data (e.g. tcgcsv card types via the tcgplayer_product_id we already stamp on 98.6% of cards)?
+
+- [ ] Hero's Cape survived the DB fix because `readSavedComparison` restores the sessionStorage pair on mount BEFORE any `/api/comparison/next` call, and sessionStorage persists across reloads. Trace exactly when the restored board is finally replaced by eligible-only data — which user actions refetch, and which (Keep Winner on the held card) can keep a stale card on screen indefinitely without a version bump?
+
+- [ ] Bumping `COMPARISON_STORAGE_KEY` flushes every saved pair exactly once, decoupling the client cache from a server-side eligibility change. What's the tradeoff of this "version bump on data invalidation" pattern versus validating each restored Card against the live pool on mount, and why is the coupling (admin must remember to bump after a re-stamp) acceptable at this app's scale?
+
+- [ ] To shift the right cluster toward the edge on iOS, `NavBar.tsx` switched the header from `px-4 md:px-6` to `pl-4 pr-2 md:px-6`. Why does reducing only the RIGHT padding move Play/Rankings/About/avatar rightward while leaving the logo put, and why is the `md:px-6` override needed to keep desktop symmetric?
+
+- [ ] Enlarging the avatar to 60px (`AccountControl.tsx`) grows the nav bar's height, yet the earlier `shrink-0 max-w-none` pin is what keeps it a true 60×60 square. Why does a fixed `w-[60px] h-[60px]` alone NOT guarantee a square in a flex row, and how does trimming the header's right padding in the same change reduce the overflow pressure that made the pin necessary?
+
+- [ ] In `NavBar.tsx`, why does changing only the account div's mobile gap (`gap-1` → `gap-0`) shift Play/Rankings/About rightward while leaving the avatar fixed, when the avatar lives INSIDE that same div? (Hint: which element is the right-aligned block anchored to, and which way does a shrinking block's left edge move?)
+
+- [ ] Reducing the About↔avatar gap was the only lever to move the trio right without touching the avatar, because the avatar is pinned at the header's right padding. What would it have taken to shift the trio right by MORE than the 4px that gap held, and why does the "don't move the avatar" constraint cap the achievable shift?
+
+- [ ] After `gap-0` exhausted the shift-without-moving-the-avatar lever, the only way further right was trimming the header's mobile right padding (`pr-2` → `pr-1`), which moves the avatar too. Why is the header padding the ONLY remaining lever once the block is right-anchored and its internal gap is zero?
+
+- [ ] `pr-1` (4px) was chosen over `pr-0` to avoid the cluster sitting flush against the iOS screen edge. What device-specific reasons (safe areas, rounded corners, touch ergonomics) make a small non-zero edge inset worth keeping even when asked to push content "right a little more"?
+
+- [ ] The mobile streak legend overlapped the left card only at the 40+ tier and only on short viewports. Why does switching the mobile `StreakLegend` from `flex-col` to `flex-row` remove the overlap when the absolute `left-4 top-16` anchor stayed the same — what did the column's growth direction have to do with Safari's shrinking visible height?
+
+- [ ] The legend is an absolute `pointer-events-none` overlay specifically so it doesn't reserve a layout band (the board centers in ALL space below the toolbar). What's the tradeoff between "overlay that can overlap" vs "in-flow element that reserves space," and why does making the overlay horizontal get BOTH benefits (centered board AND no overlap) that neither pure option offered?
+
+- [ ] `CardBack` now steps type/padding DOWN below md (e.g. `text-[10px] md:text-xs`, `py-0.5 md:py-1.5`) so the shared back fits the 44vw mobile Play card. The file's header comment says an earlier attempt to size UP above md overflowed — why is stepping down from a compact base the safe direction, while stepping up from it was the bug?
+
+- [ ] The back is `absolute inset-0 justify-center` with no `overflow-hidden`, so content taller than the card spills off BOTH edges (name off the top, FTC disclosure off the bottom). Why was tightening the intrinsic content height the right fix here rather than adding `overflow-hidden` or making the back scroll — what would each of those have cost the disclosure?
+
+- [ ] In `ComparisonArea.tsx` the card art is marked loaded from BOTH a `ref` callback (checking `node.complete && node.naturalWidth > 0`) and `onLoad`. Why does the app's own `warmImage` preload (in `ComparisonScreen.tsx`) make the ref path the one that actually fires on Safari, and why is `naturalWidth > 0` needed on top of `complete`?
+
+- [ ] `onLoad` never fires for an image already `complete` in cache when the handler is attached — Chrome happened to hide this, Safari exposed it. What general lesson does this teach about relying on a single event to represent a state that may already be true before you start listening, and why is checking the current state (idempotently) more robust than waiting for its transition?
+
+- [ ] In `Clefairy.tsx`'s `onClick`, the ignore filter is `closest('button, [role="button"], a, input, select')`. Why did the card pick target need the `[role="button"]` selector rather than being caught by `button` — and what other element in the app does that same selector now also (correctly) exclude?
+
+- [ ] The pick-tap bug shipped invisible on desktop and only surfaced on a phone, because the same commanded walk resolves to one smooth glide in open space but a three-leg floor detour when the board spans the screen. What does this teach about testing features whose behavior depends on layout geometry, not just on code paths?
+
+- [ ] In `ComparisonScreen.tsx`'s fresh-mode refill, the response is re-checked against the CURRENT board and queue even though the request already carried an `excludeId` list — under what sequence of picks and in-flight fetches can the server's exclusions be correct at request time yet stale by the time the response lands?
+
+- [ ] Keep Winner mode was fast because a 3-deep challenger queue absorbed fetch latency, while fresh mode's one-shot preload was consumed every pick. Why does a queue (with per-pick top-offs) beat "prefetch exactly one" whenever consumption can outpace production, and what determines the right depth?
+
+- [ ] In `serpentVisit`, the flee delay is `(24 / crossSpeed) * 1000` — why must the trigger be computed from `crossSpeed` and the 24px spawn offset rather than a fixed millisecond delay, and what would a hardcoded delay get wrong across different screen widths?
+
+- [ ] The old flee waited for the head to be ~140px on screen plus a 300ms "notice" beat — deliberate anticipation staging (react to what the player can see). The user read that same delay as sluggishness. What does this say about how animation-timing principles like anticipation translate (or don't) to ambient background characters, and who arbitrates when a crafted delay reads as lag?
+
+- [ ] The flee timer `(24 / crossSpeed) * 1000` fired while the serpent was still fully off screen even though the math was "correct" — why does dividing distance by the average crossing speed disagree with a CSS `ease-in-out` transition near its start, and why did `watchForNose` (polling the animating transform) fix it for any easing curve?
+
+- [ ] Clefairy's `moving` state and now the serpent flee trigger both read `getComputedStyle(...).transform` instead of trusting scheduled timers ("real motion can't lie"). When is observing rendered state worth its polling cost over predicting from your own schedule — and what class of drift (easing, timer throttling, frame drops) does each approach absorb?

@@ -1,4 +1,4 @@
-import { tcgplayerSearchUrl } from "@/lib/cardInfo";
+import { tcgplayerUrl } from "@/lib/cardInfo";
 
 // The back face of a flippable card: a details table plus the TCGplayer referral
 // button and its FTC disclosure — shared by Rankings and Play so the affiliate link
@@ -11,40 +11,47 @@ import { tcgplayerSearchUrl } from "@/lib/cardInfo";
 type CardBackProps = {
   // Label/value rows for the details table, in display order.
   details: [string, string][];
-  // The card name the Buy button searches TCGplayer for.
+  // The card name the Buy button falls back to searching TCGplayer for.
   buyName: string;
+  // The card's TCGplayer product id; when present the button links straight to
+  // its product page. Optional: unmatched cards (and pairs restored from older
+  // sessionStorage saves) only have the name.
+  buyProductId?: number | null;
 };
 
-export default function CardBack({ details, buyName }: CardBackProps) {
+export default function CardBack({ details, buyName, buyProductId }: CardBackProps) {
   return (
-    <div className="absolute inset-0 flex flex-col justify-center gap-2 rounded-xl bg-white p-3 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
-      <table className="w-full text-xs">
+    // Type/padding step DOWN below md: the mobile Play card is a 44vw (~172px)
+    // slot, smaller than the ~238px rankings card this back was tuned for, so the
+    // md sizes overflow it (name off the top, disclosure off the bottom). The
+    // compact base fits the phone card; md restores the roomier desktop sizing.
+    <div className="absolute inset-0 flex flex-col justify-center gap-0.5 md:gap-2 rounded-xl bg-white p-1.5 md:p-3 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
+      <table className="w-full text-[10px] md:text-xs">
         <tbody>
           {details.map(([label, value]) => (
             <tr key={label} className="border-b border-neutral-100 last:border-0">
-              <td className="py-1.5 pr-2 font-semibold text-neutral-500">{label}</td>
-              <td className="py-1.5 text-right break-words text-neutral-800">{value}</td>
+              <td className="py-0.5 md:py-1.5 pr-1.5 md:pr-2 font-semibold text-neutral-500">{label}</td>
+              <td className="py-0.5 md:py-1.5 text-right break-words text-neutral-800">{value}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* Placeholder referral link (name search until the affiliate product link
-          lands). stopPropagation so a buy click doesn't also flip the card back.
-          mt-2 on top of the column's gap-2 gives the button a little breathing
-          room from the details table. */}
+      {/* Referral link to the card's TCGplayer page. stopPropagation so a buy
+          click doesn't also flip the card back. mt on top of the column's gap
+          gives the button a little breathing room from the details table. */}
       <a
-        href={tcgplayerSearchUrl(buyName)}
+        href={tcgplayerUrl(buyName, buyProductId)}
         target="_blank"
         rel="noopener noreferrer sponsored"
         onClick={(event) => event.stopPropagation()}
-        className="mt-2 rounded-lg bg-red-600 px-3 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-red-700"
+        className="mt-1 md:mt-2 rounded-lg bg-red-600 px-2 md:px-3 py-1.5 md:py-2 text-center text-[10px] md:text-xs font-semibold text-white transition-colors hover:bg-red-700"
       >
         Buy on TCGplayer
       </a>
 
       {/* FTC affiliate disclosure — required wherever a referral link appears. */}
-      <span className="text-center text-[9px] leading-tight text-neutral-400">
+      <span className="text-center text-[8px] md:text-[9px] leading-tight text-neutral-400">
         As a TCGplayer affiliate, PokeMash earns from qualifying purchases.
       </span>
     </div>

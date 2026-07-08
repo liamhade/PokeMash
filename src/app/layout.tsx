@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Mono, Bitcount_Prop_Single } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
+import TransferPrompt from "@/components/TransferPrompt";
 
 // App-wide UI font: a monospace with retro-tech personality — halfway between the
 // original Source Code Pro (clean coding mono) and the pixel faces (game feel).
@@ -42,6 +43,8 @@ export default function RootLayout({
         {/* @ts-expect-error -- `value` isn't a typed <meta> attribute, but Impact requires it verbatim */}
         <meta name="impact-site-verification" value="5a68ea70-0766-428a-9565-df4f3ebf20da" />
         <NavBar />
+        {/* Invisible until a just-signed-in user has anonymous history to adopt. */}
+        <TransferPrompt />
         <main className="flex flex-1 flex-col">{children}</main>
       </body>
     </html>

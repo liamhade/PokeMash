@@ -12,8 +12,17 @@ export function packName(pack: string | null | undefined): string {
   return orDash(pack ? pack.replace(/\s*\([^)]*\)\s*$/, "") : null);
 }
 
-// Placeholder referral link — a TCGplayer name search for now. Swap to an affiliate
-// product link (partner code + tcgplayer_product_id) once those are backfilled.
-export function tcgplayerSearchUrl(name: string): string {
+// market_price is 0 when there's no sales data; treat that (and null/undefined —
+// the Play screen's Card fields are optional) as "no price".
+export function formatPrice(price: number | null | undefined): string {
+  return price ? `$${price.toFixed(2)}` : "—";
+}
+
+// Link for the Buy button: the card's own TCGplayer product page when we have its
+// id (cards.tcgplayer_product_id, backfilled by scripts/backfill-tcgplayer.ts), or a
+// name search for the ~1.4% of cards without one. Add the affiliate partner code
+// here once the program is approved — this is the only place URLs are built.
+export function tcgplayerUrl(name: string, productId?: number | null): string {
+  if (productId) return `https://www.tcgplayer.com/product/${productId}`;
   return `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(name)}`;
 }

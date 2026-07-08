@@ -289,6 +289,9 @@ const SERPENT_DIMS = SERPENTS.map((serpent) => ({
 // isn't a constant: it's measured off the board each visit (the lane under
 // the rating dials).
 const SERPENT_SPEED = 70;
+// How much of the serpent's head must be on screen before she notices him —
+// enough that the player sees the nose too; she reacts to what's visible.
+const SERPENT_NOSE_PX = 140;
 // The crossing speed is derived from VISIT_MS (crossMs = VISIT_MS - 600, distance
 // fixed by the screen), so a longer visit == a slower swim. Scaled up over time
 // (12_500 -> 16_667 -> 22_223, x4/3 each) to slow both serpents ~25% per pass; the
@@ -462,6 +465,9 @@ export default function Clefairy({ picks }: { picks: number }) {
   // The gliding positioner div, for reading her live mid-walk position when a
   // new walk interrupts one in flight.
   const posRef = useRef<HTMLDivElement | null>(null);
+  // The serpent's positioner, for reading its live mid-glide position (the
+  // flee triggers off where it actually is, not off a schedule).
+  const serpentPosRef = useRef<HTMLDivElement | null>(null);
 
   // The wander brain. Rough action weights: wander 50% (detouring into a peek when
   // the path crosses a card), wrap 8%, emote 17%, glance 10%, stand 15%.
@@ -800,9 +806,9 @@ export default function Clefairy({ picks }: { picks: number }) {
       // continuous run all the way there, with her first peek chained onto the
       // ARRIVAL (a fixed-time peek could fire mid-run and yank her to the card
       // top in a single 350ms hop: the "teleport"). The flee doesn't start at
-      // visit time though: it's scheduled for when the serpent's head is
-      // actually ~140px on screen plus a beat to "notice" it — she must react
-      // to the monster, not to a timer the player can't see.
+      // visit time though: she watches his REAL position and bolts once his
+      // nose is visibly on screen — she must react to the monster the player
+      // can see, not to a timer.
       const herX = xRef.current;
       const off = (c: CardRect) => Math.abs((c.left + c.right) / 2 - herX);
       const card = cards.find((c) => c.winner) ?? cards.reduce((a, b) => (off(a) <= off(b) ? a : b));
@@ -848,9 +854,29 @@ export default function Clefairy({ picks }: { picks: number }) {
       const y = Math.min(0, lowest + 6 + dim.stripH);
       const crossMs = VISIT_MS - 600;
       const crossSpeed = Math.abs(endX - startX) / (crossMs / 1000);
-      // She notices him once his head is well on screen (it spawns 24px off
-      // the edge), then bolts.
-      after(((24 + 140) / crossSpeed) * 1000 + 300, flee);
+      // She flees when the player can actually SEE him: the glide is an
+      // ease-in-out transition, which starts far slower than the average
+      // crossSpeed — a distance/speed timer fires while the nose is still
+      // off screen. Poll his real mid-glide position (read off the animating
+      // transform, like her own walkTo does) and bolt once SERPENT_NOSE_PX
+      // of head is on screen, plus a 500ms beat to notice — react instantly
+      // and she reads as psychic rather than alert.
+      function watchForNose() {
+        const el = serpentPosRef.current;
+        const t = el && getComputedStyle(el).transform;
+        if (t && t !== "none") {
+          const m = new DOMMatrixReadOnly(t);
+          // Head = leading edge: the right of the sprite box heading right,
+          // the left of it heading left (the box spans [m41, m41 + dim.w]).
+          const visible = dir === 1 ? m.m41 + dim.w + w / 2 : w / 2 - m.m41;
+          if (visible >= SERPENT_NOSE_PX) {
+            after(500, flee);
+            return;
+          }
+        }
+        after(100, watchForNose);
+      }
+      watchForNose();
       serpentRef.current = { x: startX, y };
       setSerpent({ kind, x: startX, y, ms: 0, dir });
       flightAfter(60, () => {
@@ -940,7 +966,12 @@ export default function Clefairy({ picks }: { picks: number }) {
       // While a serpent owns the stage she's busy hiding — ignore the audience
       // (a pool clear here would tear the visit's choreography apart).
       if (episodeRef.current) return;
-      if ((e.target as Element | null)?.closest("button, a, input, select")) return;
+      // [role="button"] covers the interactive divs (the card pick targets):
+      // without it a pick tap doubles as a walk command, and on a phone — where
+      // the board spans nearly the full width — that sends her on a fast
+      // floor-detour dash after every pick. Only open white space commands her.
+      if ((e.target as Element | null)?.closest('button, [role="button"], a, input, select'))
+        return;
       const el = areaRef.current;
       if (!el) return;
       const box = spriteBoxRef.current?.getBoundingClientRect();
@@ -1168,6 +1199,7 @@ export default function Clefairy({ picks }: { picks: number }) {
       {serpent && (
         <div className="absolute bottom-6 left-1/2">
           <div
+            ref={serpentPosRef}
             style={{
               transform: `translate(${serpent.x}px, ${serpent.y}px)`,
               transition: `transform ${serpent.ms}ms ease-in-out`,
