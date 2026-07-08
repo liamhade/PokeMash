@@ -54,6 +54,63 @@ interfering with my collaborator.
 - Code follows our SE principles: small, readable, well-commented changes (YAGNI,
   DRY, single responsibility).
 
+## Adding new sets (catalog maintenance)
+
+Card eligibility and card art are both **preprocessed**, not computed per request:
+`cards.eligible` is stamped from the rules in `src/lib/comparisonPool.ts`, and art is
+pre-resized WebP in the `card-art` storage bucket (`cards.art_url`). Our schema has no
+supertype/subtype columns — energy and Item/Stadium/Tool trainers are excluded by
+NAME (the static list in `src/lib/excludedTrainerNames.ts` stands in for a subtype
+column). So after importing new card rows into `cards`, walk this list:
+
+1. **Regenerate the trainer exclusion list** if the new sets add Item/Stadium/Tool
+   trainers: query the Pokémon TCG API (`supertype:Trainer subtypes:Item|Stadium|
+   Pokémon Tool`) and rebuild `src/lib/excludedTrainerNames.ts` — its normalization
+   must keep matching `normalizeName` in `comparisonPool.ts` (see the file header).
+
+2. **Extend the static series lists** if a brand-new `set` value appears:
+   `SERIES` in `src/components/FilterModal.tsx` (the filter options) and
+   `ERA_SETS` in `src/app/api/comparison/next/route.ts` (era sampling windows).
+
+3. **Re-stamp eligibility:** `npx tsx scripts/stamp-eligibility.ts` — it fills the
+   `eligible_stage` table over REST (publishable key suffices) and prints two UPDATE
+   statements; run those in the Supabase SQL editor (needs DB-admin access).
+
+4. **Backfill art for the new cards:** uploads need a TEMPORARY write policy (the
+   repo only holds the publishable key). In the SQL editor:
+
+   ```sql
+   create policy "card-art backfill (temporary)"
+     on storage.objects for insert to anon
+     with check (bucket_id = 'card-art');
+   ```
+
+   then `npx tsx scripts/backfill-card-art.ts` (idempotent — skips existing art,
+   so interruptions are safe to re-run), then DROP the policy:
+
+   ```sql
+   drop policy "card-art backfill (temporary)" on storage.objects;
+   ```
+
+5. **Stamp `art_url`** for the newly uploaded objects (SQL editor):
+
+   ```sql
+   update public.cards c
+   set art_url = 'https://wmhbvlggntwisedrvncq.supabase.co/storage/v1/object/public/card-art/' || c.card_id || '.webp'
+   where c.art_url is null
+     and exists (select 1 from storage.objects o
+                 where o.bucket_id = 'card-art' and o.name = c.card_id || '.webp');
+   ```
+
+6. **Sanity-check:** `select count(*) from cards where eligible` should match the
+   stamp script's printed count; the rankings meter denominator (`poolTotal` from
+   `/api/rankings?playerId=...`) should show the same number; play a few rounds and
+   confirm new-set cards appear with art. Cards missed by the backfill fall back to
+   their pkmncards `image_url` automatically, so a partial run degrades gracefully.
+
+Order matters only for 3 → 4/5 (the backfill targets the stamped column). If the
+eligibility RULES change (not just new data), the same procedure applies from step 3.
+
 ### Note files (keep these updated as we go)
 
 - `TODO.md` — planned work. Check the box when a task is done.

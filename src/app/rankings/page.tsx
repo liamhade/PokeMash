@@ -3,8 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { getPlayerId } from "@/lib/playerId";
-import RarityFilterModal from "@/components/RarityFilterModal";
+import FilterModal, {
+  EMPTY_FILTERS,
+  hasActiveFilters,
+  type Filters,
+} from "@/components/FilterModal";
 import FilterButton from "@/components/FilterButton";
+import CardBack from "@/components/CardBack";
+import { orDash, packName } from "@/lib/cardInfo";
 
 type RankedCard = {
   rank: number;
@@ -12,6 +18,8 @@ type RankedCard = {
   name: string;
   image_url: string;
   r: number;
+  // Universal scope only: how many players' ratings the community score averages.
+  raters?: number;
   set: string | null;
   pack: string | null;
   release_date: string | null;
@@ -19,11 +27,19 @@ type RankedCard = {
   market_price: number | null;
 };
 
+// comparedCount drives the personal progress meter; the universal response omits
+// it (community progress isn't "yours"), so it's optional. poolTotal is the true
+// eligible-pool size (counted in JS server-side, since the eligibility rules can't
+// run in the DB) under the same filters — the honest denominator for a percentage.
 type RankingsResponse = {
   rankings: RankedCard[];
-  comparedCount: number;
-  totalCards: number;
+  comparedCount?: number;
+  poolTotal?: number;
 };
+
+// Whose rankings the page shows: this player's own, or the community's — every
+// player's rating for a card averaged into one score.
+type Scope = "mine" | "universal";
 
 // The card image dimensions; the flip container is locked to this so flipping to the
 // detail table doesn't reflow the list. Sized a touch larger than the raw 220×305 (same
@@ -34,25 +50,9 @@ const CARD_HEIGHT = 330;
 // Hover this long before the wiggle hint fires (ms). One-shot per hover.
 const WIGGLE_DELAY_MS = 6000;
 
-// A non-empty text value, or an em dash for null/blank so the detail rows read cleanly.
-function orDash(value: string | null): string {
-  return value && value.trim() ? value : "—";
-}
-
 // market_price is 0 when there's no sales data; treat that (and null) as "no price".
 function formatPrice(price: number | null): string {
   return price ? `$${price.toFixed(2)}` : "—";
-}
-
-// Pack values carry a trailing abbreviation, e.g. "Base Set (BS)"; drop it for display.
-function packName(pack: string | null): string {
-  return orDash(pack ? pack.replace(/\s*\([^)]*\)\s*$/, "") : null);
-}
-
-// Placeholder referral link — a TCGplayer name search for now. Swap to an affiliate
-// product link (partner code + tcgplayer_product_id) once those are backfilled.
-function tcgplayerSearchUrl(name: string): string {
-  return `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(name)}`;
 }
 
 // One ranked card: click to flip between the image and a details table, and — as a hint
@@ -90,6 +90,10 @@ function RankingCard({ card }: { card: RankedCard }) {
     ["Released", orDash(card.release_date)],
     ["Market Price", formatPrice(card.market_price)],
   ];
+  // Only universal-scope cards carry a rater count.
+  if (card.raters !== undefined) {
+    details.push(["Ranked by", `${card.raters} player${card.raters === 1 ? "" : "s"}`]);
+  }
 
   return (
     <div className="flex items-center gap-6">
@@ -135,44 +139,8 @@ function RankingCard({ card }: { card: RankedCard }) {
             />
           </div>
 
-          {/* Back: detail table + a placeholder TCGplayer referral button. Rows use tight
-              padding so the table and button both fit without enlarging the card. */}
-          <div className="absolute inset-0 flex flex-col justify-center gap-2 rounded-xl bg-white p-4 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
-            <table className="w-full text-sm">
-              <tbody>
-                {details.map(([label, value]) => (
-                  <tr
-                    key={label}
-                    className="border-b border-neutral-100 last:border-0"
-                  >
-                    <td className="py-2 pr-2 font-semibold text-neutral-500">
-                      {label}
-                    </td>
-                    <td className="py-2 text-right break-words text-neutral-800">
-                      {value}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Placeholder referral link (name search until the affiliate product link
-                lands). stopPropagation so a buy click doesn't also flip the card back. */}
-            <a
-              href={tcgplayerSearchUrl(card.name)}
-              target="_blank"
-              rel="noopener noreferrer sponsored"
-              onClick={(event) => event.stopPropagation()}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-blue-700"
-            >
-              Buy on TCGplayer
-            </a>
-
-            {/* FTC affiliate disclosure — required wherever a referral link appears. */}
-            <span className="text-center text-[9px] leading-tight text-neutral-400">
-              As a TCGplayer affiliate, PokeMash earns from qualifying purchases.
-            </span>
-          </div>
+          {/* Back: detail table + referral button, shared with the Play screen's flip. */}
+          <CardBack details={details} buyName={card.name} />
         </div>
       </div>
     </div>
@@ -180,95 +148,184 @@ function RankingCard({ card }: { card: RankedCard }) {
 }
 
 export default function RankingsPage() {
-  const [data, setData] = useState<RankingsResponse | null>(null);
+  // Accumulated across "load more": null = first page still loading. meta holds the
+  // personal progress counts (undefined under the universal scope, which sends none).
+  const [cards, setCards] = useState<RankedCard[] | null>(null);
+  const [meta, setMeta] = useState<{ comparedCount?: number; poolTotal?: number }>({});
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [filterOpen, setFilterOpen] = useState(false);
-  // Applied rarity filters and the full list shown in the modal dropdown.
-  const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
-  const [availableRarities, setAvailableRarities] = useState<string[]>([]);
+  // Applied price/series filters (the eras/minElo fields stay unset — the modal here
+  // only renders the price and series sections).
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [scope, setScope] = useState<Scope>("mine");
 
-  // Repeatable ?rarity= params for the applied filters; "" when none are set.
-  const rarityQuery = useCallback(
-    (rarities: string[]) =>
-      rarities.map((rarity) => `&rarity=${encodeURIComponent(rarity)}`).join(""),
-    [],
-  );
+  // The last page index loaded, and a token that invalidates in-flight fetches when
+  // the filter/scope changes — so a slow "load more" can't append to a newer list.
+  const pageRef = useRef(0);
+  const requestRef = useRef(0);
 
-  const loadRankings = useCallback(
-    (rarities: string[]) => {
-      // Clear so the loading state shows while the filtered list is refetched.
-      setData(null);
+  // Price/series query params for the applied filters; "" when none are set.
+  const filterQuery = useCallback((applied: Filters) => {
+    const query = new URLSearchParams();
+    if (applied.series.length) query.set("series", applied.series.join(","));
+    if (applied.minPrice) query.set("minPrice", applied.minPrice);
+    if (applied.maxPrice) query.set("maxPrice", applied.maxPrice);
+    const chunk = query.toString();
+    return chunk ? `&${chunk}` : "";
+  }, []);
+
+  const fetchPage = useCallback(
+    (applied: Filters, which: Scope, page: number): Promise<RankingsResponse> => {
       const playerId = getPlayerId();
-      fetch(`/api/rankings?playerId=${playerId}${rarityQuery(rarities)}`)
-        .then((res) => res.json())
-        .then(setData);
+      const scopeParam = which === "universal" ? "&scope=universal" : "";
+      return fetch(
+        `/api/rankings?playerId=${playerId}${scopeParam}&page=${page}${filterQuery(applied)}`,
+      ).then((res) => res.json());
     },
-    [rarityQuery],
+    [filterQuery],
   );
+
+  // Load page 0 fresh — used on mount and whenever the filter or scope changes.
+  const loadFirstPage = useCallback(
+    (applied: Filters, which: Scope) => {
+      const token = ++requestRef.current;
+      pageRef.current = 0;
+      setCards(null); // show the loading state while the new list arrives
+      fetchPage(applied, which, 0).then((data) => {
+        if (requestRef.current !== token) return; // superseded by a newer load
+        setCards(data.rankings ?? []);
+        setMeta({ comparedCount: data.comparedCount, poolTotal: data.poolTotal });
+      });
+    },
+    [fetchPage],
+  );
+
+  // Append the next page to the current list (personal scope only).
+  const loadMore = useCallback(() => {
+    const token = requestRef.current; // not bumped: same list session
+    const next = pageRef.current + 1;
+    setLoadingMore(true);
+    fetchPage(filters, scope, next).then((data) => {
+      setLoadingMore(false);
+      if (requestRef.current !== token) return; // filter/scope changed mid-load
+      pageRef.current = next;
+      setCards((prev) => [...(prev ?? []), ...(data.rankings ?? [])]);
+    });
+  }, [fetchPage, filters, scope]);
 
   useEffect(() => {
-    // The mount fetch clears data synchronously (loading state); intentional here, so
+    // The mount fetch clears cards synchronously (loading state); intentional here, so
     // silence the set-state-in-effect rule like the compare screen's mount effect does.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadRankings(selectedRarities);
-    // Only run on mount; filter changes refetch explicitly in onApply.
+    loadFirstPage(filters, scope);
+    // Only run on mount; filter/scope changes refetch explicitly in their handlers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Lazily load the rarity values the first time the modal opens — users who
-  // never filter never pay for the request.
-  async function openFilter() {
-    if (availableRarities.length === 0) {
-      const res = await fetch("/api/filters/rarity");
-      const { rarities } = (await res.json()) as { rarities: string[] };
-      setAvailableRarities(rarities);
-    }
-    setFilterOpen(true);
-  }
+  // More pages remain when we've loaded fewer cards than the player's total ranks.
+  // Universal sends no comparedCount, so its list never shows "load more" (capped at 100).
+  const hasMore =
+    cards !== null && meta.comparedCount !== undefined && cards.length < meta.comparedCount;
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex px-6 py-4">
-        <FilterButton onClick={openFilter} />
+      <div className="flex items-center gap-4 px-6 py-4">
+        <div className="relative">
+          <FilterButton onClick={() => setFilterOpen(true)} />
+          {hasActiveFilters(filters) && (
+            <span
+              aria-hidden
+              className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-600 ring-2 ring-white"
+            />
+          )}
+        </div>
+
+        {/* Scope toggle: this player's list vs. the community-average leaderboard. */}
+        <div className="flex rounded-full border border-neutral-300 p-0.5 text-sm font-medium">
+          {(
+            [
+              { value: "mine", label: "My Rankings" },
+              { value: "universal", label: "Universal" },
+            ] as { value: Scope; label: string }[]
+          ).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                if (option.value === scope) return;
+                setScope(option.value);
+                loadFirstPage(filters, option.value);
+              }}
+              className={[
+                "rounded-full px-3 py-1 transition-colors",
+                option.value === scope
+                  ? "bg-red-600 text-white"
+                  : "text-neutral-600 hover:text-neutral-900",
+              ].join(" ")}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {!data ? (
+      {!cards ? (
         <p className="py-20 text-center text-neutral-500">Loading your rankings…</p>
       ) : (
         <>
           {/* Scrollable list, highest ranked at the top, each card centered. */}
           <div className="flex flex-1 flex-col items-center gap-8 overflow-y-auto px-4 py-10">
-            {data.rankings.length === 0 ? (
+            {cards.length === 0 ? (
               <p className="text-neutral-500">
-                No rankings yet — head to Play to start comparing!
+                {scope === "universal"
+                  ? "No community rankings yet — be the first to compare some cards!"
+                  : "No rankings yet — head to Play to start comparing!"}
               </p>
             ) : (
-              data.rankings.map((card) => (
-                <RankingCard key={card.card_id} card={card} />
-              ))
+              cards.map((card) => <RankingCard key={card.card_id} card={card} />)
+            )}
+
+            {/* Reveal the next page rather than rendering thousands of cards at once. */}
+            {hasMore && (
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="rounded-full border border-neutral-300 px-6 py-2 font-medium text-neutral-700 transition-colors hover:border-neutral-400 disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
             )}
           </div>
 
-          {/* Progress meter pinned to the bottom of the screen. */}
-          <div className="sticky bottom-0 border-t border-neutral-200 bg-white py-4 text-center font-semibold text-neutral-800 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">
-            You&apos;ve compared {data.comparedCount} out of {data.totalCards} cards (
-            {data.totalCards > 0
-              ? Math.round((data.comparedCount / data.totalCards) * 100)
-              : 0}
-            %)!
-          </div>
+          {/* Progress meter pinned to the bottom of the screen. Personal progress
+              only — the universal response carries no compared count. The percentage
+              is against poolTotal, the JS-counted eligible pool (NOT the raw table
+              count, which the eligibility rules make unreachable). Capped at 100:
+              cards rated before a pool-rule tightening can exceed today's pool. */}
+          {meta.comparedCount !== undefined && (
+            <div className="sticky bottom-0 border-t border-neutral-200 bg-white py-4 text-center font-semibold text-neutral-800 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">
+              You&apos;ve compared {meta.comparedCount.toLocaleString("en-US")}
+              {meta.poolTotal
+                ? ` of ${meta.poolTotal.toLocaleString("en-US")} cards (${Math.min(100, Math.round((meta.comparedCount / meta.poolTotal) * 100))}%)`
+                : " cards"}
+            </div>
+          )}
         </>
       )}
 
+      {/* Mounted only while open so its working state resets from `filters` each time.
+          Rankings filters on price and series only, so the other sections are hidden. */}
       {filterOpen && (
-        <RarityFilterModal
-          rarities={availableRarities}
-          initialSelected={selectedRarities}
+        <FilterModal
+          initial={filters}
+          sections={["price", "series"]}
           onClose={() => setFilterOpen(false)}
-          onApply={(rarities) => {
-            setSelectedRarities(rarities);
+          onApply={(applied) => {
+            setFilters(applied);
             setFilterOpen(false);
-            loadRankings(rarities);
+            loadFirstPage(applied, scope);
           }}
         />
       )}

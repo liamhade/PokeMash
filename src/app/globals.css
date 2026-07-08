@@ -8,15 +8,16 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-source-code-pro);
+  /* Space Mono (see layout.tsx): a retro-tech monospace — the coding-font structure
+     of the original Source Code Pro with more game-y personality in the glyphs.
+     monospace is only the flash-of-unstyled fallback while the font file loads. */
+  --font-sans: var(--font-space-mono), monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  /* Use the app font (Source Code Pro). monospace is the fallback while the web
-     font loads or if it fails — it's a monospace typeface. */
-  font-family: var(--font-sans), monospace;
+  font-family: var(--font-sans);
 }
 
 /* The ▲/▼ delta badge beside a Rating dial: pops in as the dial starts spinning. It
@@ -91,7 +92,7 @@ body {
 /* The Clefairy mascot's motion, split across nested elements so the transforms don't
    collide: critter-hop is the one-shot hop (crouch → jump → land-squash) replayed by
    remount (pick celebration or wander emote), critter-idle is the endless standing
-   bob, and clefairy-waddle is the side-to-side rock while walking. */
+   bob, and clefairy-waddle is the per-footfall bounce while walking. */
 @keyframes critter-hop {
   0% {
     transform: translateY(0) scale(1, 1);
@@ -131,18 +132,46 @@ body {
 @keyframes clefairy-waddle {
   0%,
   100% {
-    transform: rotate(-4deg) translateY(0);
+    transform: translateY(0);
   }
   50% {
-    transform: rotate(4deg) translateY(-2px);
+    transform: translateY(-2px);
   }
 }
 
 .clefairy-waddle {
-  animation: clefairy-waddle 0.5s ease-in-out infinite;
-  /* rock about the feet, not the center, so it reads as steps rather than a sway */
-  transform-origin: 50% 85%;
+  /* one dip per footfall: 320ms here = 2 x the sprite's 160ms step-frame swap, so
+     each bob crest lands roughly as a foot plants (the real stepping is done by
+     alternating WALK_FRONT/WALK_BACK frames in Clefairy.tsx, not by this rock) */
+  animation: clefairy-waddle 0.32s ease-in-out infinite;
 }
+
+/* Click-on-her dance: three bounce-and-tilt bars (JS flips her facing between
+   bars so she twirls through it). Feet-anchored origin so the tilts read as
+   steps, not a sway about her middle. */
+@keyframes clefairy-dance {
+  0%,
+  30%,
+  60%,
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1, 1);
+  }
+  15% {
+    transform: translateY(-10px) rotate(-12deg) scale(0.95, 1.05);
+  }
+  45% {
+    transform: translateY(-10px) rotate(12deg) scale(0.95, 1.05);
+  }
+  80% {
+    transform: translateY(-3px) scale(1.1, 0.88);
+  }
+}
+
+.clefairy-dance {
+  animation: clefairy-dance 800ms ease-in-out 3;
+  transform-origin: 50% 90%;
+}
+
 
 /* One-shot hover hint on ranked cards: a brief clockwise/counter-clockwise wiggle to
    suggest the card is interactive (click to flip). Runs once (no `infinite`), so it plays

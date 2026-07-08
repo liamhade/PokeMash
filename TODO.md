@@ -6,9 +6,13 @@
 	- *PROBLEM*: The rarity rule above lives in TypeScript because the app's read-only key can't create DB objects. That means an extra `cards` read per request and logic split from the data.
 	- *SOLUTION*: Apply `supabase/migrations/20260630_comparison_pool.sql` (creates `comparison_pool()`), then switch `/api/comparison/next` back to `supabase.rpc("comparison_pool")`. Needs someone with Supabase DB access.
 
+- [ ] (**let "Go back" delete the undone comparison row**)
+	- *PROBLEM*: The Play "Go back" undo (`/api/comparison/undo`) reverts both cards' ratings in `card_ranks` (works) but can't delete the pick's `comparisons` history row — RLS grants the anon key INSERT/SELECT but not DELETE, so the delete silently affects zero rows. The undone pick lingers in history (harmless: ratings are never recomputed from `comparisons`, and the row only feeds the "already compared" exclusion).
+	- *SOLUTION*: Add an RLS DELETE policy on `comparisons` scoped to `player_id` (anon-first, so keyed on the client UUID like the existing INSERT policy). Needs Supabase DB access. Once applied, the delete in `/api/comparison/undo` starts taking effect with no code change.
+
 - [ ] (**add `supertype` / `subtypes` columns to `cards`**)
-	- *PROBLEM*: Three pool filters are fragile name/regex hacks because the data has no card-type info: energy detection (`isEnergyCard` name regex), Item/Stadium exclusion (the 573-name `itemStadiumNames.ts` list, which goes stale with new sets), and the GX/V/ex "buzzword" mechanic detection (`FEATURED_MECHANIC` regex).
-	- *SOLUTION*: Add `supertype` (Pokémon | Trainer | Energy) and `subtypes` (e.g. Item/Stadium/Supporter for Trainers; V/VMAX/ex/GX/… for Pokémon) columns, backfilled from the Pokémon TCG API (match by set + collector number, fall back to name). Then replace: energy filter → `supertype = 'Energy'`; Item/Stadium → `supertype='Trainer' AND subtypes && '{Item,Stadium}'`; buzzword keep → `subtypes` contains a mechanic tag. NOTE: "full art" is NOT a type — it stays in `rarity` (Ultra/Illustration/Special Illustration/etc.), so the rarity rules are unaffected. Needs Supabase DB write access + a one-time backfill job.
+	- *PROBLEM*: Three pool filters are fragile name/regex hacks because the data has no card-type info: energy detection (`isEnergyCard` name regex), Item/Stadium/Tool exclusion (the 794-name `excludedTrainerNames.ts` list, which goes stale with new sets), and the GX/V/ex "buzzword" mechanic detection (`FEATURED_MECHANIC` regex).
+	- *SOLUTION*: Add `supertype` (Pokémon | Trainer | Energy) and `subtypes` (e.g. Item/Stadium/Supporter for Trainers; V/VMAX/ex/GX/… for Pokémon) columns, backfilled from the Pokémon TCG API (match by set + collector number, fall back to name). Then replace: energy filter → `supertype = 'Energy'`; Item/Stadium/Tool → `supertype='Trainer' AND subtypes && '{Item,Stadium,Pokémon Tool}'`; buzzword keep → `subtypes` contains a mechanic tag. NOTE: "full art" is NOT a type — it stays in `rarity` (Ultra/Illustration/Special Illustration/etc.), so the rarity rules are unaffected. Needs Supabase DB write access + a one-time backfill job.
 
 - [ ] (**increase new card novetly**) 
 	- *PROBLEM*: Card comparisons don't feel new enough. Currently, the comparison function often compares the same cards over and over again, rather than pulling new cards from the database. With `Keep Winner` on (the preferred mode), `supply_winner_with_fresh_card` always picks the UNSEEN card *nearest in rating* to the winner — an informative matchup, but it keeps surfacing the same narrow power band, so it feels repetitive.
@@ -38,6 +42,433 @@
 - [ ] If the user selects a 
 
 # LEARNING
+
+## stale saved winner: version the sessionStorage key
+
+- [ ] The dashes-on-Pikachu bug could persist indefinitely despite every API path
+  sending the new fields. Trace the exact client-side lifetime of a held winner in
+  `ComparisonScreen` — which line consumes only `next.slice(1)` from each Keep Winner
+  response, and why does that make the restored winner's object immortal until it loses?
+
+- [ ] We fixed it by bumping `COMPARISON_STORAGE_KEY` to `:v2` rather than merging the
+  server's winner fields into the board card. What does key-versioning buy for FUTURE
+  shape changes that field-merging doesn't, and what one-time user-visible cost did we
+  accept for it — why is that the right trade for a per-tab cache but maybe not for
+  localStorage progress?
+
+## Go back moves below the pair; the info button gets a darker resting coat
+
+- [ ] The relocated `UndoButton` (`mt-3 md:mt-4 translate-y-5`) visually overlaps the
+  vertical band where `RatingDial` hangs, yet nothing collides or reflows. Which two
+  positioning choices make that band "free real estate" — what takes the dials out of
+  flow, and why does the button's translate not affect the cards' centering?
+
+- [ ] The info button's rest/hover states differ on two axes (`opacity-80` →
+  `group-hover:opacity-100`, `bg-black/40` → `hover:bg-black/60`) with different hover
+  scopes (`group-hover` vs `hover`). Why does brightening on *card* hover but darkening
+  only on *button* hover serve discoverability differently than putting both on one
+  element, and what would be lost if both used `group-hover`?
+
+## card-info flip: view a matchup card's details without picking it
+
+- [ ] `ComparisonArea`'s pick target changed from a `<button>` to a `role="button"` div
+  (like `RankingCard` before it) so the info `<span role="button">` and the back's Buy
+  `<a>` can live inside it. What does nested-interactive markup actually break — and why
+  does `stopPropagation` on the inner elements not solve that problem by itself?
+
+- [ ] The flip separates "view info" from "pick" *spatially* (a small corner target vs.
+  the whole card face) rather than *temporally* (e.g. long-press). Why is a temporal
+  split strictly worse here given the Buy link must be clickable, and what does the
+  flipped state buy us as a "mode" (what click meaning changes while the back is up)?
+
+## donate before popping: the switch pick must see the leftovers
+
+- [ ] Moving the donation block above `popChallenger` was the entire fix, yet with the
+  old order the feature was a no-op for every winner SWITCH (its whole purpose) while
+  still helping rapid streak picks. Trace who holds a non-empty `donated` list at pop
+  time under each ordering — why is a switch pick's winner always empty-handed when
+  donation follows the pop?
+
+- [ ] Both orderings compile, animate correctly, and end the pick with identical queue
+  state — the bug was only about when the resource became consumable, and it surfaced
+  as a human "doesn't feel faster". What per-pick instrumentation (e.g. logging which
+  of overlapSwap / slide / blocking-fetch path ran) would have caught this before a
+  play-test, and why can no amount of lint/typecheck/build ever see this bug class?
+
+## recycle the loser's queue into donated stopgap challengers
+
+- [ ] In `handlePick`, the donated hand-me-downs are deduped against the winner's
+  existing queue/donated/popped challenger (`held`) even though every queue fetch
+  already passes a server-side `excludeId` list. Which duplication can that exclusion
+  NOT prevent — think about which ids each SIDE's fetch excludes — and why did the old
+  "delete the loser's queue" code never have to care?
+
+- [ ] `popChallenger` lets a decoded donated card beat an undecoded fresh one, while
+  `need = QUEUE_DEPTH - queue.length` ignores donated entirely so fresh entries keep
+  rebuilding underneath. Which property does each rule protect (pick latency vs.
+  matchup quality), and why does one merged queue where donated cards count toward
+  depth necessarily sacrifice one of the two?
+
+## filter vintage Item trainers the API can't tag (PokéGear leak)
+
+- [ ] PokéGear (Neo 88/111) leaked because TWO conditions lined up: its normalized
+  name `pokegear` wasn't in `EXCLUDED_TRAINER_NAMES` (only `pokegear 3 0` was), AND
+  its rarity `Rare` + pre-2011 date sent it down the "keep genuinely vintage Rares"
+  branch of `isEligible`. Why did fixing only the name list close the leak without
+  touching that vintage branch — and which cards would STILL leak if a future rarity
+  change let vintage `Uncommon` trainers into the pool?
+
+- [ ] The generation query `subtypes:"Item|Stadium|Pokémon Tool"` silently misses
+  every pre-2013 trainer (the API tags them supertype:Trainer with NO subtype), which
+  is why 166 vintage trainers were absent. We added the 12 leaking *items* but left
+  Misty/Blaine/Lass (subtype-less too). What principle decided that split, and why is
+  it consistent with the list's existing "Supporters are NOT here" rule rather than
+  an exception to it?
+
+## she walks off after her last peek instead of ducking back
+
+- [ ] `nervousPeek` became self-chaining (it re-calls itself after ~3150ms)
+  instead of being fired as a fixed `for (k=1..8)` schedule from arrival. Why
+  does a self-scheduling loop make the "serpent gone → walk away" the guaranteed
+  TERMINAL beat, where the old absolute-time schedule + a `VISIT_MS + 1200`
+  walk-out could instead catch her ducked (down) between two peeks?
+
+- [ ] `emerge()` guards on `if (!episodeRef.current) return;` so the peek loop
+  and the `VISIT_MS + 6500` safety-net timer can both call it and only the first
+  wins. Why is making the shared exit idempotent the right tool here rather than
+  clearing the other timer at the moment of exit — and what would double-emerging
+  (two `walkTo(stepOutSpot())` in flight) look like on screen if the guard weren't there?
+
+## slow the serpents another 25%: VISIT_MS 16_667 -> 22_223
+
+- [ ] Each "25% slower" pass multiplies `VISIT_MS` by 4/3 (12_500 → 16_667 →
+  22_223). Why is repeated multiplication (not repeated subtraction of a fixed
+  chunk) the correct way to compound a percentage speed cut, and what would the
+  crossing duration converge toward if you kept applying ×4/3?
+
+- [ ] The true velocity change is slightly more than 25% each time because
+  `crossMs = VISIT_MS - 600` — the fixed 600ms trim shrinks as a FRACTION of a
+  growing `VISIT_MS`. Does that fixed offset make each successive pass closer to
+  or further from an exact 25%, and why?
+
+## nudge EXPLORE_EPSILON again: 0.27 -> 0.24
+
+- [ ] `EXPLORE_EPSILON` has now been trimmed twice (0.30→0.27→0.24), always the
+  epsilon and never `SOFT_BAND_SIZE`. What behavioral difference between the two
+  knobs makes epsilon the right one for "pick near more OFTEN" while shrinking the
+  band would instead make each near pick's rating gap TIGHTER — and when would you
+  reach for the band knob instead?
+
+- [ ] Each pass lowers epsilon by ~0.03 absolute, but that's ~10% then ~11%
+  RELATIVE of the previous value. Why does the same absolute step feel like a
+  progressively bigger nudge as epsilon shrinks, and at what point does continuing
+  to trim epsilon stop meaningfully changing what the player sees (think: what the
+  exploit path already does 76% of the time)?
+
+## slow the serpents 25% via VISIT_MS
+
+- [ ] The crossing speed is never stored — `crossSpeed = |endX - startX| /
+  (crossMs / 1000)` with `crossMs = VISIT_MS - 600`. Why does bumping `VISIT_MS`
+  slow the swim, and why would nudging `SERPENT_SPEED` (70) instead have done
+  nothing to the actual crossing (which glide call overrides it)?
+
+- [ ] `VISIT_MS` went 12_500 → 16_667 (×4/3) for "25% slower", yet the true
+  velocity change is ~26% because the fixed 600ms trim in `crossMs = VISIT_MS -
+  600` doesn't scale. Argue whether keeping 600/1200 as fixed real-time beats
+  (rather than scaling them too) is correct here — what do those constants
+  represent that a speed change should NOT stretch?
+
+## favor closer-ELO matchups: trim EXPLORE_EPSILON
+
+- [ ] `supply_winner_with_fresh_card` gates on `Math.random() < EXPLORE_EPSILON`
+  (now 0.27) to pick a wildcard, else draws from the `SOFT_BAND_SIZE` nearest
+  by rating. Given "favor closer matchups 10% more" was the ask, why does cutting
+  EXPLORE_EPSILON (fewer far picks) achieve that, while shrinking SOFT_BAND_SIZE
+  by 10% would tune a different property — and what exactly is that other property?
+
+- [ ] The explore/exploit split trades off matchup informativeness against
+  surfacing variety (breaking out of a narrow power band). What's the failure
+  mode at each extreme — EXPLORE_EPSILON = 0 versus 1 — and why is a small nudge
+  (0.30 → 0.27) the safer way to move that dial than a large one in an app where
+  the same player keeps seeing the pool over many sessions?
+
+## the arm that looked best was the model's own, barely rotated
+
+- [ ] Three arm attempts failed before the fix: the GBA sprite arm (right anatomy,
+  but its dithered teal pixels read as noise next to the smooth photo body) and
+  two hand-drawn capsule arms (right palette, but "stick + ball" proportions).
+  The winner was the model photo's own arm at a gentle -18° instead of the old
+  -38°. Why did the steep rotation make a natural limb read as a "blocky" blob
+  (think: what happens to a mostly-horizontal forearm + forward claws when you
+  rotate them 38°), and why does material continuity (same photo source as the
+  body) matter more here than anatomical detail?
+
+- [ ] VISIT_GAP_MIN_MS/SPAN became 15_000/45_000 — a min + span pair rather than
+  a min + max. What does storing the randomized gap as (min, span) simplify at
+  the call site (`min + Math.random() * span`), and what's the off-by-one-ish
+  trap if someone later "fixes" span to be the max?
+
+- [ ] The head kept landing off the neck because its placement (`hx`/`hy`) was
+  eyeballed against zoom renders. The fix measured the actual geometry — the
+  neck-join sits at head-local ≈(135, 85) (read off a gridded render) and the
+  body tube's centerline at body-local y=100 — and solved `hy = 100 - 85` so the
+  join lands ON the tube axis, with the stub length chosen so the tube ends ~30px
+  into the join. Why does anchoring two measured reference points beat iterating
+  visual offsets, and what changes when someone later swaps in a different head
+  crop?
+
+- [ ] The previous graft's tube stub ran 145px past the neck join, sliding under
+  the jaw (the stray yellow stripe below the mouth). Explain how ONE stub-length
+  number encodes the difference between "the body flows into the head" and "a
+  pipe pokes through the head", and why the overlap should be measured from the
+  join point rather than the head's bounding-box edge.
+
+- [ ] The head read as "too low / disconnected" because the model's head axis
+  tilts ~34° DOWN (crest→snout), so on a horizontal body the mouth drooped below
+  the neck line. Rotating the cropped head ~32° CCW before grafting makes it
+  point forward and join the tube naturally. Why does a rigid rotation (not a
+  reposition) fix a droop that repositioning couldn't, and what does that say
+  about matching a grafted part's axis to the host body's axis?
+
+- [ ] The arm looked detached because it was a horizontal forearm placed below
+  the tube (gap at the shoulder). Rotating it ~38° CW so it angles down-forward,
+  overlapping the shoulder INTO the body and compositing it ON TOP, made it read
+  as attached with the hand clear of the silhouette. Why is "overlap the joint +
+  paint on top" the 2D stand-in for an actual attached limb?
+
+- [ ] Masking the head's neck with a RECTANGLE (x<178 & y>145) also bit a chunk
+  out of the head's throat and clipped the neck spike. The fix cut along a
+  DIAGONAL that follows the neck tube (a cross-product side test against a line),
+  removing only the tube while keeping the throat and crest. Why is a straight
+  half-plane cut (line + which-side) enough here, and how does the sign of the 2D
+  cross product `(p-a) x (b-a)` pick the side to erase?
+
+- [ ] The hand kept disappearing because the arm was composited BEFORE (under)
+  the body. Compositing the arm AFTER the head/body — and hanging it below the
+  silhouette — makes the claws show. What does this say about paint order being
+  the whole story for a flat 2D graft, versus real depth?
+
+- [ ] The leftover wasn't body clutter — it was the head crop's own down-curving
+  neck (the model's neck bent toward the coiled body below in the S-pose), which
+  hung down as a second neck once the straight body tube already formed one. The
+  fix masked that neck off the head crop (keeping crest + skull + jaw) so the body
+  tube is the only neck. Why does unrolling a POSED model inevitably leave a neck
+  pointing the "wrong" way, and why is masking it on the head — not cutting the
+  body — the right place to fix a double-neck?
+
+## cut the neck clutter exactly where the clean tube ends
+
+- [ ] Keeping the body tube under the neck (cut_x 1230) left mangled unroll
+  clutter protruding above the neck. The fix found the exact cut point by
+  scanning each column's opaque vertical EXTENT: the clean tube held a steady
+  ~66px thickness up to x=1165, then jumped to 80→171 where the mangled head
+  began. Why is "thickness suddenly balloons" a reliable, geometry-only signal
+  for where a straightened tube ends and unroll garbage starts — no image
+  understanding needed?
+
+## SMIL for WebKit, a solid neck graft + arm, and a low U-turn
+
+- [ ] The snake wave went invisible in Safari because WebKit won't animate a CSS
+  `transform` on an SVG `<g>` (it animates fine in Chrome — which is why the bug
+  hid). Switching each band to a SMIL `<animateTransform type="translate">` with
+  a negative `begin` fixed it everywhere. Why does a negative `begin` reproduce
+  the same per-band phase offset the old `animation-delay` gave, and what's the
+  general lesson about verifying a CSS feature in the *target* engine (WebKit),
+  not just the one your headless screenshot uses?
+
+- [ ] The head kept detaching because the graft BUTTED the head against a cut
+  body edge; the fix keeps the clean body tube running UNDER the neck (overlay,
+  not cut-and-join) so a solid multi-pixel bridge survives the downsample and the
+  band-wave shear. Relate this to why adjacent SnakeSprite bands (continuous
+  columns of one image) never seam but two separately-authored pieces would —
+  what invariant does "one continuous source image" preserve that a graft breaks?
+
+- [ ] The two low waypoints use POSITIVE `y` (`h * 0.02`), below the `y = 0`
+  floor line, where the serpent's positioner was previously only ever `<= 0`.
+  Why does that push the body under the board and let the play area's
+  `overflow-hidden` clip whatever dips past the screen bottom, rather than
+  needing an explicit clamp?
+
+- [ ] Halving `SWOOP_SPEED` (255 -> 128) more than doubled the visit: the
+  deeper, flatter sweep also lengthened the path, so the out-and-back is now
+  ~35s. Given the episode end is derived from `swoopMs = pathLen / SWOOP_SPEED`,
+  why did the peek loop have to grow to 8, and what's the argument that "slower +
+  bigger path" compounds into a visit long enough to feel broken?
+
+## steeper out-and-back swoop, timed by speed
+
+- [ ] The swoop path is now `[...out, ...out.slice(0, -1).reverse()]` — the same
+  `out` waypoints, then reversed (minus the shared apex) so it flips and retraces
+  its trip. Why does dropping the last element before reversing avoid a duplicated
+  apex point (and a zero-length segment there), and what makes the single `dir`
+  flip land exactly at that apex?
+
+- [ ] Timing switched from a fixed `SWOOP_MS` total to `segMs = segLen /
+  SWOOP_SPEED` (px/s). Explain why the old fixed-duration approach made the
+  serpent move FASTER on bigger screens (path scales with width) while the
+  speed-based one keeps a constant visual pace — and why "50% slower" is now a
+  one-number change even though the out-and-back path is also longer.
+
+- [ ] The unrolled body's head came out mangled, so the clean head was cropped
+  from the SAME photo (`head_crop`) and composited onto the neck at high-res
+  BEFORE tracing to a sprite (scratchpad `graft.py`), rather than pasting two
+  already-quantized pixel grids. Why does grafting at the photo resolution and
+  then quantizing ONCE give a seamless single-palette sprite, whereas stitching
+  two traced grids would not?
+
+- [ ] Rayquaza's swoop is a `catmullRom` spline through 8 control points, flown
+  by chaining ~70 short `translate` transitions whose per-segment duration is
+  each segment's share of the total path length (so speed is constant and the
+  whole thing lasts `SWOOP_MS`), each with `ease: "linear"`. Why does linear
+  easing per tiny segment read as smooth constant motion while the segments'
+  own `ease-in-out` (the Gyarados default) would visibly pulse — and why must
+  the sprite `dir` flip exactly at the apex where `dx` changes sign?
+
+- [ ] `unroll.py` finds the body centerline as the skeleton's LONGEST path via
+  two BFS passes (farthest node from an arbitrary start, then farthest from
+  THAT) — the classic tree-diameter trick. Why does that reliably return the
+  tail-tip→head-tip spine and ignore the shorter arm/fin/crest branches, and
+  where would it break if the skeleton had a big loop rather than being tree-like?
+
+- [ ] The perpendicular resampling walks outward from each spine point and STOPS
+  at the first background pixel in each direction, instead of sampling a fixed
+  half-width. Work through why that rule prevents a normal ray at the inside of a
+  tight S-bend from bleeding into the adjacent coil — and why "elongate the source
+  pose" (not a change to the wave code) is what finally made Rayquaza snake, given
+  the previous note said the limit was the source pose. Also: why did the unrolled
+  sprite need its own smaller `renderScale` rather than sharing Gyarados'?
+
+- [ ] `SnakeSprite` slices the traced sprite into vertical `<g>` bands and each
+  animates `translateY(var(--amp))`, where `--amp` is in svg USER units (design
+  px * PX) rather than screen px. Why does using user units make the wave scale
+  correctly with `SERPENT_IMAGE_SCALE` for free, and why did that let the bands
+  live in ONE `<svg>` (with `overflow: visible`) without the subpixel seams that
+  separate per-band `<svg>`s at a fractional scale would have produced?
+
+- [ ] Each band's `animationDelay` is `-SNAKE_PERIOD_MS * SNAKE_WAVES * xc` (xc =
+  0 at the tail, 1 at the head) and its amplitude ramps from `SNAKE_HEAD_AMP` at
+  the head to full `waveAmp` at the tail. Work through why a delay that's LINEAR
+  in position produces a crest that travels head→tail at constant speed, and why
+  this column-wave snakes an elongated body (Gyarados) convincingly but only
+  wiggles Rayquaza — what property of the *source pose*, not the code, is the
+  limit?
+
+- [ ] The Gyarados source (`gyrados side.png`) has its head on the LEFT, but it's
+  traced from a horizontally-FLIPPED copy so `GY_IMAGE` natively faces right.
+  Walk through why that flip is required given the render applies
+  `scaleX(serpent.dir)` and the cross-behavior sets `startX`/`endX` from `dir` —
+  what would a un-flipped grid do on a left-to-right (`dir === 1`) crossing?
+
+- [ ] Once both serpents became single `image` sprites, the whole segmented path
+  went away: `SerpentPiece`, `pieces?`, `SERPENT_SCALE`/`AMP_SCALE`/
+  `SERPENT_OVERLAP_PX`/`WAVE_LAG_MS`, the `.serpent-piece`/`serpent-undulate`
+  CSS, and the per-piece render branch. What's the YAGNI case for deleting that
+  hard-won, working code outright (rather than keeping the `pieces?` union "just
+  in case"), and why is `wagOrigin` per-serpent data rather than one shared CSS
+  `transform-origin` like the wag animation itself?
+
+- [ ] The tracer quantized the model with `MEDIANCUT` first and the red fin
+  plates collapsed into one brown (`#976446`); switching to `FASTOCTREE` split
+  out a real red (`#E66852`). Given the source genuinely had ~7700 red pixels,
+  why did median-cut still starve them while octree didn't — what does each
+  algorithm optimize, and why does a big smooth green gradient punish median-cut
+  here? And why must the white-background removal be a border flood-fill rather
+  than "map white -> transparent" (think: the white claws/teeth)?
+
+- [ ] `SerpentSprite` now has optional `pieces?` XOR `image?`: Gyarados stays a
+  segmented strip that snakes via per-piece `serpent-undulate`, while Rayquaza
+  is one `RAY_IMAGE` grid rotated by `.serpent-wag`. Why can a hand-authored
+  tube be sliced-and-undulated without seams but a traced photo can't (what did
+  the uniform-thickness pieces guarantee that the trace doesn't)? And why is a
+  whole-sprite rotation hinged at `transform-origin: 82% 24%` the right way to
+  fake swimming for a rigid S-posed image?
+
+- [ ] Both `GS_FIN`'s white prongs and `RS_FIN`'s red plates sit in rows the
+  neighboring segments leave `.` (empty), yet `RS_RING`'s yellow oval still has
+  to hug the LEFT of its 10-wide slice. Why does the 3-column head-ward overlap
+  clip the ring but not the fins — what's different about the rows each occupies?
+
+- [ ] Redrawing Gyarados kept the committed `GS_HEAD`/`GS_FAN` grids untouched and
+  only swapped `GS_SLICE`/`GS_JOINT` (spike-on-every-segment) for a smooth
+  `GS_BODY` plus an interval `GS_FIN`. What did reusing the proven head/tail
+  grids buy over regenerating all ten pieces, and how does deleting `RAY_FACE`
+  (and the `form` state it drove) rather than leaving it unused reflect YAGNI?
+
+- [ ] Every serpent piece now keeps its rightmost 3 columns plain tube — and `RS_RING` additionally backs its ring with solid green instead of transparent cells. Trace how the 3-cell overlap's paint order (head-ward neighbor on top) turned the first draft's rings into "C" shapes, and which 1px seam holes the solid backing closes that the overlap alone couldn't.
+
+- [ ] The heads, face and fin grids are frozen output of a scratch painter script (shape bands + an auto-outline pass that treats off-canvas as FILLED) rather than hand-typed rows. Why is "off-canvas = filled" exactly the outline rule a piece that must seam into its neighbor needs, and when does freezing generated art into the source beat checking the generator itself into the repo?
+
+## 3x side-view serpents: crossing Gyarados, prowling Rayquaza
+
+- [ ] Switching from top-down to side profiles let the whole rotation subsystem (cumulative shortest-turn angles, the length-sided square clearance) collapse into a `scaleX` flip and a plain box check. Why does a side view make arbitrary-heading rotation WRONG rather than merely unnecessary (what happens to "up" when a side profile rotates 180°?), and what did the clearance box get back by no longer having to cover a turning arc?
+
+- [ ] At 3x, Rayquaza's clearance box (~380x280px) rarely fits beside the board, so `openWater` gained a second loop: vertical-only drift in his own lane before holding still. Why is vertical drift from an already-clear spot safe without re-checking horizontal card overlap conceptually — and why does the code still call `pathClear` on it anyway?
+
+- [ ] Gyarados' crossing computes its speed FROM the distance and a fixed duration (`dist / (crossMs / 1000)`) while every other glide computes duration from a fixed speed. What does each parameterization hold invariant across screen widths, and why is "the visit lasts VISIT_MS" the right invariant for a crossing but the wrong one for a prowl beat?
+
+## face-first entries, Rayquaza, connected tails, continuous flee
+
+- [ ] The "teleport to the top of the card" was a sequencing bug, not a motion bug: the peeks were scheduled at fixed offsets from the episode START, so a long flee let `nervousPeek`'s `setWalkMs(350); setY(card.top + 2)` fire mid-run and override the glide. Why does chaining the first peek onto `walkTo`'s `onArrive` fix every flee distance at once, and what NEW race did that introduce that the `episodeRef` guard inside `nervousPeek` now closes?
+
+- [ ] Tails disconnected because adjacent pieces' relative offset — sqrt(A_i² + A_j² − 2·A_i·A_j·cos Δφ) — exceeded the tube thickness at the fan/stem joint. The fix kept the big amplitudes but shrank Δφ (WAVE_LAG_MS 380→120) and split the body into 8-cell slices. Work through why many small phase steps preserve the whole-body S (the lag SUM is what shapes the curve) while bounding each joint's gap, and what the same reasoning says about vertex counts when approximating any curve with rigid segments.
+
+- [ ] The face sprites are mirrored about the VERTICAL axis (`mirrorCols`) while the strips mirror about the HORIZONTAL (`mirrorRows`) — and the face renders outside the rotator while the strip renders inside it. Connect the two facts: which symmetry does each rendering context demand, and why would putting the face inside the rotator have turned a right-edge entrance upside down?
+
+## detailed Gyarados + airtight card avoidance
+
+- [ ] Both behind-the-board sightings traced to geometry the AABB checks silently ignored: the entry dive started OFF-SCREEN on the far side (path never checked), and turns rotate the strip about its center so the head/tail sweep an arc the resting box doesn't cover. Why does `gyaradosClear` clearing a LENGTH-sided square fix the rotation case for every heading at once, and what does it cost him on narrow screens where that square fits nowhere?
+
+- [ ] All the pieces are authored as a 12-row top half run through `mirror()`, which is exactly why the eyes sit at half-row 9 (not the midline) and why the head can be rotated to any heading without a flip. What would drawing the full 24 rows by hand have cost across the five iterations this art took, and where does the mirror trick break down (think: the old side-view sprite's asymmetric silhouette)?
+
+## top-down snaking Gyarados + open-space-only roaming
+
+- [ ] The traveling wave is one shared `gyarados-undulate` keyframe with per-piece inline `--amp` and a NEGATIVE `animationDelay` of `-i * WAVE_LAG_MS` (tail is i=0). Work through why a negative delay makes the head the most phase-ADVANCED piece and thus makes the crest travel head→tail — and what the wave would do if the delays were positive instead?
+
+- [ ] `openMeadow` checks the path at quarter points from her CURRENT position, which is why the episode-end walk-out couldn't reuse it (she starts behind a card, so every path sample fails and she'd freeze). What's the general lesson about preconditions baked into a helper ("start point is in open space") that hold in one call site but not another, and how does the target-only fallback loop encode the difference?
+
+## Gyarados visits: chase, hide, nervous peeks
+
+- [ ] The visit is scheduled on a dedicated `visitTimer` handle while everything INSIDE the visit runs on the interruptible `timers` pool, and `onClick` early-returns while `episodeRef.current` is true. Trace what would break under each alternative: the visit scheduled in the pool, or clicks left enabled mid-episode — which one loses Gyarados forever and which one strands Clefairy hidden with `episodeRef` stuck true?
+
+- [ ] `openWater()` rejection-samples a spot whose box AND path-midpoint clear every card rect, giving up after 30 tries by returning his current position. Why is "hold position for a beat" the right degenerate behavior here (vs. relaxing the margin or teleporting), and why does checking only the midpoint — not 24 path samples like the old `cardOnPath` — suffice for his glides when it wouldn't have for her walk detours?
+
+- [ ] The tail sweep is a CSS rotation of a second `PixelArt` stacked `absolute inset-0` over the body, hinged at `GYARADOS_TAIL_ORIGIN` percentages — but the whole stack sits inside the `scaleX(${-facing})` flip div. Why do the origin percentages need no adjustment when he turns around, and what WOULD have broken if the origin were expressed in pixels from the left edge instead?
+
+## click dance replaces the scare
+
+- [ ] The dance's three bars live in ONE CSS animation (`clefairy-dance ... 3` iterations) while the twirls are two JS `after(DANCE_BEAT_MS * n, flip)` timers, coupled only by the 800ms constant appearing in both files. What visual artifact appears if the CSS duration is edited without `DANCE_BEAT_MS` (or vice versa), and why was the facing flip not expressible inside the keyframes themselves (think: which element owns `scaleX`)?
+
+- [ ] Replacing the scare deleted the `crouch`/`shaking` states, their JSX layer, and the `clefairy-shake` keyframes in the same commit rather than leaving them "in case we want trembling later". What's the YAGNI argument for deleting working animation code that took real effort to tune, and what makes it cheap to resurrect if needed?
+
+## extract the Gyarados sprite
+
+- [ ] The extractor found the same 8.85px pitch on both axes but different offsets (x 8.75, y 0), and scored candidates by mean luminance along whole gridlines. Why does scoring entire lines (rather than a single row/column of samples) make the search robust to the chart's heavier every-N gridlines and JPG noise, and what would a half-cell offset error have done to every cell's median?
+
+- [ ] `GYARADOS_BODY`/`GYARADOS_TAIL` are derived at module load from one `GYARADOS_SPRITE` via an `isTailCell` predicate, instead of shipping two hand-split grids. What does the single-source split guarantee when someone later retouches a pixel near the seam, and why is an imprecise cut acceptable HERE when the same sloppiness in `liftFoot`'s foot spans would visibly break the walk?
+
+## exclude Trainer Tool cards
+
+- [ ] The API reports 849 Item cards but the normalized list holds only 368 Item names, and 26 of the 247 Tool names were already present via Item/Stadium. What do those two collapses tell you about what the exclusion actually keys on (printings vs. names), and why is a card like Big Charm — which carries BOTH Item and Pokémon Tool subtypes in different printings — caught either way?
+
+- [ ] The regeneration script lives in the session scratchpad, not the repo, even though the file header says "regenerate when new sets add such trainers" — the third time this list is rebuilt by re-deriving the script from the header. At what point does YAGNI flip and the generator deserve to be checked in under `scripts/`, and what would it need (the normalizeName copy?) to not drift from the route?
+
+## scared hide sequence on click
+
+- [ ] The scare timeline is four `after()` calls scheduled all at once from the click (at 0/1000/1800/2800ms) rather than a chain where each step schedules the next. What does scheduling them up front buy when a second click interrupts mid-episode (think: what the `timers` pool clear guarantees), and where would a chained version have leaked state?
+
+- [ ] The crouch is an inline-style `scaleY(0.7)` on its own div while the tremble is a CSS class replacing the gait class on the layer below. Why can't the crouch and the shake share one element (what happens to `scaleY` the moment `clefairy-shake`'s `translateX` keyframe takes over the transform property), and why does the crouch use `transform-origin: 50% 100%` specifically?
+
+## stepping walk cycle
+
+- [ ] `liftFoot` treats the hip line asymmetrically: below `FEET_TOP` the shift is unconditional (vacated pixels go empty), while above it only non-'.' source pixels overwrite. What would each half of the sprite look like if the other rule were applied to it — i.e. why can't one blit rule serve both regions?
+
+- [ ] The step-frame interval (160ms) lives in a React `setInterval` effect keyed on `walking`, while the bob is a 320ms CSS keyframe — the two are never phase-locked, and the CSS comment only claims they land "roughly" together. Why is an exact 2:1 sync between a JS timer and a CSS animation not actually achievable here, and why does the walk still read fine without it?
+
+## peek sprite: restore the wing under her ear
+
+- [ ] The missing chunk existed because `PEEK_SPRITE`'s face rows were truncated at the arm columns (`...` padding) while the full `SPRITE` keeps the black wing (`k`/`DD` pixels) on that flank — why did the wing clip at the ear line specifically, and what invariant do all rows of a sprite grid have to satisfy for `PixelArt`'s `rows[0].length`-based viewBox to render every row correctly?
+
+- [ ] The fix was verified by extracting the string grids from `Clefairy.tsx` with a scratch script and rendering PNGs, rather than reasoning about the character grid in place. When is building a tiny render-toolchain worth it over reading the "code" directly, and what class of sprite bug (think: the screenshot that triggered this task) can ONLY be caught by looking at pixels?
 
 ## phone legend: nudge down
 
@@ -206,3 +637,176 @@
 - [ ] Adding `collector_number` to the rankings response only required editing the `cards!inner(...)` select string and the `RankedCard` type — why did the `...row.cards` spread in `route.ts` mean the mapping code needed no change, and what would break if a selected column had no matching field on `RankedCard`?
 
 - [ ] The `details` array wraps `collector_number` in `orDash` just like the other nullable fields. What's the design benefit of routing every display value through one null-normalizing helper versus letting each row decide its own fallback, and when would that uniformity become a constraint?
+## rebuild Rayquaza's arm with an elbow bend
+
+- [ ] `buildarm.py` splits the photo arm into a thinned tube and a fist, rotates them 52° and 20° below horizontal, and overlaps the forearm 15px back along its own axis before compositing it ON TOP of the upper arm. Why does the overlap have to run along the forearm's axis (not just shift left), and why did the trace need 18 colors instead of 16 to keep the claws white?
+
+- [ ] The arm is composited UNDER the body tube in `graft6.py`, so the shoulder is hidden and the limb "emerges" from the silhouette. What general rule about grafting parts onto a sprite does this illustrate — when is hiding a joint behind an occluder better than trying to blend a visible seam?
+
+## on-screen loop U-turn, opposite-side entry, gap from departure
+
+- [ ] In `serpentVisit`, `scheduleVisit()` moved from the episode-end timers into the despawn callbacks (`setSerpent(null)`). Why does scheduling the next visit from the fixed `after(swoopMs + 900)` timer measure the gap from a slightly different moment than the serpent actually leaving, and where does that drift come from?
+
+- [ ] The swoop's `turn` waypoints make the Catmull-Rom path cross itself into a teardrop loop, and the sprite's facing flips automatically mid-loop because `flyNext` derives `dir` from each segment's dx sign. What's the advantage of deriving orientation from the path over scripting a flip at a known time, and when would the dx-sign heuristic misfire?
+
+## guard the peek sink-back against the episode ending mid-peek
+
+- [ ] `nervousPeek`'s rise is guarded by `episodeRef.current`, but the bug lived in the sink-back closure 1.45s later. Why did clobbering `walkMs` to 300 mid-walk read as a "teleport" — what does the CSS transition do when its duration property shrinks while the transform target also changes?
+
+- [ ] Clefairy's motion multiplexes ONE transform through shared `x`/`y`/`walkMs` state, so any late timer can hijack an in-flight glide. What's the general lesson about one-shot timers that mutate shared animation state, and how does checking an "owner" flag (`episodeRef`) at fire time differ from clearing the timer at handoff?
+
+## hide-spot sanity: reject mid-swap card rects, clamp her into the walkable box
+
+- [ ] The teleport was traced to `hideSpotBehind` receiving a card rect whose `bottom` was ~470px below the floor line — a `[data-compare-card]` element measured mid-remount after a pick. Why does `getBoundingClientRect` on a card that React is in the middle of swapping report a position "flowed" to the bottom of the document, and why did no amount of transition/timer analysis reproduce it until the harness started clicking cards?
+
+- [ ] The fix layers a rect filter (in `cardRects`) AND a coordinate clamp (in `hideSpotBehind`/`nervousPeek`). What's the argument for enforcing an invariant ("she never leaves the walkable box") at the point of use even when the data source is already filtered — and what's the equivalent principle in API design?
+
+## layout-true card rects, fresh peek measures, nearest step-out, motion-driven feet
+
+- [ ] `cardRects` now builds each card's box from `offsetLeft/offsetTop/offsetWidth/offsetHeight` against the wrapper instead of `getBoundingClientRect`. Which two CSS transforms on the card button were contaminating the old measurement, and why does offset geometry ignore them by definition?
+
+- [ ] Her stepping feet now key off a `moving` state sampled from the animating transform rather than a `walking` flag set by the same timers that drive the walk. What's the general principle about deriving UI state from observed reality versus mirroring it in bookkeeping flags, and what did each of the two reported feet glitches (frozen mid-run, stepping in place) reveal about flag drift?
+
+## board is off-limits outside serpent visits: roam rects + coverage watchdog
+
+- [ ] Roaming clearance now uses `roamRects()` (card slot extended to the wrapper's bottom, covering the rating dial) while hides/peeks keep the card box from `cardRects()`. Why do these two consumers genuinely need different geometry, and what would break if hides used the dial-extended box?
+
+- [ ] The coverage watchdog polls her held spot against the board every 900ms, but during any walk her refs hold the TARGET rather than her live position. How does that ref convention make the watchdog naturally idempotent (an escape in flight reads as clear), and when would polling her live computed position instead cause repeated pool-clears?
+
+## one-sweep Rayquaza on the drawn arc; flee only once the serpent is visible
+
+- [ ] The swoop's waypoints are now body-CENTER coordinates mapped to the sprite anchor with `x - dim.w / 2`. Why did anchoring the mirrored x directly make right-side entries spawn a whole body-length off-screen while left entries spawned 24px off, and what property of the scaleX facing-flip explains the asymmetry?
+
+- [ ] Clefairy's flee is scheduled for when the serpent's head is ~140px on screen plus a 300ms beat, computed from each behavior's speed rather than observed from the DOM. What are the trade-offs of deriving "when will it be visible" from the motion model versus polling the serpent's live position, and when would the model-based timing go stale?
+
+## clean-slate mount: hot reloads can strand mid-visit state
+
+- [ ] The effect now resets `episodeRef`, the serpent, and `peeking` on mount. Which pieces of a mid-visit snapshot does Fast Refresh preserve versus destroy (state, refs, pending timers), and why does that exact split produce a frozen serpent plus a permanently-true `episodeRef`?
+
+- [ ] The one-pass regression report couldn't be reproduced: logged flight waypoints were strictly monotonic across every visit. What's the value of asserting an invariant ("x never reverses") over the actual runtime trace before touching code, and how does a stale client bundle masquerade as a code bug during live-edited dev sessions?
+
+## one shared lane: both serpents cross under the Rankings
+
+- [ ] The crossing height is now solved from measured geometry (`lowest + 6 + dim.stripH`, clamped to 0) instead of the old CROSS_HEIGHT fraction. Walk through why the serpent positioner being BOTTOM-anchored makes the naive "y = dial bottom + margin" land the sprite a full body-height too high, and how the video frame check caught what the coordinate logs looked fine on.
+
+- [ ] Unifying Rayquaza onto Gyarados' straight crossing deleted the whole prowl branch, the Catmull-Rom helper, and the per-segment flight chain. What's the maintenance argument for deleting a behavior "mode" rather than leaving it switchable, and what signals in this session justified YAGNI here?
+
+## distance-scaled flee: she always makes it behind the card
+
+- [ ] The flee speed is now `Math.max(WALK_SPEED * 5, dist / 2.2)` instead of a fixed 5x dash. Why did a constant px/s flee interact badly with the serpent's constant-DURATION crossing (11.9s regardless of screen width), and what invariant does expressing the flee as a time budget restore?
+
+- [ ] `dist` is computed from `xRef/yRef`, which mid-walk hold her TARGET rather than her live position (walkTo re-reads the live transform internally). When is this approximation safe here, and what would it take for the discrepancy to matter?
+
+## she hides behind the card that just won
+
+- [ ] The winner reaches Clefairy via a `data-compare-winner` attribute on the card button rather than a React prop. What are the trade-offs of communicating through DOM attributes here versus threading `pickedId` down as a prop, given that Clefairy already measures these elements with `querySelectorAll`?
+
+- [ ] `pickedId` is deliberately never cleared after a pick, and with Keep Winner off the winner departs the board. Trace why `cards.find((c) => c.winner) ?? nearest` handles all three regimes (no picks yet, Keep Winner on, Keep Winner off) without any mode flag.
+
+## serpents enter on Clefairy's side
+
+- [ ] Flipping the entry side was a one-character change (`herOnRight ? -1 : 1`) because side selection was already derived from her measured position at visit start rather than stored in an alternation ref. What does this say about deriving parameters from live state versus accumulating them in mutable refs?
+
+- [ ] With the serpent now surfacing on her side, the flee usually sends her TOWARD the incoming head (the winner card is often mid-screen). Which existing mechanisms (notice delay, distance-scaled flee, z-layering) keep that close encounter reading as a chase rather than a collision?
+
+## minimum-ELO filter knob
+
+- [ ] The ELO knob is enforced inside `sampleEligible` via `rankByCardId` (hoisted above the sampling loop) instead of in the DB count/rows queries the way price is. Why can't this filter be pushed into the `cards` query, and what keeps the 409/retry path honest even though `maxOffset` comes from a count that ignores the ELO filter?
+
+- [ ] Setting the knob above 1200 hides every card the player hasn't rated yet, because unrated cards count as `DEFAULT_RATING`. What makes a filter keyed on the player's own past picks self-reinforcing ("rich get richer"), and how does it interact with the explore/exploit policy in `supply_winner_with_fresh_card`, whose unseen pool it can empty?
+
+## rankings filter: price + series replace rarity
+
+- [ ] `seriesOrFilter` builds ONE PostgREST or-string (`set.in`, the Legendary Collection `pack.eq`, and the `and(set.eq.Other,pack.neq...)` carve-out) that filters both the top-level `cards` count and, via `{ referencedTable: "cards" }`, the embedded rows of the ranks query. Why does the embedded use only drop ranks because the select says `cards!inner(...)`, and what would each rank row hold without the `!inner`?
+
+- [ ] `FilterModal` gained a `sections?: FilterSection[]` prop rather than a separate Rankings modal, and a hidden section's `Filters` field rides through `initial` → `onApply` untouched. What does that pass-through guarantee about `hasActiveFilters` and the rankings query builder ignoring `eras`/`minElo`, and at what point (how many divergent callers/sections) would the config-prop approach lose to splitting the modal?
+
+## universal (community) rankings
+
+- [ ] The universal score is a Bayesian average, `weight*cardMean + (1-weight)*globalMean` where `weight = v/(v + BAYESIAN_SMOOTHING)`, not a plain mean. Work through why a card with one 2705 rating dropped from #1 to #7 while a 3-rater Charizard rose — what does raising `BAYESIAN_SMOOTHING` from 5 to, say, 50 do to that ordering, and what value makes it collapse back to a plain mean?
+
+- [ ] The universal branch resolves card details in `DETAILS_CHUNK`-sized `.in()` batches walked in score order, stopping once `UNIVERSAL_LIMIT` rows survive the price/series filters — rather than one big join. Why can't the price/series filter live in the `card_ranks` aggregation step the way it does in the personal query's `cards!inner(...)`, and what determines how many chunks a restrictive filter forces?
+
+## paginate the personal rankings ("load more")
+
+- [ ] The personal query switched from returning every rank to `.range(from, from + PERSONAL_PAGE_SIZE - 1)` with `{ count: "exact" }`, and `comparedCount` now comes from that `count` rather than `rankings.length`. Why would keeping `comparedCount: rankings.length` have broken the progress meter the moment pagination landed, and why does the exact count stay correct even though the query also has a `.range()`?
+
+- [ ] `loadMore` captures `requestRef.current` without bumping it and bails if it changed on resolve, while `loadFirstPage` does `++requestRef.current`. Trace the interleaving where a user clicks "Load more" and then flips the scope toggle before the page arrives — which fetch's `setCards` wins, and what would append to the wrong list if the token check were removed?
+
+## "Go back" undo for the last matchup
+
+- [ ] `handleUndo` does `await snap.postDone` before POSTing to `/api/comparison/undo`, where `postDone` is the pick's own fire-and-forget persistence promise. Walk through the interleaving if undo did NOT wait: how could the pick's upsert land AFTER the undo's revert and "resurrect" the pick's ratings, and why does awaiting the same promise the pick created close that window?
+
+- [ ] The snapshot captures `pair` (the pre-pick card array) by reference, yet `handlePick`'s `setCards((prev) => prev!.map(...))` fold of the new ratings doesn't corrupt it. Why does the `.map` leave `pair`'s card objects untouched (what does it allocate), and what would break about the undo's `ratings: snap.pair.map((card) => ratingOf(card))` payload if the fold had instead mutated each card object in place?
+
+- [ ] Centering the undo button above the gap required turning `ComparisonArea`'s outer flex from a row into a `flex-col` with an inner row for the cards. Why does putting the button as the column's first centered child land it over the MIDPOINT of the two cards (not off to one side), and why is the button gated on `cards &&` rather than `canUndo` — what card-position artifact would a `canUndo`-gated button introduce the first time a pick becomes undoable?
+
+- [ ] The icon is an inline `<svg>` with `stroke="currentColor"`, so the disabled/enabled `text-neutral-*` classes recolor it for free. What would have to change if it were a raster/`<img>` icon instead, and why does `currentColor` make the single component work in both the (removed) panel context and the new above-the-cards context without per-site restyling?
+
+- [ ] The "move up a hair" nudge used `-translate-y-1.5` on the button, not a larger `mb-*` or a negative `mt-*`. Why does the transform lift only the button while a margin change would also reposition the cards row (given the column is `justify-center`), and when would that distinction actually matter to the layout?
+
+## UI polish pass (font, logo, legend, mobile rhythm, skeletons, accents)
+
+- [ ] The font swap deleted the `Source_Code_Pro` `next/font` import entirely instead of pointing `--font-sans` at a different Google font. What does `font-family: system-ui` cost at page load compared to any `next/font` face, and what do you give up in exchange (think: rendering consistency across a Mac user and a Windows user)?
+
+- [ ] Why does a monospace font make UI text read as "developer tooling" — what typographic properties (letterfit, x-height rhythm, width uniformity) do proportional UI faces like SF Pro exploit that fixed-width faces structurally can't?
+
+- [ ] `LogoWordmark` picks `accentIdx` with `Math.random()` inside `useEffect` rather than in a `useState` initializer. What hydration guarantee does deferring all randomness (and the first keystroke) to the effect give, and what exactly would React complain about if the server rendered a different random frame than the client's first render?
+
+- [ ] The whole animation is prescheduled as one flat list of `setTimeout`s built from `buildScript`, instead of a chain where each step schedules the next. What does the flat list make trivially correct on unmount (see the cleanup), and what would a self-chaining version need to track to be equally safe under React 18's dev-mode double-effect?
+
+- [ ] Removing the Login pill also removed NavBar's only use of `navPillClass`, forcing the import down to `import NavButton from "./NavButton"`. Why does an exported-but-unused class string like `navPillClass` still deserve to exist in NavButton.tsx, and what signal would a lint rule flagging the unused NavBar import have given you if you'd left it?
+
+- [ ] The placeholder was originally justified as "reserving the visual weight" for a future feature. Under the every-element-earns-its-place philosophy, what's the concrete cost a non-functional control imposes on a first-time user that reserved whitespace doesn't?
+
+- [ ] The legend is hidden with opacity + aria-hidden while staying mounted, instead of conditional rendering. What layout behavior does the mounted-but-transparent approach buy on the MOBILE flex column specifically, and why does `transition-opacity` require the element to exist in the DOM on both sides of the change anyway?
+
+- [ ] `legendVisible` is derived as `flameColor(streak) !== null` in ComparisonScreen rather than checking `streak >= 5` where 5 is written out. What breaks silently in the hardcoded version if someone edits STREAK_TIERS' first threshold, and what design principle does deriving both the glow and the legend from the same function express?
+
+- [ ] With `justify-center` on ComparisonArea's column, why does bottom padding (pb-28) shift the children UP by half the padding instead of just adding space below — i.e. what box does justify-center actually center content within, and why did the same pb-40 not bother anyone on desktop?
+
+- [ ] The mobile legend overlay is `pointer-events-none absolute` at z-20 while the board is z-10. Walk the trade: what interaction could the legend steal without pointer-events-none, and why is taking the legend out of normal flow acceptable here when the general rule is to avoid absolute positioning for page content?
+
+- [ ] Why does `getBoundingClientRect()` on the card wrapper exclude the RatingDial hanging under it (`absolute top-full`), while the in-flow undo button DOES contribute to its parent's rect — what does a border-box rect measure, and which CSS properties take a child out of that measurement?
+
+- [ ] The dial band is covered with a hand-tuned constant (DIAL_BAND_H = 52) instead of measuring the dial element per walk. What could drift out of sync with the constant, and why is measuring the dial's live rect mid-slide actually the LESS reliable option here (recall why cardRects already avoids getBoundingClientRect on the card)?
+
+- [ ] The skeleton fills `absolute inset-0` inside the art wrapper — but the art hasn't loaded yet, so what is giving that wrapper its correct card-shaped size before any image bytes arrive (look at what {...CARD_IMAGE} spreads onto the <img>)?
+
+- [ ] `loadedArt` is keyed by image URL and never pruned, and `markLoaded` bails if the URL is already present. Why is the no-prune choice safe for this screen's lifetime, and what rerender-loop hazard does the `prev[url] ? prev : ...` identity-return guard against if onLoad somehow fired repeatedly?
+
+- [ ] The Buy button recolor touched only CardBack.tsx, yet it restyled the buy action on BOTH Rankings and Play. Which earlier refactor made that single-file change possible, and what would the change have looked like without it?
+
+- [ ] "One accent color" is doing functional work beyond aesthetics: in a UI where red already means interactive emphasis (Apply, toggle-on, active pill), what does a lone blue button implicitly signal to users about that action, and when WOULD a second accent color be the right call?
+
+- [ ] Pixelify Sans came back as a `next/font` import while the system stack needed none. What layout-shift risk reappears with any downloaded font, and which next/font mechanism (look up `adjustFontFallback`) papers over it while sans-serif is on screen?
+
+- [ ] Between Press Start 2P, VT323, and Pixelify Sans, why is "has true lowercase with normal proportions" the deciding property for an app-wide UI face rather than for a display-only face like the rating numbers?
+
+- [ ] `play()` clears and empties the shared `timers` pool at the start of each cycle even though every previous timer has fired by then. What failure mode does that hygiene protect against if CYCLE_MS were ever tuned BELOW the script's total duration, and why must the interval handle live outside that pool?
+
+- [ ] The 30s replay means the logo animates while users are mid-comparison. What makes a peripheral looping animation acceptable under minimalism here (think size, frequency, position), and which single CSS media preference must always be able to switch it off?
+
+- [ ] StreakLegend's API changed from `visible: boolean` to `streak: number`. Why is passing the rawer value the more future-proof prop here (which component now owns the reached-tier policy), and when is the opposite — a pre-digested boolean — the better interface?
+
+- [ ] Each tier row transitions `-translate-x-2 opacity-0` → `translate-x-0 opacity-100` when reached. Why do transform+opacity animate without triggering layout on neighboring rows, and what would animating `height` or `display` for the same "roll out" effect have cost on the stacked mobile column?
+
+- [ ] DotGothic16 ships only weight 400, yet `font-bold` still renders "bold" text elsewhere in the UI. What is the browser actually doing to fake that weight, and why does it degrade a dot-matrix face so much worse than a smooth outline face?
+
+- [ ] The wordmark had to drop `tracking-tight` for this font after it was fine under Pixelify Sans. What does that say about where letterspacing decisions should live when a brand lockup and a theme font are chosen independently — and what's the risk of tuning component styles to the current font's quirks?
+
+- [ ] The Space Mono swap looked broken at first: the served CSS chunk still inlined var(--font-dotgothic) after both files were edited, surviving even a dev-server restart until .next was deleted. What does that tell you about where Turbopack's persistent cache lives, and what's the fastest way to distinguish "my code is wrong" from "the build is stale" next time a style change doesn't take?
+
+- [ ] Undefined CSS variables fail soft: body { font-family: var(--font-dotgothic), sans-serif } with the variable gone didn't error — the page just fell back to the default sans. Why is that graceful degradation a mixed blessing during a font migration, and which DevTools signal exposes an invalid var() where a compile error would have?
+
+- [ ] The progress meter dropped its denominator instead of computing the true eligible-pool count. Where does that eligibility logic live today, why can't PostgREST count it server-side, and what would have to change (materialized column? view?) before "X of Y" could return honestly?
+
+- [ ] Removing totalCards let the rankings route delete an entire count query, not just a response field. What's the general lesson about UI copy driving backend cost — and why was `head: true` already the right shape for that query while it existed?
+
+- [ ] CardBack's overflow came from sizing with viewport breakpoints (`md:`) while its box tracks the card. Why are media queries structurally the wrong tool for a component that renders at different sizes on the SAME screen, and what CSS feature (container queries) targets exactly this — plus why was "compact everywhere" still the better fix here?
+
+- [ ] The universal back overflow only became visible after the Space Mono swap, though the md: sizing bug predated it. What made the old font mask the bug, and what does that suggest about re-testing "unrelated" screens after a typography change?
+
+- [ ] The extra space went on as `mt-2` on the button rather than bumping the parent's `gap-2` to `gap-4`. What's the difference in what each would have changed on the card back, and why does the margin better express "space between THESE two siblings"?
+
+- [ ] CardBack's column uses `justify-center` with fixed overall card height, so adding mt-2 didn't push the disclosure off the bottom — where did the 8px actually come from, and at what point would stacking more spacing re-create the overflow bug just fixed?

@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
-import { Source_Code_Pro, Bitcount_Prop_Single } from "next/font/google";
+import { Space_Mono, Bitcount_Prop_Single } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 
-// App-wide font. next/font/google self-hosts the font at build time and exposes it
-// as a CSS variable (--font-source-code-pro) that globals.css wires into Tailwind's
-// --font-sans. To try a different font, swap this import + call for any Google font
-// (e.g. Inter, Roboto, Poppins) and update the variable name in globals.css.
-const sourceCodePro = Source_Code_Pro({
-  variable: "--font-source-code-pro",
+// App-wide UI font: a monospace with retro-tech personality — halfway between the
+// original Source Code Pro (clean coding mono) and the pixel faces (game feel).
+// next/font self-hosts it and exposes the CSS variable that globals.css wires into
+// --font-sans; swap the import + variable to try another.
+const spaceMono = Space_Mono({
+  weight: ["400", "700"],
+  variable: "--font-space-mono",
   subsets: ["latin"],
 });
 
@@ -32,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sourceCodePro.variable} ${bitcountPropSingle.variable} h-full antialiased`}
+      className={`${spaceMono.variable} ${bitcountPropSingle.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* Impact affiliate site-verification. Rendered as the exact tag Impact supplies

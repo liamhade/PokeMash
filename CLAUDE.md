@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Whenever you work on a task from the TODO.md, you must check the boxes that you completed, and update the #LEARNING section with any helpful questions.
 
+## Session start-up
+
+At the start of each session (the user pastes a blurb to this effect, but follow it regardless): read `DEVELOPMENT.md` and `DONE.md` to learn the workflow and what's done, run `git log --oneline -15`, and skim the tail of `LEARN.md` for recent work. Tasks are assigned directly by the user in the session — TODO.md is a backlog/notes file, not the task source. Use the helpful-pair-coder skill for code edits.
+
+## UI philosophy
+
+Minimalist and intuitive, in the spirit of Apple products: clean, uncluttered, easy to use at a glance. Clutter looks bad — every element must earn its place, and when in doubt, remove rather than add. Weigh any new UI surface against the clutter it introduces, and raise it with the user if a request would crowd the screen.
+
 ## Project status
 
 This repository is in the **planning / pre-implementation** stage. There is no application code, build system, or package manager yet — only the README (product spec), `LICENSE`, and configuration. When asked to build features, you are scaffolding from scratch; align new code with the architecture decisions below rather than assuming an existing framework is in place.

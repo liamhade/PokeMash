@@ -14,7 +14,8 @@ export default function NavBar() {
   return (
     <header className="sticky top-0 z-50 relative flex items-center bg-white px-4 md:px-6 py-2 shadow-md">
       <Link href="/" className="flex items-center">
-        {/* The source PNG's outline is thin and light. Until the asset is redrawn (see
+        {/* The original retro logo (pokeball + bubbly Pokemon-style wordmark). The
+            source PNG's outline is thin and light. Until the asset is redrawn (see
             TODO: make logo dark), stack dark drop-shadows on all four sides to fake a
             bolder, darker outline — drop-shadow traces the image's alpha edge. */}
         <Image

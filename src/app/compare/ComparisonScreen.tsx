@@ -42,7 +42,11 @@ function ratingOf(card: Card): GlickoRating {
 // Persisted on-screen pair, so leaving Play (e.g. for Rankings) and coming back restores
 // the same matchup instead of reshuffling the board. We keep it in sessionStorage, not
 // localStorage: this is a transient, this-tab concern, not long-lived player progress.
-const COMPARISON_STORAGE_KEY = "pokemash:comparison";
+// Bump the version suffix whenever the saved Card shape changes: a restored held winner
+// is never refetched (picks only fold rating fields into it), so a stale save would keep
+// showing outdated fields for as long as that card stays on the board. v2: cards carry
+// set/pack/release_date for the info flip.
+const COMPARISON_STORAGE_KEY = "pokemash:comparison:v2";
 
 type SavedComparison = { cards: Card[]; streak: number; streakCardId: string | null };
 
@@ -76,6 +80,7 @@ function buildFilterQuery(filters: Filters): string {
   if (filters.eras.length) params.set("eras", filters.eras.join(","));
   if (filters.minPrice) params.set("minPrice", filters.minPrice);
   if (filters.maxPrice) params.set("maxPrice", filters.maxPrice);
+  if (filters.minElo) params.set("minElo", filters.minElo);
   const query = params.toString();
   return query ? `&${query}` : "";
 }
@@ -121,12 +126,22 @@ function pairKey(cards: Card[], keepWinner: boolean, filters: Filters): string {
 }
 
 // The prefetched next comparison. "keep": a shallow QUEUE of challengers per possible
-// winner (Keep Winner mode) — a pick consumes the winner's head and discards the loser's
-// queue, so a click can never outrun a single in-flight fetch. "fresh": a whole new pair
-// (Keep Winner off). filterKey/key tie a preload to the state it's valid for; any
-// mismatch falls back to a normal fetch.
+// winner (Keep Winner mode) — a pick consumes the winner's head and recycles the loser's
+// leftover queue into `donated`, so a click can never outrun a single in-flight fetch.
+// "fresh": a whole new pair (Keep Winner off). filterKey/key tie a preload to the state
+// it's valid for; any mismatch falls back to a normal fetch.
 type Preload =
-  | { mode: "keep"; filterKey: string; queues: Record<string, Card[]> }
+  | {
+      mode: "keep";
+      filterKey: string;
+      queues: Record<string, Card[]>;
+      // Hand-me-downs from beaten opponents: already-fetched (and mostly decoded)
+      // speculation that was rating-matched to the card it was queued FOR, not the
+      // current winner. Kept as a warm stopgap so switching winners stays fast; they
+      // don't count toward QUEUE_DEPTH, so `queues` rebuilds fresh entries matched to
+      // the new winner underneath while these bridge the gap.
+      donated: Record<string, Card[]>;
+    }
   | { mode: "fresh"; key: string; pair: Card[] };
 
 // Challengers to keep queued per potential winner. Deep enough that rapid picks can't
@@ -136,6 +151,47 @@ const QUEUE_DEPTH = 3;
 // Only the front of each queue gets its image downloaded+decoded ahead of time — warming
 // all of it would spend bandwidth on art that is often discarded with the losing side.
 const WARM_DEPTH = 2;
+
+// Pop the best available challenger for a pick, drawing from the winner's fresh queue
+// and its donated hand-me-downs (in that order). Entries colliding with the on-board
+// pair are dropped, then the first card whose art is already decoded wins — a decoded
+// donated card beats an undecoded fresh one, because only a decoded image can take the
+// one-motion overlap path. With nothing decoded, fall back to the freshest entry: its
+// slide-in buys the image time to finish.
+function popChallenger(
+  lists: (Card[] | undefined)[],
+  onBoard: Set<string>,
+): Card | undefined {
+  for (const list of lists) {
+    if (!list) continue;
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (onBoard.has(list[i].card_id)) list.splice(i, 1);
+    }
+  }
+  for (const list of lists) {
+    const ready = list?.findIndex((card) => imageReady(card.image_url)) ?? -1;
+    if (list && ready >= 0) return list.splice(ready, 1)[0];
+  }
+  for (const list of lists) {
+    if (list?.length) return list.shift();
+  }
+  return undefined;
+}
+
+// A one-deep snapshot of the board taken just BEFORE a pick, so the "Go back" button can
+// restore that matchup for reselection. Holds the pre-pick pair (carrying its pre-pick
+// ratings), the streak/picks counters, the two card ids, and the pick's own persistence
+// POST — undo waits on that before reversing the server writes, so it can't race the
+// insert/upsert it means to undo. Only one is ever kept, capping undo at a single step.
+type Snapshot = {
+  pair: Card[];
+  streak: number;
+  streakCardId: string | null;
+  picks: number;
+  winnerId: string;
+  loserId: string;
+  postDone: Promise<unknown>;
+};
 
 export default function ComparisonScreen() {
   const [cards, setCards] = useState<Card[] | null>(null);
@@ -157,6 +213,10 @@ export default function ComparisonScreen() {
   const [streakCardId, setStreakCardId] = useState<string | null>(null);
   // Total picks this mount, for the Critter's per-pick hop (not persisted anywhere).
   const [picks, setPicks] = useState(0);
+
+  // The single previous matchup the "Go back" button can restore (null = nothing to undo).
+  // Set on each pick, consumed on undo — so undo can only ever step back one matchup.
+  const [lastPick, setLastPick] = useState<Snapshot | null>(null);
 
   // Active pool filters (price/era/series) and whether the Filter modal is open. True
   // poolEmpty means the current filters matched fewer than two cards.
@@ -249,19 +309,29 @@ export default function ComparisonScreen() {
       // A store from another mode or filter set is dead; start over. (In-flight fetches
       // tied to the old store notice `preloadRef.current !== store` and drop themselves.)
       if (preloadRef.current?.mode !== "keep" || preloadRef.current.filterKey !== query) {
-        preloadRef.current = { mode: "keep", filterKey: query, queues: {} };
+        preloadRef.current = { mode: "keep", filterKey: query, queues: {}, donated: {} };
       }
       const store = preloadRef.current;
       for (const winner of current) {
         const opponent = current.find((card) => card.card_id !== winner.card_id)!;
         const queue = (store.queues[winner.card_id] ??= []);
+        const donated = (store.donated[winner.card_id] ??= []);
         // Re-warm the front on every pass: after a pick consumes the head, the next
         // entries move into WARM_DEPTH range (warmImage dedupes, so this is cheap).
-        queue.slice(0, WARM_DEPTH).forEach((card) => warmImage(card.image_url));
+        // Donated cards back-fill the warm window while the fresh queue is short.
+        [...queue, ...donated]
+          .slice(0, WARM_DEPTH)
+          .forEach((card) => warmImage(card.image_url));
+        // Donated cards deliberately don't reduce `need`: they're stopgaps matched to a
+        // beaten opponent's rating, so the fresh queue still rebuilds to full depth and
+        // supersedes them as its entries decode.
         const need = QUEUE_DEPTH - queue.length;
         if (need <= 0 || preloadInFlightRef.current.has(winner.card_id)) continue;
         preloadInFlightRef.current.add(winner.card_id);
-        const exclude = [opponent.card_id, ...queue.map((card) => card.card_id)].join(",");
+        const exclude = [
+          opponent.card_id,
+          ...[...queue, ...donated].map((card) => card.card_id),
+        ].join(",");
         fetch(
           `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}&excludeId=${exclude}&count=${need}${query}`,
         )
@@ -271,14 +341,20 @@ export default function ComparisonScreen() {
             const board = cardsRef.current;
             if (!board?.some((card) => card.card_id === winner.card_id)) return; // winner left
             const onBoard = new Set(board.map((card) => card.card_id));
+            // Re-read the donated list: a pick made during this fetch may have replaced
+            // it with hand-me-downs the request's exclude list never knew about.
+            const handMeDowns = store.donated[winner.card_id] ?? [];
             // next[0] is the winner echoed back; the rest are the fresh challengers.
             for (const card of next?.slice(1) ?? []) {
               if (queue.length >= QUEUE_DEPTH) break;
               if (onBoard.has(card.card_id)) continue;
               if (queue.some((queued) => queued.card_id === card.card_id)) continue;
+              if (handMeDowns.some((queued) => queued.card_id === card.card_id)) continue;
               queue.push(card);
             }
-            queue.slice(0, WARM_DEPTH).forEach((card) => warmImage(card.image_url));
+            [...queue, ...handMeDowns]
+              .slice(0, WARM_DEPTH)
+              .forEach((card) => warmImage(card.image_url));
           })
           .catch(() => {}) // preload is best-effort; a pick just falls back to fetching
           .finally(() => {
@@ -462,6 +538,12 @@ export default function ComparisonScreen() {
     if (!ready || !cards) return;
     const pair = cards; // capture before the state below changes
     const loser = pair.find((card) => card.card_id !== winner.card_id)!;
+    // Board state as it stands right now, BEFORE this pick — the "Go back" restore point.
+    // pair still references the pre-pick card objects (setCards below builds new ones), and
+    // streak/streakCardId/picks are this render's values, so they're all pre-pick.
+    const prevStreak = streak;
+    const prevStreakCardId = streakCardId;
+    const prevPicks = picks;
     setReady(false);
     setPickedId(winner.card_id);
 
@@ -490,9 +572,10 @@ export default function ComparisonScreen() {
     const loserDial = { from: Math.round(loserRating.r), to: Math.round(newLoserRating.r) };
 
     // Persist in the background (fire-and-forget). The server recomputes from the same
-    // ratings, so its result matches ours — we don't need to wait for or read it.
+    // ratings, so its result matches ours — we don't need to wait for or read it. The
+    // promise is kept so an undo can wait for this write to land before reversing it.
     const playerId = getPlayerId();
-    fetch("/api/comparison", {
+    const postDone = fetch("/api/comparison", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -502,26 +585,57 @@ export default function ComparisonScreen() {
       }),
     }).catch(() => {});
 
+    // Arm "Go back" with this matchup's pre-pick snapshot (replacing any earlier one, so
+    // only the most recent pick is undoable).
+    setLastPick({
+      pair,
+      streak: prevStreak,
+      streakCardId: prevStreakCardId,
+      picks: prevPicks,
+      winnerId: winner.card_id,
+      loserId: loser.card_id,
+      postDone,
+    });
+
     if (keepWinnerRef.current) {
       // Pop the winner's challenger queue. The queue outlives the pick (unlike the old
       // one-shot preload): its remaining entries stay valid while this winner holds the
       // board, and the preload effect tops it back up after the swap.
-      const store = preloadRef.current;
-      const queue =
-        store?.mode === "keep" && store.filterKey === buildFilterQuery(filtersRef.current)
-          ? store.queues[winner.card_id]
+      const store =
+        preloadRef.current?.mode === "keep" &&
+        preloadRef.current.filterKey === buildFilterQuery(filtersRef.current)
+          ? preloadRef.current
           : undefined;
-      let challenger: Card | undefined;
-      while (queue && queue.length > 0) {
-        const head = queue.shift()!;
-        // Server-side exclusions make a board collision near-impossible; guard anyway.
-        if (head.card_id !== winner.card_id && head.card_id !== loser.card_id) {
-          challenger = head;
-          break;
-        }
+      if (store) {
+        // The loser's leftover speculation was matched to the LOSER's rating — but the
+        // two cards were just on the board together (rating-adjacent by construction),
+        // so recycle it as the winner's warm stopgap instead of discarding paid-for
+        // fetches. This must happen BEFORE the pop below: on a winner switch the new
+        // winner's own queue is usually still fetching, so THIS pick's challenger has
+        // to come from the hand-me-downs — donating after the pop would only ever help
+        // the pick after, and a switch pick would stay slow forever. Dedupe against
+        // everything the winner already holds (the two sides' queues are fetched
+        // independently, so they CAN contain the same card).
+        const held = new Set([
+          winner.card_id,
+          ...(store.queues[winner.card_id] ?? []).map((card) => card.card_id),
+          ...(store.donated[winner.card_id] ?? []).map((card) => card.card_id),
+        ]);
+        const leftovers = [
+          ...(store.queues[loser.card_id] ?? []),
+          ...(store.donated[loser.card_id] ?? []),
+        ].filter((card) => !held.has(card.card_id));
+        store.donated[winner.card_id] = [
+          ...(store.donated[winner.card_id] ?? []),
+          ...leftovers,
+        ].slice(0, QUEUE_DEPTH);
+        delete store.queues[loser.card_id];
+        delete store.donated[loser.card_id];
       }
-      // The loser's queue speculated on the loser winning; it leaves with the loser.
-      if (store?.mode === "keep") delete store.queues[loser.card_id];
+      const challenger = popChallenger(
+        [store?.queues[winner.card_id], store?.donated[winner.card_id]],
+        new Set([winner.card_id, loser.card_id]),
+      );
 
       if (challenger && imageReady(challenger.image_url)) {
         // Fast path: challenger in hand AND its art decoded — overlap the loser leaving
@@ -569,6 +683,43 @@ export default function ComparisonScreen() {
     }
   }
 
+  // "Go back": restore the previous matchup so the user can reselect. Only allowed on a
+  // settled board (guards against undoing mid-swap). Restores instantly — the pair snaps
+  // back to center, like the on-mount sessionStorage restore — then reverses the server
+  // writes. The snapshot is consumed (setLastPick(null)), so at most one step back exists.
+  async function handleUndo() {
+    const snap = lastPick;
+    if (!snap || !ready) return;
+
+    setExiting([]);
+    setPickedId(null);
+    setHoveredId(null);
+    setCards(snap.pair);
+    setPos(positionsFor(snap.pair, "center"));
+    setStreak(snap.streak);
+    setStreakCardId(snap.streakCardId);
+    setPicks(snap.picks);
+    // The preload was built around the post-pick board; drop it so the effect rebuilds it
+    // for the restored pair. In-flight fetches tied to the old store discard themselves.
+    preloadRef.current = null;
+    setLastPick(null);
+    setReady(true);
+
+    // Reverse the server writes, but only AFTER the pick's own POST settles — otherwise a
+    // slow insert/upsert could land after the undo and resurrect the pick.
+    await snap.postDone;
+    fetch("/api/comparison/undo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        playerId: getPlayerId(),
+        winnerCardId: snap.winnerId,
+        loserCardId: snap.loserId,
+        ratings: snap.pair.map((card) => ({ card_id: card.card_id, ...ratingOf(card) })),
+      }),
+    }).catch(() => {});
+  }
+
   // Desktop shortcut: Left/Right arrow picks the left/right card. cards[0] and
   // cards[1] match the render order below, and Keep Winner replaces the loser in
   // place so the index→side mapping stays stable across rounds. handlePick itself
@@ -613,13 +764,19 @@ export default function ComparisonScreen() {
         <KeepWinnerToggle keepWinner={keepWinner} onToggle={() => setKeepWinner((on) => !on)} />
       </div>
 
-      {/* Mobile-only streak legend (it lives in PanelLeft on md+). Same stacked column
-          as desktop, tucked under the Filter trigger on the left edge. */}
-      <div className="px-4 pt-5 md:hidden">
-        <StreakLegend className="flex-col gap-2" />
+      {/* Mobile-only streak legend (it lives in PanelLeft on md+). An absolute overlay
+          under the Filter trigger rather than a flex row: it must not reserve a band of
+          layout between the toolbar and the board (the board centers in ALL the space
+          below the toolbar, and the legend is usually invisible anyway). */}
+      <div className="pointer-events-none absolute left-4 top-16 z-20 md:hidden">
+        <StreakLegend streak={streak} className="flex-col gap-2" />
       </div>
 
-      <PanelLeft filters={filters} onOpenFilter={() => setFilterOpen(true)} />
+      <PanelLeft
+        filters={filters}
+        onOpenFilter={() => setFilterOpen(true)}
+        streak={streak}
+      />
 
       <ComparisonArea
         cards={cards}
@@ -634,6 +791,8 @@ export default function ComparisonScreen() {
         exiting={exiting}
         onPick={handlePick}
         onHover={setHoveredId}
+        canUndo={lastPick !== null && ready}
+        onUndo={handleUndo}
       />
 
       <PanelRight

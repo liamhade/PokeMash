@@ -2,26 +2,41 @@
 
 import { useState } from "react";
 
-// The filter selections this modal edits and hands back on Apply. minPrice/maxPrice are
-// raw input strings ("" = unset); eras/series hold the chosen values.
+// The filter selections this modal edits and hands back on Apply. minPrice/maxPrice/
+// minElo are raw input strings ("" = unset); eras/series hold the chosen values.
 export type Filters = {
   minPrice: string;
   maxPrice: string;
+  minElo: string;
   eras: string[];
   series: string[];
 };
 
-export const EMPTY_FILTERS: Filters = { minPrice: "", maxPrice: "", eras: [], series: [] };
+export const EMPTY_FILTERS: Filters = {
+  minPrice: "",
+  maxPrice: "",
+  minElo: "",
+  eras: [],
+  series: [],
+};
 
 // True when any filter is active — used by the caller to badge the Filter button.
 export function hasActiveFilters(filters: Filters): boolean {
   return (
     filters.minPrice !== "" ||
     filters.maxPrice !== "" ||
+    filters.minElo !== "" ||
     filters.eras.length > 0 ||
     filters.series.length > 0
   );
 }
+
+// Minimum-ELO knob bounds. The leftmost position means "no minimum" (filter off), so
+// ELO_OFF doubles as the slider's floor. Cards the player hasn't rated sit at the 1200
+// default, so a minimum above 1200 also hides every not-yet-seen card.
+const ELO_OFF = 800;
+const ELO_MAX = 1800;
+const ELO_STEP = 25;
 
 // Era buckets. Values match the API's ERA_YEAR_RANGES keys; hints describe the year span.
 // Hints use explicit start–end years (not a "≤" glyph, which rendered oversized).
@@ -61,19 +76,27 @@ const SERIES: { label: string; value: string }[] = [
 // Look up a series label from its value (selected state stores values).
 const SERIES_LABEL = new Map(SERIES.map((s) => [s.value, s.label]));
 
+// The modal's filter sections; callers pick which to render (Play shows all,
+// Rankings only price + series). A hidden section's Filters field passes through
+// `initial` → `onApply` unchanged, so it stays at its unset value.
+export type FilterSection = "price" | "elo" | "era" | "series";
+const ALL_SECTIONS: FilterSection[] = ["price", "elo", "era", "series"];
+
 type Props = {
   // Seeds the working selection so reopening restores the applied state.
   initial: Filters;
   onApply: (filters: Filters) => void;
   // Cancel path shared by the × button and clicking outside the panel.
   onClose: () => void;
+  sections?: FilterSection[];
 };
 
 // Mounted only while open (the parent controls this), so the working state below starts
 // fresh from `initial` on every open and edits are discarded on cancel.
-export default function FilterModal({ initial, onApply, onClose }: Props) {
+export default function FilterModal({ initial, onApply, onClose, sections = ALL_SECTIONS }: Props) {
   const [minPrice, setMinPrice] = useState(initial.minPrice);
   const [maxPrice, setMaxPrice] = useState(initial.maxPrice);
+  const [minElo, setMinElo] = useState(initial.minElo);
   const [eras, setEras] = useState<Set<string>>(() => new Set(initial.eras));
   const [series, setSeries] = useState<Set<string>>(() => new Set(initial.series));
   const [seriesSearch, setSeriesSearch] = useState("");
@@ -96,6 +119,7 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
   function clearAll() {
     setMinPrice("");
     setMaxPrice("");
+    setMinElo("");
     setEras(new Set());
     setSeries(new Set());
   }
@@ -104,6 +128,7 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
     onApply({
       minPrice: minPrice.trim(),
       maxPrice: maxPrice.trim(),
+      minElo,
       eras: [...eras],
       series: [...series],
     });
@@ -130,6 +155,7 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
         <h2 className="mb-4 text-lg font-semibold text-neutral-800">Filter cards</h2>
 
         {/* Price range — filters on each card's market value (recent-sale based), USD */}
+        {sections.includes("price") && (
         <section className="mb-5">
           <h3 className="mb-1 text-sm font-semibold text-neutral-700">Price (USD)</h3>
           <p className="mb-2 text-xs text-neutral-400">By each card&rsquo;s market value (recent sales).</p>
@@ -155,8 +181,35 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
             />
           </div>
         </section>
+        )}
+
+        {/* Minimum ELO — a single-knob slider; the leftmost stop means "off" */}
+        {sections.includes("elo") && (
+        <section className="mb-5">
+          <h3 className="mb-2 text-sm font-semibold text-neutral-700">Minimum ELO</h3>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={ELO_OFF}
+              max={ELO_MAX}
+              step={ELO_STEP}
+              value={minElo === "" ? ELO_OFF : Number(minElo)}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+                setMinElo(value === ELO_OFF ? "" : String(value));
+              }}
+              aria-label="Minimum ELO"
+              className="w-full accent-red-600"
+            />
+            <span className="w-10 shrink-0 text-right text-sm font-medium text-neutral-700">
+              {minElo === "" ? "Off" : minElo}
+            </span>
+          </div>
+        </section>
+        )}
 
         {/* Era — multi-select toggle chips */}
+        {sections.includes("era") && (
         <section className="mb-5">
           <h3 className="mb-2 text-sm font-semibold text-neutral-700">Era</h3>
           <div className="flex flex-wrap gap-2">
@@ -181,8 +234,10 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
             })}
           </div>
         </section>
+        )}
 
         {/* Series — searchable multi-select */}
+        {sections.includes("series") && (
         <section className="mb-5">
           <h3 className="mb-2 text-sm font-semibold text-neutral-700">Series</h3>
 
@@ -249,6 +304,7 @@ export default function FilterModal({ initial, onApply, onClose }: Props) {
             </ul>
           )}
         </section>
+        )}
 
         <div className="flex items-center gap-3">
           <button
