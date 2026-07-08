@@ -30,6 +30,10 @@
 	- *Series list is static* in `FilterModal` (`SERIES`) and mirrored by the API's `ERA_SETS` — both must be regenerated when a new series ships. A `distinct_sets()` RPC (needs DB access) would let the dropdown load live, like the old rarity filter did.
 	- *Price gaps*: ~10% of cards have null `market_price` (silently excluded when a price bound is set); some rows have messy prices (e.g. `market_price` 0 with a high `lowest_price`).
 
+- [ ] (**scheduled price refresh**)
+	- *PROBLEM*: Card prices in `cards` (market/lowest/highest) are a snapshot from the last manual run of `scripts/refresh-prices.ts` (DEVELOPMENT.md step 7) — they drift until someone reruns it and applies the printed sync UPDATE by hand.
+	- *SOLUTION*: Port the refresh to a scheduled job — e.g. a Supabase Edge Function on a nightly/weekly cron (pg_cron + pg_net, or an external scheduler hitting the function) running with the service key so it can update `cards` directly, no staging table or manual SQL step. Must carry over the whole verification layer: vintage (pre-Black & White) ≥ $25 gets NM-sku verification; the ten WOTC 1st-Edition-scan packs are always verified and priced as 1st Edition (Base Set via the Shadowless group); modern cards take the feed price as-is. Source feed (tcgcsv.com) updates daily, so anything more frequent than nightly is wasted. Keep prices in Supabase regardless — pool price-filtering and rankings query `market_price` in SQL, and live pulls would put TCGplayer's undocumented APIs on the request path.
+
 <!-- Flesh this out more -->
 - [ ] (**compare from `See Rankings`**) Add abilitity to click on card from `See Rankings` to compare that card on `Play` to another card.
 
