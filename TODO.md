@@ -1006,3 +1006,7 @@
 - [ ] The flee timer `(24 / crossSpeed) * 1000` fired while the serpent was still fully off screen even though the math was "correct" — why does dividing distance by the average crossing speed disagree with a CSS `ease-in-out` transition near its start, and why did `watchForNose` (polling the animating transform) fix it for any easing curve?
 
 - [ ] Clefairy's `moving` state and now the serpent flee trigger both read `getComputedStyle(...).transform` instead of trusting scheduled timers ("real motion can't lie"). When is observing rendered state worth its polling cost over predicting from your own schedule — and what class of drift (easing, timer throttling, frame drops) does each approach absorb?
+
+- [ ] Clefairy's flee stacked three delays after the nose threshold — the 500ms beat, up to 100ms of poll cadence, and `walkTo`'s 300-650ms turn pause — while the serpent's `ease-in-out` glide was accelerating. Why did each delay look harmless alone, and why must the threshold be tuned against the SUM of the lag that follows it rather than in isolation?
+
+- [ ] The 500ms notice beat was deleted because `walkTo`'s look-then-turn pause already reads as her "noticing." What's the general smell when two layers of a system each add their own version of the same affordance (a reaction delay, a retry, a timeout), and why is the right fix usually deleting one rather than shrinking both?

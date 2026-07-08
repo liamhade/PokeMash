@@ -289,9 +289,11 @@ const SERPENT_DIMS = SERPENTS.map((serpent) => ({
 // isn't a constant: it's measured off the board each visit (the lane under
 // the rating dials).
 const SERPENT_SPEED = 70;
-// How much of the serpent's head must be on screen before she notices him —
-// enough that the player sees the nose too; she reacts to what's visible.
-const SERPENT_NOSE_PX = 140;
+// How much of the serpent must be on screen before she notices him — just the
+// nose (Gyarados's head alone is ~140px), so she reacts the moment the player
+// can see something. Keep it small: her real reaction lag comes AFTER this
+// (poll cadence + walkTo's turn pause), while the eased glide accelerates.
+const SERPENT_NOSE_PX = 60;
 // The crossing speed is derived from VISIT_MS (crossMs = VISIT_MS - 600, distance
 // fixed by the screen), so a longer visit == a slower swim. Scaled up over time
 // (12_500 -> 16_667 -> 22_223, x4/3 each) to slow both serpents ~25% per pass; the
@@ -870,7 +872,10 @@ export default function Clefairy({ picks }: { picks: number }) {
           // the left of it heading left (the box spans [m41, m41 + dim.w]).
           const visible = dir === 1 ? m.m41 + dim.w + w / 2 : w / 2 - m.m41;
           if (visible >= SERPENT_NOSE_PX) {
-            after(500, flee);
+            // No extra "notice" beat here: walkTo's own look-then-turn pause
+            // (300-650ms when she changes facing) is the visible reaction,
+            // and the serpent keeps advancing through every ms we add.
+            flee();
             return;
           }
         }
