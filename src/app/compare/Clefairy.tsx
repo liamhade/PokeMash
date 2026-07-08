@@ -940,7 +940,12 @@ export default function Clefairy({ picks }: { picks: number }) {
       // While a serpent owns the stage she's busy hiding — ignore the audience
       // (a pool clear here would tear the visit's choreography apart).
       if (episodeRef.current) return;
-      if ((e.target as Element | null)?.closest("button, a, input, select")) return;
+      // [role="button"] covers the interactive divs (the card pick targets):
+      // without it a pick tap doubles as a walk command, and on a phone — where
+      // the board spans nearly the full width — that sends her on a fast
+      // floor-detour dash after every pick. Only open white space commands her.
+      if ((e.target as Element | null)?.closest('button, [role="button"], a, input, select'))
+        return;
       const el = areaRef.current;
       if (!el) return;
       const box = spriteBoxRef.current?.getBoundingClientRect();

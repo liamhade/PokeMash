@@ -990,3 +990,7 @@
 - [ ] In `ComparisonArea.tsx` the card art is marked loaded from BOTH a `ref` callback (checking `node.complete && node.naturalWidth > 0`) and `onLoad`. Why does the app's own `warmImage` preload (in `ComparisonScreen.tsx`) make the ref path the one that actually fires on Safari, and why is `naturalWidth > 0` needed on top of `complete`?
 
 - [ ] `onLoad` never fires for an image already `complete` in cache when the handler is attached — Chrome happened to hide this, Safari exposed it. What general lesson does this teach about relying on a single event to represent a state that may already be true before you start listening, and why is checking the current state (idempotently) more robust than waiting for its transition?
+
+- [ ] In `Clefairy.tsx`'s `onClick`, the ignore filter is `closest('button, [role="button"], a, input, select')`. Why did the card pick target need the `[role="button"]` selector rather than being caught by `button` — and what other element in the app does that same selector now also (correctly) exclude?
+
+- [ ] The pick-tap bug shipped invisible on desktop and only surfaced on a phone, because the same commanded walk resolves to one smooth glide in open space but a three-leg floor detour when the board spans the screen. What does this teach about testing features whose behavior depends on layout geometry, not just on code paths?
