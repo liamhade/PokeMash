@@ -986,3 +986,7 @@
 - [ ] `CardBack` now steps type/padding DOWN below md (e.g. `text-[10px] md:text-xs`, `py-0.5 md:py-1.5`) so the shared back fits the 44vw mobile Play card. The file's header comment says an earlier attempt to size UP above md overflowed — why is stepping down from a compact base the safe direction, while stepping up from it was the bug?
 
 - [ ] The back is `absolute inset-0 justify-center` with no `overflow-hidden`, so content taller than the card spills off BOTH edges (name off the top, FTC disclosure off the bottom). Why was tightening the intrinsic content height the right fix here rather than adding `overflow-hidden` or making the back scroll — what would each of those have cost the disclosure?
+
+- [ ] In `ComparisonArea.tsx` the card art is marked loaded from BOTH a `ref` callback (checking `node.complete && node.naturalWidth > 0`) and `onLoad`. Why does the app's own `warmImage` preload (in `ComparisonScreen.tsx`) make the ref path the one that actually fires on Safari, and why is `naturalWidth > 0` needed on top of `complete`?
+
+- [ ] `onLoad` never fires for an image already `complete` in cache when the handler is attached — Chrome happened to hide this, Safari exposed it. What general lesson does this teach about relying on a single event to represent a state that may already be true before you start listening, and why is checking the current state (idempotently) more robust than waiting for its transition?

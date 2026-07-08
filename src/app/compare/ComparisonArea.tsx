@@ -95,8 +95,9 @@ export default function ComparisonArea({
 
   // Art URLs whose <Image> has finished loading. Until then the slot shows a pulsing
   // skeleton and holds back the info button (an orphaned `i` on a blank slot reads as
-  // broken). Preloaded art is browser-cached, so its onLoad fires at mount and the
-  // skeleton never shows — this only surfaces on genuinely cold loads.
+  // broken). Preloaded art is browser-cached, so it's already `complete` when the <Image>
+  // mounts — Safari never fires onLoad for such images, so the ref callback below marks
+  // them loaded at mount; onLoad covers the genuinely cold case.
   const [loadedArt, setLoadedArt] = useState<Record<string, true>>({});
   function markLoaded(url: string) {
     setLoadedArt((prev) => (prev[url] ? prev : { ...prev, [url]: true }));
@@ -225,6 +226,12 @@ export default function ComparisonArea({
                     src={card.image_url}
                     alt={card.name}
                     {...CARD_IMAGE}
+                    // Warmed art is already cached, so on Safari the <img> is `complete`
+                    // at mount and onLoad never fires — detect that here. naturalWidth > 0
+                    // distinguishes a truly-decoded image from a broken one (both `complete`).
+                    ref={(node) => {
+                      if (node?.complete && node.naturalWidth > 0) markLoaded(card.image_url);
+                    }}
                     onLoad={() => markLoaded(card.image_url)}
                     // Two cards side by side on a phone (44vw each + gap); md and up pins
                     // the original fixed 325px so desktop is unchanged.
