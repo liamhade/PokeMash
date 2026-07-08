@@ -918,3 +918,11 @@
 - [ ] The extra space went on as `mt-2` on the button rather than bumping the parent's `gap-2` to `gap-4`. What's the difference in what each would have changed on the card back, and why does the margin better express "space between THESE two siblings"?
 
 - [ ] CardBack's column uses `justify-center` with fixed overall card height, so adding mt-2 didn't push the disclosure off the bottom — where did the 8px actually come from, and at what point would stacking more spacing re-create the overflow bug just fixed?
+
+- [ ] `add_friend` and `ensure_profile` are SECURITY DEFINER with EXECUTE revoked from anon, while avatar updates go straight through RLS with a column-level `grant update (display_name, avatar)`. What decides which of the two mechanisms a given write needs — and why would a plain select policy on profiles for code lookup have made every profile enumerable?
+
+- [ ] `friendships` stores one canonical row with `check (user_a < user_b)` instead of two mirrored rows. What does each approach cost at query time (see the `or` conditions in the RLS policy and `removeFriend`), and which invariant does the single-row design make impossible to violate rather than merely unlikely?
+
+- [ ] In `rankings/page.tsx`, `useSearchParams` forced the screen behind a `Suspense` boundary. What does Next actually do at build time to a static page that reads search params without one, and why can't the framework just default the params to empty during prerender?
+
+- [ ] The friend view resolves `friendName` client-side through the friends RLS policy, but the rankings data itself comes from the open `/api/rankings?playerId=` endpoint. What privacy line does this feature actually enforce versus merely suggest, and what would have to move server-side before "only friends can see your rankings" is literally true?
