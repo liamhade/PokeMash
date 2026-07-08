@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 import { getPlayerId } from "@/lib/playerId";
 import FilterModal, {
   EMPTY_FILTERS,
@@ -147,7 +150,15 @@ function RankingCard({ card }: { card: RankedCard }) {
   );
 }
 
-export default function RankingsPage() {
+function RankingsScreen() {
+  // ?player=<uuid> shows a friend's list (linked from /friends) instead of your
+  // own: same fetch path with their id, scope toggle hidden (only the personal
+  // list is theirs to show), and the progress meter phrased for them.
+  const friendId = useSearchParams().get("player");
+  // The friend's display name for the header; undefined while loading, null
+  // when unreadable (not actually a friend, or signed out).
+  const [friendName, setFriendName] = useState<string | null | undefined>(undefined);
+
   // Accumulated across "load more": null = first page still loading. meta holds the
   // personal progress counts (undefined under the universal scope, which sends none).
   const [cards, setCards] = useState<RankedCard[] | null>(null);
@@ -177,13 +188,13 @@ export default function RankingsPage() {
 
   const fetchPage = useCallback(
     async (applied: Filters, which: Scope, page: number): Promise<RankingsResponse> => {
-      const playerId = await getPlayerId();
+      const playerId = friendId ?? (await getPlayerId());
       const scopeParam = which === "universal" ? "&scope=universal" : "";
       return fetch(
         `/api/rankings?playerId=${playerId}${scopeParam}&page=${page}${filterQuery(applied)}`,
       ).then((res) => res.json());
     },
-    [filterQuery],
+    [filterQuery, friendId],
   );
 
   // Load page 0 fresh — used on mount and whenever the filter or scope changes.
@@ -223,6 +234,18 @@ export default function RankingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Resolve the friend's name for the header. Readable only through the
+  // friends RLS policy, so a random uuid pasted into the URL resolves to null.
+  useEffect(() => {
+    if (!friendId) return;
+    createClient()
+      .from("profiles")
+      .select("display_name")
+      .eq("user_id", friendId)
+      .maybeSingle()
+      .then(({ data }) => setFriendName(data?.display_name ?? null));
+  }, [friendId]);
+
   // More pages remain when we've loaded fewer cards than the player's total ranks.
   // Universal sends no comparedCount, so its list never shows "load more" (capped at 100).
   const hasMore =
@@ -241,7 +264,24 @@ export default function RankingsPage() {
           )}
         </div>
 
-        {/* Scope toggle: this player's list vs. the community-average leaderboard. */}
+        {/* Viewing a friend: their name replaces the scope toggle (only their
+            personal list is theirs to show), with a way back to the list. */}
+        {friendId ? (
+          <div className="flex items-baseline gap-3">
+            <span className="font-semibold text-neutral-800">
+              {friendName === undefined
+                ? " "
+                : `${friendName ?? "A friend"}'s rankings`}
+            </span>
+            <Link
+              href="/friends"
+              className="text-sm text-neutral-400 transition-colors hover:text-red-600"
+            >
+              ← Friends
+            </Link>
+          </div>
+        ) : (
+        /* Scope toggle: this player's list vs. the community-average leaderboard. */
         <div className="flex rounded-full border border-neutral-300 p-0.5 text-sm font-medium">
           {(
             [
@@ -268,6 +308,7 @@ export default function RankingsPage() {
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {!cards ? (
@@ -278,9 +319,11 @@ export default function RankingsPage() {
           <div className="flex flex-1 flex-col items-center gap-8 overflow-y-auto px-4 py-10">
             {cards.length === 0 ? (
               <p className="text-neutral-500">
-                {scope === "universal"
-                  ? "No community rankings yet — be the first to compare some cards!"
-                  : "No rankings yet — head to Play to start comparing!"}
+                {friendId
+                  ? "No rankings here yet — they haven't compared any cards."
+                  : scope === "universal"
+                    ? "No community rankings yet — be the first to compare some cards!"
+                    : "No rankings yet — head to Play to start comparing!"}
               </p>
             ) : (
               cards.map((card) => <RankingCard key={card.card_id} card={card} />)
@@ -306,7 +349,8 @@ export default function RankingsPage() {
               cards rated before a pool-rule tightening can exceed today's pool. */}
           {meta.comparedCount !== undefined && (
             <div className="sticky bottom-0 border-t border-neutral-200 bg-white py-4 text-center font-semibold text-neutral-800 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">
-              You&apos;ve compared {meta.comparedCount.toLocaleString("en-US")}
+              {friendId ? `${friendName ?? "Your friend"} has` : "You've"} compared{" "}
+              {meta.comparedCount.toLocaleString("en-US")}
               {meta.poolTotal
                 ? ` of ${meta.poolTotal.toLocaleString("en-US")} cards (${Math.min(100, Math.round((meta.comparedCount / meta.poolTotal) * 100))}%)`
                 : " cards"}
@@ -330,5 +374,15 @@ export default function RankingsPage() {
         />
       )}
     </div>
+  );
+}
+
+// useSearchParams (the ?player= friend view) must sit under a Suspense
+// boundary or Next fails the page's prerender.
+export default function RankingsPage() {
+  return (
+    <Suspense>
+      <RankingsScreen />
+    </Suspense>
   );
 }
