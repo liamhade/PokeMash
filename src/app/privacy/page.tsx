@@ -30,6 +30,21 @@ export default function PrivacyPage() {
             We never see your Google password, and we don&rsquo;t request
             anything from your Google account beyond basic profile and email.
           </p>
+          <p className="mt-2">
+            With an account you also get a small profile: a display name
+            (defaulted from your email, editable), an avatar you pick, a
+            random friend code, and the list of friends you&rsquo;ve added.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-2 text-base font-semibold text-neutral-800">Friends</h2>
+          <p>
+            Nobody can look you up by email — the only way to be added as a
+            friend is to give someone your friend code. Friends see your
+            display name, your avatar, and your card rankings. Removing a
+            friend ends that in both directions.
+          </p>
         </section>
 
         <section>
