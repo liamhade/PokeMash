@@ -46,8 +46,11 @@ function ratingOf(card: Card): GlickoRating {
 // is never refetched (picks only fold rating fields into it), so a stale save would keep
 // showing outdated fields for as long as that card stays on the board. v2: cards carry
 // set/pack/release_date for the info flip. v3: tcgplayer_product_id for the Buy link.
-// v4: market_price for the info back's price row.
-const COMPARISON_STORAGE_KEY = "pokemash:comparison:v4";
+// v4: market_price for the info back's price row. A bump is ALSO the way to flush pairs
+// that a pool-eligibility re-stamp just invalidated — the restore path predates the API's
+// eligible filter, so a card that became ineligible while saved would otherwise persist
+// across reloads. v5: flush pre-fix saves holding now-ineligible cards (e.g. Hero's Cape).
+const COMPARISON_STORAGE_KEY = "pokemash:comparison:v5";
 
 type SavedComparison = { cards: Card[]; streak: number; streakCardId: string | null };
 
