@@ -848,9 +848,10 @@ export default function Clefairy({ picks }: { picks: number }) {
       const y = Math.min(0, lowest + 6 + dim.stripH);
       const crossMs = VISIT_MS - 600;
       const crossSpeed = Math.abs(endX - startX) / (crossMs / 1000);
-      // She bolts the instant his head crosses the screen edge (it spawns
-      // 24px off it).
-      after((24 / crossSpeed) * 1000, flee);
+      // She bolts as soon as his head crosses the screen edge (it spawns
+      // 24px off it), after a 150ms beat to "notice" him — react instantly
+      // and she reads as psychic rather than alert.
+      after((24 / crossSpeed) * 1000 + 150, flee);
       serpentRef.current = { x: startX, y };
       setSerpent({ kind, x: startX, y, ms: 0, dir });
       flightAfter(60, () => {
