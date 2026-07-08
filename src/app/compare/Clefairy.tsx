@@ -291,7 +291,7 @@ const SERPENT_DIMS = SERPENTS.map((serpent) => ({
 const SERPENT_SPEED = 70;
 // How much of the serpent's head must be on screen before she notices him —
 // enough that the player sees the nose too; she reacts to what's visible.
-const SERPENT_NOSE_PX = 80;
+const SERPENT_NOSE_PX = 140;
 // The crossing speed is derived from VISIT_MS (crossMs = VISIT_MS - 600, distance
 // fixed by the screen), so a longer visit == a slower swim. Scaled up over time
 // (12_500 -> 16_667 -> 22_223, x4/3 each) to slow both serpents ~25% per pass; the
