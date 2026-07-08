@@ -174,9 +174,9 @@ export default function AccountControl() {
           <img
             src={avatar}
             alt=""
-            width={26}
-            height={26}
-            className="h-[26px] w-[26px] [image-rendering:pixelated]"
+            width={52}
+            height={52}
+            className="h-[52px] w-[52px] [image-rendering:pixelated]"
           />
         ) : (
           /* Minimal person glyph; currentColor picks up the pill's hover red. */
