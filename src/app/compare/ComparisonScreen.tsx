@@ -50,7 +50,8 @@ function ratingOf(card: Card): GlickoRating {
 // that a pool-eligibility re-stamp just invalidated — the restore path predates the API's
 // eligible filter, so a card that became ineligible while saved would otherwise persist
 // across reloads. v5: flush pre-fix saves holding now-ineligible cards (e.g. Hero's Cape).
-const COMPARISON_STORAGE_KEY = "pokemash:comparison:v5";
+// v6: flush saves holding the now-excluded Prism Star Supporter trainers.
+const COMPARISON_STORAGE_KEY = "pokemash:comparison:v6";
 
 type SavedComparison = { cards: Card[]; streak: number; streakCardId: string | null };
 

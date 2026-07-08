@@ -53,6 +53,18 @@
 
 # LEARNING
 
+## Prism Star Supporter leak (Lysandre etc.)
+
+- [ ] `EXCLUDED_PRISM_STAR_TRAINERS` matches on `row.name.trim().toLowerCase()` instead of
+  routing through `normalizeName` like `EXCLUDED_TRAINER_NAMES` does. Trace what would go
+  wrong for the full-art "Cyrus"/"Lysandre" Supporter cards if these four were added to the
+  normalized list instead — which specific step of `normalizeName` causes the collision?
+
+- [ ] This was the third "name-join vs. generated-list" leak, and the prior session said a
+  third should trigger a switch to typed card data (via `tcgplayer_product_id`). Why is an
+  explicit 4-name set defensible *here* specifically (what property of the Prism Star
+  mechanic makes it closed), even though the general advice is to stop patching names?
+
 ## iOS nav avatar squish (max-width + fixed height)
 
 - [ ] The avatar `<img>` already had `w-[52px] h-[52px]`, yet it rendered narrower

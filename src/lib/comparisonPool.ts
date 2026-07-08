@@ -91,13 +91,27 @@ function normalizeName(name: string): string {
     .trim();
 }
 
-// The rules a SQL `not in` filter can't express: drop energy cards and Item/Stadium/
-// Tool trainers; keep a "Promo" only with a featured mechanic; keep a "Rare"/"Rare Holo"
-// with a featured mechanic OR if it's genuinely vintage. (The always-dropped rarities
-// are excluded in the query.)
+// Prism Star Supporter trainers. Prism Star was a discontinued Sun & Moon-era mechanic,
+// so this is a closed set. Supporters are kept as a category (so these aren't in the
+// Item/Stadium/Tool list), and their "Rare Prism Star" rarity is judged by no rarity
+// rule — so they fall through to eligible. Matched on the FULL lowercased name, NOT
+// normalizeName: that strips "Prism Star", which would also drop the full-art Cyrus/
+// Lance/Lysandre/Lusamine Supporter cards we deliberately keep.
+const EXCLUDED_PRISM_STAR_TRAINERS = new Set([
+  "cyrus prism star",
+  "lance prism star",
+  "lusamine prism star",
+  "lysandre prism star",
+]);
+
+// The rules a SQL `not in` filter can't express: drop energy cards, Item/Stadium/Tool
+// trainers, and Prism Star Supporter trainers; keep a "Promo" only with a featured
+// mechanic; keep a "Rare"/"Rare Holo" with a featured mechanic OR if it's genuinely
+// vintage. (The always-dropped rarities are excluded in the query.)
 export function isEligible(row: EligibilityRow): boolean {
   if (isEnergyCard(row.name)) return false;
   if (EXCLUDED_TRAINER_NAMES.has(normalizeName(row.name))) return false;
+  if (EXCLUDED_PRISM_STAR_TRAINERS.has(row.name.trim().toLowerCase())) return false;
   if (row.rarity === "Promo") return hasFeaturedMechanic(row.name);
   if (VINTAGE_ELIGIBLE_RARITIES.has(row.rarity))
     return hasFeaturedMechanic(row.name) || isVintage(row.release_date);
