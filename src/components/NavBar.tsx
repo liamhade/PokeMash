@@ -14,7 +14,7 @@ import AccountControl from "./AccountControl";
 export default function NavBar() {
   return (
     <header className="sticky top-0 z-50 relative flex items-center bg-white px-4 md:px-6 py-2 shadow-md">
-      <Link href="/" className="flex items-center">
+      <Link href="/" className="-ml-1 flex items-center md:ml-0">
         {/* The original retro logo (pokeball + bubbly Pokemon-style wordmark). The
             source PNG's outline is thin and light. Until the asset is redrawn (see
             TODO: make logo dark), stack dark drop-shadows on all four sides to fake a
@@ -25,7 +25,7 @@ export default function NavBar() {
           height={100}
           width={200}
           priority
-          className="h-auto w-[100px] [filter:drop-shadow(1px_0_0_#1a1a1a)_drop-shadow(-1px_0_0_#1a1a1a)_drop-shadow(0_1px_0_#1a1a1a)_drop-shadow(0_-1px_0_#1a1a1a)]"
+          className="h-auto w-[76px] [filter:drop-shadow(1px_0_0_#1a1a1a)_drop-shadow(-1px_0_0_#1a1a1a)_drop-shadow(0_1px_0_#1a1a1a)_drop-shadow(0_-1px_0_#1a1a1a)] md:w-[100px]"
         />
       </Link>
 

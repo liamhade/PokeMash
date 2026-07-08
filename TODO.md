@@ -53,6 +53,18 @@
 
 # LEARNING
 
+## iOS nav avatar squish (max-width + fixed height)
+
+- [ ] The avatar `<img>` already had `w-[52px] h-[52px]`, yet it rendered narrower
+  than 52px on iOS. Explain the interaction between Tailwind Preflight's
+  `img { max-width: 100% }`, the explicit `h-[52px]`, and a flex-shrunk pill that
+  produced a compressed *width* but not a compressed height.
+
+- [ ] The fix combined two independent levers: reclaiming row space (smaller logo,
+  `-ml-1`) and pinning the avatar (`shrink-0` on the pill + `max-w-none shrink-0` on
+  the img). Why isn't either lever sufficient alone — what does each one fail to
+  guarantee on the narrowest viewports?
+
 ## Google sign-in: session identity + anonymous-history transfer
 
 - [ ] `getPlayerId` became async (session user id ?? anon localStorage UUID) and

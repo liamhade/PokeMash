@@ -166,7 +166,7 @@ export default function AccountControl() {
         onClick={() => setMenuOpen((open) => !open)}
         aria-label="Account"
         aria-expanded={menuOpen}
-        className={navPillClass}
+        className={`${navPillClass} shrink-0`}
       >
         {avatar ? (
           /* Their chosen Pokémon; pixelated so the 96px sprite stays crisp. */
@@ -176,7 +176,11 @@ export default function AccountControl() {
             alt=""
             width={52}
             height={52}
-            className="h-[52px] w-[52px] [image-rendering:pixelated]"
+            // shrink-0 + max-w-none keep the sprite a true 52x52 square: without
+            // them, a cramped nav row (iOS) lets flexbox shrink the pill and
+            // Preflight's `img { max-width: 100% }` caps the width while the fixed
+            // height holds — the "smushed width-wise" look.
+            className="h-[52px] w-[52px] max-w-none shrink-0 [image-rendering:pixelated]"
           />
         ) : (
           /* Minimal person glyph; currentColor picks up the pill's hover red. */
