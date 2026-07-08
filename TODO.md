@@ -982,3 +982,7 @@
 - [ ] The mobile streak legend overlapped the left card only at the 40+ tier and only on short viewports. Why does switching the mobile `StreakLegend` from `flex-col` to `flex-row` remove the overlap when the absolute `left-4 top-16` anchor stayed the same — what did the column's growth direction have to do with Safari's shrinking visible height?
 
 - [ ] The legend is an absolute `pointer-events-none` overlay specifically so it doesn't reserve a layout band (the board centers in ALL space below the toolbar). What's the tradeoff between "overlay that can overlap" vs "in-flow element that reserves space," and why does making the overlay horizontal get BOTH benefits (centered board AND no overlap) that neither pure option offered?
+
+- [ ] `CardBack` now steps type/padding DOWN below md (e.g. `text-[10px] md:text-xs`, `py-0.5 md:py-1.5`) so the shared back fits the 44vw mobile Play card. The file's header comment says an earlier attempt to size UP above md overflowed — why is stepping down from a compact base the safe direction, while stepping up from it was the bug?
+
+- [ ] The back is `absolute inset-0 justify-center` with no `overflow-hidden`, so content taller than the card spills off BOTH edges (name off the top, FTC disclosure off the bottom). Why was tightening the intrinsic content height the right fix here rather than adding `overflow-hidden` or making the back scroll — what would each of those have cost the disclosure?
