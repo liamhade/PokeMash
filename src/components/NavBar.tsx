@@ -13,7 +13,7 @@ import AccountControl from "./AccountControl";
 // the page.
 export default function NavBar() {
   return (
-    <header className="sticky top-0 z-50 relative flex items-center bg-white px-4 md:px-6 py-2 shadow-md">
+    <header className="sticky top-0 z-50 relative flex items-center bg-white pl-4 pr-2 md:px-6 py-2 shadow-md">
       <Link href="/" className="-ml-1 flex items-center">
         {/* The original retro logo (pokeball + bubbly Pokemon-style wordmark). The
             source PNG's outline is thin and light. Until the asset is redrawn (see
@@ -34,7 +34,7 @@ export default function NavBar() {
         <NavButton href="/rankings">Rankings</NavButton>
       </nav>
 
-      <div className="ml-1 md:ml-auto flex items-center gap-1 md:gap-2">
+      <div className="ml-1 md:ml-auto flex items-center gap-0 md:gap-2">
         <HowItWorks />
         <AccountControl />
       </div>

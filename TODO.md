@@ -966,3 +966,11 @@
 - [ ] Hero's Cape survived the DB fix because `readSavedComparison` restores the sessionStorage pair on mount BEFORE any `/api/comparison/next` call, and sessionStorage persists across reloads. Trace exactly when the restored board is finally replaced by eligible-only data — which user actions refetch, and which (Keep Winner on the held card) can keep a stale card on screen indefinitely without a version bump?
 
 - [ ] Bumping `COMPARISON_STORAGE_KEY` flushes every saved pair exactly once, decoupling the client cache from a server-side eligibility change. What's the tradeoff of this "version bump on data invalidation" pattern versus validating each restored Card against the live pool on mount, and why is the coupling (admin must remember to bump after a re-stamp) acceptable at this app's scale?
+
+- [ ] To shift the right cluster toward the edge on iOS, `NavBar.tsx` switched the header from `px-4 md:px-6` to `pl-4 pr-2 md:px-6`. Why does reducing only the RIGHT padding move Play/Rankings/About/avatar rightward while leaving the logo put, and why is the `md:px-6` override needed to keep desktop symmetric?
+
+- [ ] Enlarging the avatar to 60px (`AccountControl.tsx`) grows the nav bar's height, yet the earlier `shrink-0 max-w-none` pin is what keeps it a true 60×60 square. Why does a fixed `w-[60px] h-[60px]` alone NOT guarantee a square in a flex row, and how does trimming the header's right padding in the same change reduce the overflow pressure that made the pin necessary?
+
+- [ ] In `NavBar.tsx`, why does changing only the account div's mobile gap (`gap-1` → `gap-0`) shift Play/Rankings/About rightward while leaving the avatar fixed, when the avatar lives INSIDE that same div? (Hint: which element is the right-aligned block anchored to, and which way does a shrinking block's left edge move?)
+
+- [ ] Reducing the About↔avatar gap was the only lever to move the trio right without touching the avatar, because the avatar is pinned at the header's right padding. What would it have taken to shift the trio right by MORE than the 4px that gap held, and why does the "don't move the avatar" constraint cap the achievable shift?
