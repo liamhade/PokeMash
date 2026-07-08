@@ -40,6 +40,24 @@ the browser on every save, so you see changes in real time.
 Other scripts: `npm run build` (production build), `npm run start` (serve the
 production build), `npm run lint` (ESLint).
 
+## Google sign-in (Supabase Auth) — one-time dashboard setup
+
+The sign-in flow is pure Supabase Auth (no extra env vars — the publishable key
+covers it), but it only works once the project is configured in the dashboard:
+
+1. **Google credentials:** in Google Cloud Console, create an OAuth 2.0 Client ID
+   (type "Web application") with the authorized redirect URI
+   `https://wmhbvlggntwisedrvncq.supabase.co/auth/v1/callback`.
+2. **Enable the provider:** Supabase dashboard → Authentication → Sign In / Providers
+   → Google → paste the client ID + secret.
+3. **Allow our redirect targets:** Authentication → URL Configuration → set the
+   Site URL to the production domain and add `http://localhost:3000/**` (and the
+   prod domain's `/**`) to Redirect URLs — `signInWithOAuth` sends users back to
+   `{origin}/auth/callback`, which must be on this allowlist.
+
+Until step 2 is done, "Continue with Google" bounces off Supabase with a
+"provider is not enabled" error; everything else in the app still works.
+
 ## Branch & commit workflow
 
 We collaborate on `main`, so **all of my work happens on a separate branch** to avoid

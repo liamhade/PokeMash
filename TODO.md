@@ -6,7 +6,7 @@
 
 - [ ] (**anon->sign-up**) The user gets 20 free comparisons (that number should be easily adjustable in the backend code). After that, the user is prompted with a sign-in modal in the center of the screen (the rest of the screen should be blurred). All sign-in functionalities should leverage `Supabases` built-in sign-in functionalites. The user should be prompted to sign-in with their Google account (OAuth, which Supabase natively supports). After a user signs-in, the comparisons / rankings that they performed while anonymous should automatically transfer over to their current account.
 
-	- [ ] (**account handling**) A red `Sign Up` Pill button will be created in the upper right in the `Nav Bar`. When the user clicks it, the same modal that pops-up in the **anon->sign-up** ticket should appear. The user should be prompted to sign-in with their Google Account (OAuth). Once the user signs in, a person icon appears in the upper-right. If they click on the person icon, it shows a dropdown modal that contains their email address that they are signed in with, as well as a sign-out button.
+	- [x] (**account handling**) A red `Sign Up` Pill button will be created in the upper right in the `Nav Bar`. When the user clicks it, the same modal that pops-up in the **anon->sign-up** ticket should appear. The user should be prompted to sign-in with their Google Account (OAuth). Once the user signs in, a person icon appears in the upper-right. If they click on the person icon, it shows a dropdown modal that contains their email address that they are signed in with, as well as a sign-out button. *(Shipped as a single "Sign in" pill — with OAuth, sign-up and login are the same action; see DONE.md. The parent ticket's 20-free-comparisons prompt gate is still open.)*
 
 - [ ] (**move comparison pool rule into the database**)
 	- *PROBLEM*: The rarity rule above lives in TypeScript because the app's read-only key can't create DB objects. That means an extra `cards` read per request and logic split from the data.
@@ -52,6 +52,27 @@
 - [ ] If the user selects a 
 
 # LEARNING
+
+## Google sign-in: session identity + anonymous-history transfer
+
+- [ ] `getPlayerId` became async (session user id ?? anon localStorage UUID) and
+  `handlePick` chains it into the fire-and-forget POST promise instead of awaiting it
+  at the top. Why must the pick handler itself stay synchronous (think: what work the
+  next lines do), and which of the other call sites could have tolerated an await-at-top?
+
+- [ ] `transfer_player_data` is SECURITY DEFINER, takes only the anonymous id, derives
+  the destination from `auth.uid()`, and has EXECUTE revoked from `anon`. Walk the abuse
+  each of those three choices blocks — and why is mere possession of the anonymous UUID
+  acceptable as proof of ownership of that history?
+
+- [ ] The transfer is offered only to FRESH accounts, and the function re-checks that
+  server-side. Why can't two histories simply be unioned (what would two `card_ranks`
+  rows for the same `(player, card)` mean in Glicko terms), and why is the client-side
+  freshness check alone not enough?
+
+- [ ] One "Sign in" pill shipped instead of the planned Sign Up + Login pair, because
+  OAuth makes them the identical action. When are two entry points into one flow
+  signposting rather than clutter, and where did the "sign up" meaning move instead?
 
 ## price the printing in the picture (1st Edition scans, vintage-only checks)
 
