@@ -271,7 +271,7 @@ export default function ComparisonScreen() {
   }, []);
 
   const loadNextPair = useCallback(async () => {
-    const playerId = getPlayerId();
+    const playerId = await getPlayerId();
     const res = await fetch(
       `/api/comparison/next?playerId=${playerId}${buildFilterQuery(filtersRef.current)}`,
     );
@@ -303,7 +303,7 @@ export default function ComparisonScreen() {
     if (!current || current.length < 2) return;
     const keep = keepWinnerRef.current;
     const filters = filtersRef.current;
-    const playerId = getPlayerId();
+    const playerId = await getPlayerId();
     const query = buildFilterQuery(filters);
 
     if (keep) {
@@ -425,12 +425,12 @@ export default function ComparisonScreen() {
   async function swapLoserForFresh(
     winner: Card,
     loser: Card,
-    playerId: string,
     slideStart: number,
     preChallenger?: Card,
   ) {
     let fresh = preChallenger;
     if (!fresh) {
+      const playerId = await getPlayerId();
       const res = await fetch(
         `/api/comparison/next?playerId=${playerId}&winnerId=${winner.card_id}&excludeId=${loser.card_id}${buildFilterQuery(filtersRef.current)}`,
       );
@@ -575,16 +575,21 @@ export default function ComparisonScreen() {
     // Persist in the background (fire-and-forget). The server recomputes from the same
     // ratings, so its result matches ours — we don't need to wait for or read it. The
     // promise is kept so an undo can wait for this write to land before reversing it.
-    const playerId = getPlayerId();
-    const postDone = fetch("/api/comparison", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        playerId,
-        winnerCardId: winner.card_id,
-        loserCardId: loser.card_id,
-      }),
-    }).catch(() => {});
+    // getPlayerId is async (session lookup); chaining it into the fire-and-forget
+    // promise keeps this pick handler synchronous for the animation work above.
+    const postDone = getPlayerId()
+      .then((playerId) =>
+        fetch("/api/comparison", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playerId,
+            winnerCardId: winner.card_id,
+            loserCardId: loser.card_id,
+          }),
+        }),
+      )
+      .catch(() => {});
 
     // Arm "Go back" with this matchup's pre-pick snapshot (replacing any earlier one, so
     // only the most recent pick is undoable).
@@ -648,7 +653,7 @@ export default function ComparisonScreen() {
         // is done — the slide buys a still-loading image time to finish.
         setPos((prev) => ({ ...prev, [loser.card_id]: "above" }));
         if (challenger) warmImage(challenger.image_url);
-        swapLoserForFresh(winner, loser, playerId, performance.now(), challenger);
+        swapLoserForFresh(winner, loser, performance.now(), challenger);
       }
     } else {
       // Use the preloaded fresh pair if it's still valid; otherwise fetch after the slide.
@@ -713,7 +718,7 @@ export default function ComparisonScreen() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        playerId: getPlayerId(),
+        playerId: await getPlayerId(),
         winnerCardId: snap.winnerId,
         loserCardId: snap.loserId,
         ratings: snap.pair.map((card) => ({ card_id: card.card_id, ...ratingOf(card) })),

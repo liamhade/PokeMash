@@ -176,8 +176,8 @@ export default function RankingsPage() {
   }, []);
 
   const fetchPage = useCallback(
-    (applied: Filters, which: Scope, page: number): Promise<RankingsResponse> => {
-      const playerId = getPlayerId();
+    async (applied: Filters, which: Scope, page: number): Promise<RankingsResponse> => {
+      const playerId = await getPlayerId();
       const scopeParam = which === "universal" ? "&scope=universal" : "";
       return fetch(
         `/api/rankings?playerId=${playerId}${scopeParam}&page=${page}${filterQuery(applied)}`,
