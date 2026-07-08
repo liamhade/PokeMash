@@ -978,3 +978,7 @@
 - [ ] After `gap-0` exhausted the shift-without-moving-the-avatar lever, the only way further right was trimming the header's mobile right padding (`pr-2` → `pr-1`), which moves the avatar too. Why is the header padding the ONLY remaining lever once the block is right-anchored and its internal gap is zero?
 
 - [ ] `pr-1` (4px) was chosen over `pr-0` to avoid the cluster sitting flush against the iOS screen edge. What device-specific reasons (safe areas, rounded corners, touch ergonomics) make a small non-zero edge inset worth keeping even when asked to push content "right a little more"?
+
+- [ ] The mobile streak legend overlapped the left card only at the 40+ tier and only on short viewports. Why does switching the mobile `StreakLegend` from `flex-col` to `flex-row` remove the overlap when the absolute `left-4 top-16` anchor stayed the same — what did the column's growth direction have to do with Safari's shrinking visible height?
+
+- [ ] The legend is an absolute `pointer-events-none` overlay specifically so it doesn't reserve a layout band (the board centers in ALL space below the toolbar). What's the tradeoff between "overlay that can overlap" vs "in-flow element that reserves space," and why does making the overlay horizontal get BOTH benefits (centered board AND no overlap) that neither pure option offered?

@@ -777,9 +777,12 @@ export default function ComparisonScreen() {
       {/* Mobile-only streak legend (it lives in PanelLeft on md+). An absolute overlay
           under the Filter trigger rather than a flex row: it must not reserve a band of
           layout between the toolbar and the board (the board centers in ALL the space
-          below the toolbar, and the legend is usually invisible anyway). */}
+          below the toolbar, and the legend is usually invisible anyway). Laid out as a
+          horizontal ROW here (vertical on desktop): the phone board rises as Safari's
+          chrome eats vertical space, so a downward-growing column's lowest tier (40+)
+          would land on the left card — a single top row stays clear of the cards. */}
       <div className="pointer-events-none absolute left-4 top-16 z-20 md:hidden">
-        <StreakLegend streak={streak} className="flex-col gap-2" />
+        <StreakLegend streak={streak} className="flex-row gap-3" />
       </div>
 
       <PanelLeft
