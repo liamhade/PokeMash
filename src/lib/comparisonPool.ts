@@ -80,6 +80,9 @@ const VINTAGE_ELIGIBLE_RARITIES = new Set(["Rare", "Rare Holo"]);
 function normalizeName(name: string): string {
   return name
     .normalize("NFKD")
+    .replace(/[’‘]/g, "'") // curly -> ASCII apostrophe BEFORE the non-ASCII drop:
+    // the catalog writes "Hero’s Cape" but the list came from ASCII "Hero's Cape";
+    // deleting the curly form ("heros cape") can never match the list ("hero s cape")
     .replace(/[^\x00-\x7f]/g, "") // drop non-ASCII (incl. combining accents)
     .toLowerCase()
     .replace(/prism star/g, " ") // subtype tag, spelled out in our data

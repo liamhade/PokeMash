@@ -934,3 +934,7 @@
 - [ ] Doubling the pill avatar to 52px made the whole nav bar ~16px taller because the pill's own py-2 padding rides on top of the image box. If the bar height had to stay fixed instead, which single element's padding/size would you change, and why is `image-rendering: pixelated` what keeps a 96px sprite acceptable at any of these sizes?
 
 - [ ] The eligibility fix changed only source rules, but users see the effect only after stamp-eligibility + the sync UPDATEs re-materialize `cards.eligible`. What staleness risks does a stamped column introduce compared to evaluating `isPoolEligible` per request, and what in this session's 6617→6606 count made the re-stamp safe to apply without a full diff review?
+
+- [ ] Hero's Cape leaked because `normalizeName` DELETED the catalog's curly "’" (non-ASCII) while the list's ASCII "'" became a SPACE — "heros cape" vs "hero s cape". Why must every character class handled by a normalizer used on both sides of a join map to the same output regardless of source encoding, and which normalization step (NFKD, drop, punctuation-to-space) is the right place for each kind of character?
+
+- [ ] Two sessions in a row, pool leaks came from the same root: a name-based join against a generated list where the two sides spell things differently ("◇" vs "Prism Star", "'" vs "’"). At what point does patching the normalizer lose to switching the exclusion source to typed data (e.g. tcgcsv card types via the tcgplayer_product_id we already stamp on 98.6% of cards)?
