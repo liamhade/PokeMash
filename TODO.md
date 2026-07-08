@@ -994,3 +994,7 @@
 - [ ] In `Clefairy.tsx`'s `onClick`, the ignore filter is `closest('button, [role="button"], a, input, select')`. Why did the card pick target need the `[role="button"]` selector rather than being caught by `button` — and what other element in the app does that same selector now also (correctly) exclude?
 
 - [ ] The pick-tap bug shipped invisible on desktop and only surfaced on a phone, because the same commanded walk resolves to one smooth glide in open space but a three-leg floor detour when the board spans the screen. What does this teach about testing features whose behavior depends on layout geometry, not just on code paths?
+
+- [ ] In `ComparisonScreen.tsx`'s fresh-mode refill, the response is re-checked against the CURRENT board and queue even though the request already carried an `excludeId` list — under what sequence of picks and in-flight fetches can the server's exclusions be correct at request time yet stale by the time the response lands?
+
+- [ ] Keep Winner mode was fast because a 3-deep challenger queue absorbed fetch latency, while fresh mode's one-shot preload was consumed every pick. Why does a queue (with per-pick top-offs) beat "prefetch exactly one" whenever consumption can outpace production, and what determines the right depth?
