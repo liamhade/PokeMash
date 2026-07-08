@@ -1002,3 +1002,7 @@
 - [ ] In `serpentVisit`, the flee delay is `(24 / crossSpeed) * 1000` — why must the trigger be computed from `crossSpeed` and the 24px spawn offset rather than a fixed millisecond delay, and what would a hardcoded delay get wrong across different screen widths?
 
 - [ ] The old flee waited for the head to be ~140px on screen plus a 300ms "notice" beat — deliberate anticipation staging (react to what the player can see). The user read that same delay as sluggishness. What does this say about how animation-timing principles like anticipation translate (or don't) to ambient background characters, and who arbitrates when a crafted delay reads as lag?
+
+- [ ] The flee timer `(24 / crossSpeed) * 1000` fired while the serpent was still fully off screen even though the math was "correct" — why does dividing distance by the average crossing speed disagree with a CSS `ease-in-out` transition near its start, and why did `watchForNose` (polling the animating transform) fix it for any easing curve?
+
+- [ ] Clefairy's `moving` state and now the serpent flee trigger both read `getComputedStyle(...).transform` instead of trusting scheduled timers ("real motion can't lie"). When is observing rendered state worth its polling cost over predicting from your own schedule — and what class of drift (easing, timer throttling, frame drops) does each approach absorb?
