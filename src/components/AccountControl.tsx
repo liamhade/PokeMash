@@ -174,13 +174,13 @@ export default function AccountControl() {
           <img
             src={avatar}
             alt=""
-            width={52}
-            height={52}
-            // shrink-0 + max-w-none keep the sprite a true 52x52 square: without
+            width={60}
+            height={60}
+            // shrink-0 + max-w-none keep the sprite a true 60x60 square: without
             // them, a cramped nav row (iOS) lets flexbox shrink the pill and
             // Preflight's `img { max-width: 100% }` caps the width while the fixed
             // height holds — the "smushed width-wise" look.
-            className="h-[52px] w-[52px] max-w-none shrink-0 [image-rendering:pixelated]"
+            className="h-[60px] w-[60px] max-w-none shrink-0 [image-rendering:pixelated]"
           />
         ) : (
           /* Minimal person glyph; currentColor picks up the pill's hover red. */
