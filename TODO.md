@@ -926,3 +926,11 @@
 - [ ] In `rankings/page.tsx`, `useSearchParams` forced the screen behind a `Suspense` boundary. What does Next actually do at build time to a static page that reads search params without one, and why can't the framework just default the params to empty during prerender?
 
 - [ ] The friend view resolves `friendName` client-side through the friends RLS policy, but the rankings data itself comes from the open `/api/rankings?playerId=` endpoint. What privacy line does this feature actually enforce versus merely suggest, and what would have to move server-side before "only friends can see your rankings" is literally true?
+
+- [ ] `isEnergyCard` needed a `/^Holon Energy\b/` special case because the FF/GL/WP trio puts the element letters after "Energy". Why is anchoring on "Energy$" still the right general rule instead of matching the word anywhere in the name — which card types would a contains-match wrongly judge, and what did the `\menergy\M` DB sweep prove about the exception list being complete?
+
+- [ ] Wondrous Labyrinth leaked because two data sources spell the same tag differently ("◇" vs "Prism Star") on either side of a normalized-name join. When matching entities by name across sources, why must the normalization function be treated as part of the data contract — and what's the cheapest guard that would have caught this class of drift when the list was generated?
+
+- [ ] Doubling the pill avatar to 52px made the whole nav bar ~16px taller because the pill's own py-2 padding rides on top of the image box. If the bar height had to stay fixed instead, which single element's padding/size would you change, and why is `image-rendering: pixelated` what keeps a 96px sprite acceptable at any of these sizes?
+
+- [ ] The eligibility fix changed only source rules, but users see the effect only after stamp-eligibility + the sync UPDATEs re-materialize `cards.eligible`. What staleness risks does a stamped column introduce compared to evaluating `isPoolEligible` per request, and what in this session's 6617→6606 count made the re-stamp safe to apply without a full diff review?

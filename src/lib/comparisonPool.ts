@@ -44,13 +44,15 @@ export function isVintage(releaseDate: string | null): boolean {
 // on "Energy" being the LAST word after stripping those. This deliberately keeps
 // trainers like "Energy Retrieval" / "Ancient Booster Energy Capsule" (Energy is
 // not the final word). Done by name because the data has no card-type column.
+// The one naming exception: the "Holon Energy FF/GL/WP" trio suffixes the element
+// letters AFTER "Energy" — the only energies in the catalog not ending in it.
 function isEnergyCard(name: string): boolean {
   const stripped = name
     .replace(/\{[^}]*\}/g, "") // element symbols, e.g. {G}{R}
     .replace(/prism star/gi, "") // subtype tag, e.g. "Beast Energy Prism Star"
     .replace(/\s+/g, " ")
     .trim();
-  return /\bEnergy$/i.test(stripped);
+  return /\bEnergy$/i.test(stripped) || /^Holon Energy\b/i.test(stripped);
 }
 
 // "Promo", "Rare" and "Rare Holo" are catch-all rarities that lump boring non-holos
@@ -72,12 +74,15 @@ const VINTAGE_ELIGIBLE_RARITIES = new Set(["Rare", "Rare Holo"]);
 // Trainer "Item", "Stadium", and "Pokémon Tool" cards aren't fun to compare. The data
 // has no card-type column, so we match by name against a list pulled from the Pokemon
 // TCG API (see excludedTrainerNames.ts). This normalization MUST match how that list
-// was generated.
+// was generated — the API writes the Prism Star tag as "◇" (dropped with the other
+// non-ASCII), while our catalog spells it out, so the words are stripped too or
+// "Wondrous Labyrinth Prism Star" would never match the list's "wondrous labyrinth".
 function normalizeName(name: string): string {
   return name
     .normalize("NFKD")
     .replace(/[^\x00-\x7f]/g, "") // drop non-ASCII (incl. combining accents)
     .toLowerCase()
+    .replace(/prism star/g, " ") // subtype tag, spelled out in our data
     .replace(/[^a-z0-9 ]/g, " ") // punctuation -> space, so apostrophes etc. don't matter
     .replace(/\s+/g, " ")
     .trim();
