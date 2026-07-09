@@ -214,7 +214,7 @@ type Snapshot = {
   postDone: Promise<unknown>;
 };
 
-export default function ComparisonScreen() {
+export default function ComparisonScreen({ seedCardId }: { seedCardId?: string }) {
   const [cards, setCards] = useState<Card[] | null>(null);
   const [pos, setPos] = useState<Record<string, Position>>({});
   const [pickedId, setPickedId] = useState<string | null>(null);
@@ -308,6 +308,32 @@ export default function ComparisonScreen() {
     }
     mountPair(next);
   }, [mountPair]);
+
+  // Load a board seeded with a specific card the player picked in Rankings
+  // ("Compare in Play"). winnerId returns [thatCard, opponent] — fetching the
+  // card directly even if it's outside the sampled pool — which we mount as an
+  // ordinary pair (not a held streak): the player just compares it head-to-head.
+  const loadSeededPair = useCallback(
+    async (cardId: string) => {
+      // Consume the ?seed one-shot: strip it so a later reload restores the saved
+      // board like a normal Play visit instead of re-seeding. history.replaceState
+      // (not the router) leaves the server searchParams prop untouched, so this
+      // doesn't re-fire the mount effect below.
+      window.history.replaceState(null, "", "/compare");
+      const playerId = await getPlayerId();
+      const res = await fetch(
+        `/api/comparison/next?playerId=${playerId}&winnerId=${cardId}&count=1${buildFilterQuery(filtersRef.current)}`,
+      );
+      const { cards: next } = (await res.json()) as { cards?: Card[] };
+      // Bad id, or the pool couldn't supply an opponent: fall back to a fresh pair.
+      if (!next || next.length < 2) {
+        loadNextPair();
+        return;
+      }
+      mountPair(next);
+    },
+    [mountPair, loadNextPair],
+  );
 
   // Prefetch what comes after the current settled pair and warm its image(s), so a pick
   // can use it instantly. Keep Winner: top each possible winner's challenger queue up to
@@ -447,6 +473,12 @@ export default function ComparisonScreen() {
   // saved, fetch the first pair instead. Both paths set state on mount deliberately
   // (the fetch path is async, so no sync cascade).
   useEffect(() => {
+    // A card seeded from Rankings takes precedence over the saved board — the
+    // player explicitly asked to compare THIS card right now.
+    if (seedCardId) {
+      loadSeededPair(seedCardId);
+      return;
+    }
     const saved = readSavedComparison();
     if (saved) {
       setCards(saved.cards);
@@ -457,7 +489,7 @@ export default function ComparisonScreen() {
       return;
     }
     loadNextPair();
-  }, [loadNextPair]);
+  }, [loadNextPair, seedCardId, loadSeededPair]);
 
   // Persist the current settled pair (and its streak) whenever it changes. We only save
   // when `ready` — both cards are at center — so transient null/mid-animation states

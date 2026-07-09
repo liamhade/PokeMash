@@ -1018,3 +1018,7 @@
 - [ ] `isFullArtPromo` keys the include-list by `pack` + `collector_number`, not by `card_id`. Given that every full-art promo exists as TWO rows (one `set="Sword & Shield"`, one `set="Promos"`) with different `card_id`s but the same pack+number, why does the pack+number key cover both rows for free, and what would keying by `card_id` have cost in list length and maintainability?
 
 - [ ] The whole feature rests on there being no data field for "full art" — the rarity column, `subtypes`, and the Pokémon TCG API all just say `Promo`/`Basic`. When the distinguishing attribute a rule needs isn't in the data and can't be derived, why is a curated, human-reviewed include-list (with a documented maintenance step) a more honest design than inventing a fragile proxy (e.g. collector-number ranges or image heuristics)?
+
+- [ ] `loadSeededPair` seeds the board by calling `/api/comparison/next?winnerId=<seed>` rather than a dedicated endpoint. Why does the existing `winnerId` path already return exactly what a seed needs (the card fetched directly even when it's outside the sampled pool, plus one opponent), and what would a separate seed endpoint have duplicated?
+
+- [ ] `loadSeededPair` strips the `?seed` with `window.history.replaceState` instead of `router.replace`. Trace what would happen to the mount `useEffect` (whose deps now include `seedCardId`) if the seed were cleared via the Next router mid-load — why does that re-fire risk clobber the seeded board, and why doesn't `replaceState` trip it?
