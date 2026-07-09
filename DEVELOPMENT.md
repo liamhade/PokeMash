@@ -63,7 +63,7 @@ Until step 2 is done, "Continue with Google" bounces off Supabase with a
 We collaborate on `main`, so **all of my work happens on a separate branch** to avoid
 interfering with my collaborator.
 
-- **Working branch:** `dev-tessa` (branched off `main`).
+- **A new branch per task** (branched off `main`), created when the task is assigned.
 - **One commit per change or subtask.** If several edits all serve the same subtask,
   they go in a single commit; unrelated changes get their own commits. This keeps
   history easy to read and easy to revert.
