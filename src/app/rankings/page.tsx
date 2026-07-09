@@ -41,9 +41,13 @@ type RankingsResponse = {
   poolTotal?: number;
 };
 
-// Whose rankings the page shows: this player's own, or the community's — every
-// player's rating for a card averaged into one score.
-type Scope = "mine" | "universal";
+// Whose rankings the page shows: this player's own, the community's (every
+// player's rating for a card averaged into one score), or a chosen friend's.
+type Scope = "mine" | "universal" | "friend";
+
+// A friend to pick from in the "Friend's Rankings" scope. Resolved the same way
+// the /friends page does — friendship rows mapped to the other person's profile.
+type Friend = { user_id: string; display_name: string };
 
 // The card image dimensions; the flip container is locked to this so flipping to the
 // detail table doesn't reflow the list. Sized a touch larger than the raw 220×305 (same
@@ -151,13 +155,10 @@ function RankingCard({ card }: { card: RankedCard }) {
 }
 
 function RankingsScreen() {
-  // ?player=<uuid> shows a friend's list (linked from /friends) instead of your
-  // own: same fetch path with their id, scope toggle hidden (only the personal
-  // list is theirs to show), and the progress meter phrased for them.
-  const friendId = useSearchParams().get("player");
-  // The friend's display name for the header; undefined while loading, null
-  // when unreadable (not actually a friend, or signed out).
-  const [friendName, setFriendName] = useState<string | null | undefined>(undefined);
+  // ?player=<uuid> deep-links straight into a friend's list (linked from /friends).
+  // Read once at mount to seed the scope + selection; after that the toggle and the
+  // friend picker own the selection, so there's no live URL to keep in sync.
+  const initialFriendId = useSearchParams().get("player");
 
   // Accumulated across "load more": null = first page still loading. meta holds the
   // personal progress counts (undefined under the universal scope, which sends none).
@@ -169,7 +170,14 @@ function RankingsScreen() {
   // Applied price/series filters (the eras/minElo fields stay unset — the modal here
   // only renders the price and series sections).
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [scope, setScope] = useState<Scope>("mine");
+  const [scope, setScope] = useState<Scope>(initialFriendId ? "friend" : "mine");
+
+  // The picked friend (only meaningful under the "friend" scope) and the list of
+  // friends to choose from. friends === null means "not loaded yet"; it's fetched
+  // lazily the first time the friend scope is active.
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(initialFriendId);
+  const [friends, setFriends] = useState<Friend[] | null>(null);
+  const friendName = friends?.find((f) => f.user_id === selectedFriendId)?.display_name;
 
   // The last page index loaded, and a token that invalidates in-flight fetches when
   // the filter/scope changes — so a slow "load more" can't append to a newer list.
@@ -187,23 +195,30 @@ function RankingsScreen() {
   }, []);
 
   const fetchPage = useCallback(
-    async (applied: Filters, which: Scope, page: number): Promise<RankingsResponse> => {
-      const playerId = friendId ?? (await getPlayerId());
+    async (
+      applied: Filters,
+      which: Scope,
+      friend: string | null,
+      page: number,
+    ): Promise<RankingsResponse> => {
+      // A friend's list fetches under their id; mine/universal under my own.
+      const playerId = which === "friend" ? friend : await getPlayerId();
+      if (!playerId) return { rankings: [] }; // friend scope with nobody picked yet
       const scopeParam = which === "universal" ? "&scope=universal" : "";
       return fetch(
         `/api/rankings?playerId=${playerId}${scopeParam}&page=${page}${filterQuery(applied)}`,
       ).then((res) => res.json());
     },
-    [filterQuery, friendId],
+    [filterQuery],
   );
 
-  // Load page 0 fresh — used on mount and whenever the filter or scope changes.
+  // Load page 0 fresh — used on mount and whenever the filter, scope, or friend changes.
   const loadFirstPage = useCallback(
-    (applied: Filters, which: Scope) => {
+    (applied: Filters, which: Scope, friend: string | null) => {
       const token = ++requestRef.current;
       pageRef.current = 0;
       setCards(null); // show the loading state while the new list arrives
-      fetchPage(applied, which, 0).then((data) => {
+      fetchPage(applied, which, friend, 0).then((data) => {
         if (requestRef.current !== token) return; // superseded by a newer load
         setCards(data.rankings ?? []);
         setMeta({ comparedCount: data.comparedCount, poolTotal: data.poolTotal });
@@ -212,39 +227,55 @@ function RankingsScreen() {
     [fetchPage],
   );
 
-  // Append the next page to the current list (personal scope only).
+  // Append the next page to the current list (personal + friend scopes only).
   const loadMore = useCallback(() => {
     const token = requestRef.current; // not bumped: same list session
     const next = pageRef.current + 1;
     setLoadingMore(true);
-    fetchPage(filters, scope, next).then((data) => {
+    fetchPage(filters, scope, selectedFriendId, next).then((data) => {
       setLoadingMore(false);
       if (requestRef.current !== token) return; // filter/scope changed mid-load
       pageRef.current = next;
       setCards((prev) => [...(prev ?? []), ...(data.rankings ?? [])]);
     });
-  }, [fetchPage, filters, scope]);
+  }, [fetchPage, filters, scope, selectedFriendId]);
+
+  // Load the friend list (the picker's options) — replicates the /friends page's
+  // resolution: friendship rows → the other person's id → their profile. RLS
+  // returns nothing when signed out, so friends ends up an empty list.
+  const loadFriends = useCallback(async () => {
+    const supabase = createClient();
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) return setFriends([]);
+    const { data: rows } = await supabase.from("friendships").select("user_a, user_b");
+    const ids = (rows ?? []).map((row) => (row.user_a === uid ? row.user_b : row.user_a));
+    if (ids.length === 0) return setFriends([]);
+    const { data } = await supabase
+      .from("profiles")
+      .select("user_id, display_name")
+      .in("user_id", ids)
+      .order("display_name");
+    setFriends((data as Friend[]) ?? []);
+  }, []);
 
   useEffect(() => {
     // The mount fetch clears cards synchronously (loading state); intentional here, so
     // silence the set-state-in-effect rule like the compare screen's mount effect does.
+    // A friend deep-link (?player=) lands in friend scope and loads that friend directly.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadFirstPage(filters, scope);
-    // Only run on mount; filter/scope changes refetch explicitly in their handlers.
+    loadFirstPage(filters, scope, selectedFriendId);
+    // Only run on mount; filter/scope/friend changes refetch explicitly in their handlers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Resolve the friend's name for the header. Readable only through the
-  // friends RLS policy, so a random uuid pasted into the URL resolves to null.
+  // Fetch the picker's options the first time the friend scope is active. loadFriends
+  // only setState()s after awaiting Supabase, so the synchronous-cascade rule doesn't
+  // truly apply (same suppression the mount effect above uses).
   useEffect(() => {
-    if (!friendId) return;
-    createClient()
-      .from("profiles")
-      .select("display_name")
-      .eq("user_id", friendId)
-      .maybeSingle()
-      .then(({ data }) => setFriendName(data?.display_name ?? null));
-  }, [friendId]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (scope === "friend" && friends === null) loadFriends();
+  }, [scope, friends, loadFriends]);
 
   // More pages remain when we've loaded fewer cards than the player's total ranks.
   // Universal sends no comparedCount, so its list never shows "load more" (capped at 100).
@@ -264,29 +295,13 @@ function RankingsScreen() {
           )}
         </div>
 
-        {/* Viewing a friend: their name replaces the scope toggle (only their
-            personal list is theirs to show), with a way back to the list. */}
-        {friendId ? (
-          <div className="flex items-baseline gap-3">
-            <span className="font-semibold text-neutral-800">
-              {friendName === undefined
-                ? " "
-                : `${friendName ?? "A friend"}'s rankings`}
-            </span>
-            <Link
-              href="/friends"
-              className="text-sm text-neutral-400 transition-colors hover:text-red-600"
-            >
-              ← Friends
-            </Link>
-          </div>
-        ) : (
-        /* Scope toggle: this player's list vs. the community-average leaderboard. */
+        {/* Scope toggle: my list, the community-average leaderboard, or a friend's. */}
         <div className="flex rounded-full border border-neutral-300 p-0.5 text-sm font-medium">
           {(
             [
               { value: "mine", label: "My Rankings" },
               { value: "universal", label: "Universal" },
+              { value: "friend", label: "Friend's Rankings" },
             ] as { value: Scope; label: string }[]
           ).map((option) => (
             <button
@@ -295,7 +310,14 @@ function RankingsScreen() {
               onClick={() => {
                 if (option.value === scope) return;
                 setScope(option.value);
-                loadFirstPage(filters, option.value);
+                // Friend scope waits for a pick unless one's already chosen; the
+                // other scopes load right away.
+                if (option.value === "friend") {
+                  if (selectedFriendId) loadFirstPage(filters, "friend", selectedFriendId);
+                  else setCards(null);
+                } else {
+                  loadFirstPage(filters, option.value, null);
+                }
               }}
               className={[
                 "rounded-full px-3 py-1 transition-colors",
@@ -308,18 +330,56 @@ function RankingsScreen() {
             </button>
           ))}
         </div>
+
+        {/* Friend picker - only in friend scope, and only once there are friends
+            to choose from (otherwise the empty-state message below points to /friends). */}
+        {scope === "friend" && friends && friends.length > 0 && (
+          <select
+            value={selectedFriendId ?? ""}
+            onChange={(event) => {
+              const id = event.target.value || null;
+              setSelectedFriendId(id);
+              if (id) loadFirstPage(filters, "friend", id);
+            }}
+            className="rounded-full border border-neutral-300 px-3 py-1 text-sm font-medium text-neutral-700 outline-none transition-colors hover:border-neutral-400"
+          >
+            <option value="" disabled>
+              Select a friend
+            </option>
+            {friends.map((friend) => (
+              <option key={friend.user_id} value={friend.user_id}>
+                {friend.display_name}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 
-      {!cards ? (
-        <p className="py-20 text-center text-neutral-500">Loading your rankings…</p>
+      {scope === "friend" && !selectedFriendId ? (
+        <p className="py-20 text-center text-neutral-500">
+          {friends === null ? (
+            "Loading…"
+          ) : friends.length === 0 ? (
+            <>
+              You haven&apos;t added any friends yet.{" "}
+              <Link href="/friends" className="text-red-600 hover:underline">
+                Add friends
+              </Link>{" "}
+              to see their rankings.
+            </>
+          ) : (
+            "Choose a friend above to see their rankings."
+          )}
+        </p>
+      ) : !cards ? (
+        <p className="py-20 text-center text-neutral-500">Loading rankings…</p>
       ) : (
         <>
           {/* Scrollable list, highest ranked at the top, each card centered. */}
           <div className="flex flex-1 flex-col items-center gap-8 overflow-y-auto px-4 py-10">
             {cards.length === 0 ? (
               <p className="text-neutral-500">
-                {friendId
+                {scope === "friend"
                   ? "No rankings here yet — they haven't compared any cards."
                   : scope === "universal"
                     ? "No community rankings yet — be the first to compare some cards!"
@@ -349,7 +409,7 @@ function RankingsScreen() {
               cards rated before a pool-rule tightening can exceed today's pool. */}
           {meta.comparedCount !== undefined && (
             <div className="sticky bottom-0 border-t border-neutral-200 bg-white py-4 text-center font-semibold text-neutral-800 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">
-              {friendId ? `${friendName ?? "Your friend"} has` : "You've"} compared{" "}
+              {scope === "friend" ? `${friendName ?? "Your friend"} has` : "You've"} compared{" "}
               {meta.comparedCount.toLocaleString("en-US")}
               {meta.poolTotal
                 ? ` of ${meta.poolTotal.toLocaleString("en-US")} cards (${Math.min(100, Math.round((meta.comparedCount / meta.poolTotal) * 100))}%)`
@@ -369,7 +429,7 @@ function RankingsScreen() {
           onApply={(applied) => {
             setFilters(applied);
             setFilterOpen(false);
-            loadFirstPage(applied, scope);
+            loadFirstPage(applied, scope, selectedFriendId);
           }}
         />
       )}
