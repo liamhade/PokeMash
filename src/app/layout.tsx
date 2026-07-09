@@ -3,6 +3,7 @@ import { Space_Mono, Bitcount_Prop_Single } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 import TransferPrompt from "@/components/TransferPrompt";
+import UsernamePrompt from "@/components/UsernamePrompt";
 
 // App-wide UI font: a monospace with retro-tech personality — halfway between the
 // original Source Code Pro (clean coding mono) and the pixel faces (game feel).
@@ -45,6 +46,8 @@ export default function RootLayout({
         <NavBar />
         {/* Invisible until a just-signed-in user has anonymous history to adopt. */}
         <TransferPrompt />
+        {/* Invisible until a new user's first sign-in, to offer a username. */}
+        <UsernamePrompt />
         <main className="flex flex-1 flex-col">{children}</main>
       </body>
     </html>

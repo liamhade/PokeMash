@@ -5,8 +5,9 @@ import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
 import { avatarSrc } from "@/lib/avatars";
-import { ensureProfile, saveAvatar, type Profile } from "@/lib/profile";
+import { ensureProfile, saveAvatar, saveDisplayName, type Profile } from "@/lib/profile";
 import AvatarPicker from "./AvatarPicker";
+import UsernameModal from "./UsernameModal";
 import { navPillClass } from "./NavButton";
 
 // The nav bar's account corner. Signed out it's a single "Sign in" pill opening
@@ -49,6 +50,7 @@ export default function AccountControl() {
   const [modalOpen, setModalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [usernameOpen, setUsernameOpen] = useState(false);
 
   useEffect(() => {
     // onAuthStateChange fires immediately with the current session
@@ -82,6 +84,13 @@ export default function AccountControl() {
     setProfile((prev) => (prev ? { ...prev, avatar: slug } : prev));
     setPickerOpen(false);
     await saveAvatar(userId, slug);
+  }
+
+  async function chooseUsername(name: string) {
+    if (!userId) return;
+    setProfile((prev) => (prev ? { ...prev, display_name: name } : prev));
+    setUsernameOpen(false);
+    await saveDisplayName(userId, name);
   }
 
   async function signInWithGoogle() {
@@ -213,6 +222,16 @@ export default function AccountControl() {
               type="button"
               onClick={() => {
                 setMenuOpen(false);
+                setUsernameOpen(true);
+              }}
+              className={menuItemClass}
+            >
+              Choose username
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
                 setPickerOpen(true);
               }}
               className={menuItemClass}
@@ -231,6 +250,16 @@ export default function AccountControl() {
           current={profile?.avatar ?? null}
           onSelect={chooseAvatar}
           onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      {usernameOpen && (
+        <UsernameModal
+          initialName={profile?.display_name ?? ""}
+          title="Choose a username"
+          secondaryLabel="Cancel"
+          onSave={chooseUsername}
+          onDismiss={() => setUsernameOpen(false)}
         />
       )}
     </div>
