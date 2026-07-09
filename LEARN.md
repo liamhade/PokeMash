@@ -608,3 +608,31 @@
   registered client cached in the macOS Keychain. Where exactly does Claude Code cache MCP
   OAuth state, which entry gets deleted, and why did relaying the localhost callback URL
   from a collaborator's browser work (whose account authorized what)?
+
+## Full-art promos wrongly excluded (Galarian Moltres SWSH284)
+
+- [ ] The old comparisonPool comment claimed "full-art cards always get their own
+  distinct rarity, so this never drops a full art." Where is that true (main sets)
+  and where does it break (modern Black Star Promos), and what did the two Galarian
+  Moltres promos SWSH125 vs SWSH284 — same name, same `Promo` rarity — prove about
+  the only available discriminator?
+
+- [ ] The include-list is keyed by `pack` + `collector_number` rather than `card_id`.
+  Every full-art promo exists as two rows (set="Sword & Shield" and set="Promos")
+  with different card_ids. Why does the pack+number key cover both rows for free, and
+  why would a card_id key have doubled the list and hurt maintainability?
+
+- [ ] The pre-SWSH sets (545 promos) were cleared via an automated lower-band
+  colorfulness score — view only the top-24 candidates, confirm all framed — instead
+  of eyeballing every card. Why is "score, rank, review the top N with a safety
+  margin" a sound way to prove a negative (no full arts here), and what's the failure
+  mode if the score correlated poorly with full-bleed art?
+
+- [ ] The dry-run diff reported 107 rows GAIN / 0 LOSE before any DB write. Why does
+  "0 lose" mean no saved-pair sessionStorage key bump was needed this time, when the
+  Prism Star and Hero's Cape fixes (which REMOVED cards) both required one?
+
+- [ ] The "it still runs too early" Clefairy report turned out to be a stale build
+  (prod mid-deploy + a Turbopack `.next` cache serving old JS). What's the general
+  lesson about trusting a bug report's described behavior before confirming which
+  build produced it — and why measure `getBoundingClientRect` rather than eyeball it?

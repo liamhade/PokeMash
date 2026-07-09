@@ -90,6 +90,14 @@ column). So after importing new card rows into `cards`, walk this list:
    `SERIES` in `src/components/FilterModal.tsx` (the filter options) and
    `ERA_SETS` in `src/app/api/comparison/next/route.ts` (era sampling windows).
 
+   Also **review any new full-art promos** into `FULL_ART_PROMO_NUMBERS` in
+   `src/lib/comparisonPool.ts` (keyed by pack + collector number). Modern Black
+   Star Promos (SWSH/SVP/MEP and successors) file full-art and plain framed
+   promos both as bare `Promo`, and no data field distinguishes them — so a
+   full-art promo without a mechanic in its name only becomes eligible once its
+   number is in that list. Pre-SWSH promo sets have none; only new
+   SWSH-successor promo sets need a look.
+
 3. **Re-stamp eligibility:** `npx tsx scripts/stamp-eligibility.ts` — it fills the
    `eligible_stage` table over REST (publishable key suffices) and prints two UPDATE
    statements; run those in the Supabase SQL editor (needs DB-admin access).

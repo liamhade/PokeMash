@@ -45,7 +45,14 @@ async function rest(path: string, init: RequestInit = {}): Promise<Response> {
   return res;
 }
 
-type Row = { card_id: string; name: string; rarity: string | null; release_date: string | null };
+type Row = {
+  card_id: string;
+  name: string;
+  rarity: string | null;
+  release_date: string | null;
+  pack: string | null;
+  collector_number: string | null;
+};
 
 async function main() {
   // Evaluate the rules over the full catalog. Rows with no rarity can't be
@@ -55,7 +62,7 @@ async function main() {
   for (let from = 0; ; from += PAGE_SIZE) {
     const page = (await (
       await rest(
-        `cards?select=card_id,name,rarity,release_date&order=card_id&limit=${PAGE_SIZE}&offset=${from}`,
+        `cards?select=card_id,name,rarity,release_date,pack,collector_number&order=card_id&limit=${PAGE_SIZE}&offset=${from}`,
       )
     ).json()) as Row[];
     total += page.length;

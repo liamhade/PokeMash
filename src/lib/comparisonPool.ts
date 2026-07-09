@@ -19,11 +19,14 @@ export const DROP_RARITIES = ["Common", "Uncommon", "No Rarity", "Double Rare"];
 export const DROP_RARITIES_FILTER = `(${DROP_RARITIES.map((rarity) => `"${rarity}"`).join(",")})`;
 
 // The card fields the eligibility rules read. Callers pass richer row types; this
-// is just the slice isEligible needs.
+// is just the slice isEligible needs. pack + collector_number are only consulted
+// for the full-art promo include-list (see FULL_ART_PROMO_NUMBERS).
 export type EligibilityRow = {
   name: string;
   rarity: string;
   release_date: string | null;
+  pack?: string | null;
+  collector_number?: string | null;
 };
 
 // A non-buzzword "Rare" is only worth comparing if it's genuinely vintage: HeartGold
@@ -58,12 +61,53 @@ function isEnergyCard(name: string): boolean {
 // "Promo", "Rare" and "Rare Holo" are catch-all rarities that lump boring non-holos
 // / plain modern foils in with the occasional buzzword chase card (e.g. "Deoxys ex",
 // "Umbreon Star"). We keep such a card only when its name carries a featured mechanic.
-// Full-art cards always get their own distinct rarity (e.g. Reshiram 113/114 is
-// "Ultra Rare"), so this never drops a full art. The mechanic is a trailing token,
+// For main-set cards a full art always gets its own distinct rarity (e.g. Reshiram
+// 113/114 is "Ultra Rare"), so the mechanic test never drops a main-set full art —
+// but modern Black Star Promos break that: full-art and plain framed promos both
+// carry bare "Promo" (see FULL_ART_PROMO_NUMBERS). The mechanic is a trailing token,
 // so we anchor on the name's end.
 const FEATURED_MECHANIC = /(\bGX|\bVMAX|\bVSTAR|\bV|\bex|\bEX|\bLV\.?X|\bBREAK|\bPrime|\bLEGEND|\bStar|★)$/;
 function hasFeaturedMechanic(name: string): boolean {
   return FEATURED_MECHANIC.test(name.trim());
+}
+
+// Full-art promos: promos whose art bleeds edge-to-edge (no framed art box).
+// The rarity column can't see this — modern Black Star Promos file full-art and
+// plain framed promos both as bare "Promo" — and neither our catalog nor the
+// Pokémon TCG API carries a full-art flag (checked), so the ONLY discriminator is
+// the individual card. This is a curated include-list keyed by pack + collector
+// number, built by reviewing every SWSH/SVP/MEP promo's art; pre-SWSH promo sets
+// have no full-art non-mechanic promos (all 545 reviewed). It covers full-art
+// Pokémon, full-art Supporters, and the V-UNION quarter-cards. Add a number here
+// when a new full-art promo prints (see DEVELOPMENT.md). Ancient Mew is keyed by
+// name instead — its collector number is a junk "o Number".
+const FULL_ART_PROMO_NUMBERS: Record<string, Set<string>> = {
+  "Sword & Shield Promos": new Set([
+    "SWSH282", "SWSH283", "SWSH284", // Galarian Articuno / Zapdos / Moltres
+    "SWSH121", "SWSH226", "SWSH227", "SWSH228", "SWSH251", "SWSH302", // full-art Supporters
+    // V-UNION (each printed as four separate quarter-cards; all full art)
+    "SWSH139", "SWSH140", "SWSH141", "SWSH142", // Pikachu
+    "SWSH155", "SWSH156", "SWSH157", "SWSH158", // Greninja
+    "SWSH159", "SWSH160", "SWSH161", "SWSH162", // Mewtwo
+    "SWSH163", "SWSH164", "SWSH165", "SWSH166", // Zacian
+    "SWSH215", "SWSH216", "SWSH217", "SWSH218", // Morpeko
+    "SWSH287", "SWSH288", "SWSH289", "SWSH290", // Morpeko (reprint)
+  ]),
+  "Scarlet & Violet Promos (SVP)": new Set([
+    "052", "097", "129", "206", "207", "211", // Pokémon
+    "124", // Iono (Supporter)
+  ]),
+  "Mega Evolution Promos (MEP)": new Set([
+    "022", "026", "027", "031", // Charcadet / Meloetta / Haunter / Zekrom
+    "037", "038", "039", "040", "041", "042", "043", "044", "045", // starter illustrations
+  ]),
+};
+const FULL_ART_PROMO_NAMES = new Set(["ancient mew"]);
+
+function isFullArtPromo(row: EligibilityRow): boolean {
+  if (FULL_ART_PROMO_NAMES.has(row.name.trim().toLowerCase())) return true;
+  const numbers = row.pack ? FULL_ART_PROMO_NUMBERS[row.pack] : undefined;
+  return numbers?.has((row.collector_number ?? "").trim()) ?? false;
 }
 
 // Rarities judged by name/era rather than rarity alone: a "Rare"/"Rare Holo" is kept
@@ -105,14 +149,15 @@ const EXCLUDED_PRISM_STAR_TRAINERS = new Set([
 ]);
 
 // The rules a SQL `not in` filter can't express: drop energy cards, Item/Stadium/Tool
-// trainers, and Prism Star Supporter trainers; keep a "Promo" only with a featured
-// mechanic; keep a "Rare"/"Rare Holo" with a featured mechanic OR if it's genuinely
-// vintage. (The always-dropped rarities are excluded in the query.)
+// trainers, and Prism Star Supporter trainers; keep a "Promo" with a featured
+// mechanic OR if it's a curated full-art promo; keep a "Rare"/"Rare Holo" with a
+// featured mechanic OR if it's genuinely vintage. (The always-dropped rarities are
+// excluded in the query.)
 export function isEligible(row: EligibilityRow): boolean {
   if (isEnergyCard(row.name)) return false;
   if (EXCLUDED_TRAINER_NAMES.has(normalizeName(row.name))) return false;
   if (EXCLUDED_PRISM_STAR_TRAINERS.has(row.name.trim().toLowerCase())) return false;
-  if (row.rarity === "Promo") return hasFeaturedMechanic(row.name);
+  if (row.rarity === "Promo") return hasFeaturedMechanic(row.name) || isFullArtPromo(row);
   if (VINTAGE_ELIGIBLE_RARITIES.has(row.rarity))
     return hasFeaturedMechanic(row.name) || isVintage(row.release_date);
   return true;

@@ -1014,3 +1014,7 @@
 - [ ] The flee now passes `walkTo` a `lookOverrideMs` of 0 instead of letting the turning branch pick 300-650ms. Why did honoring a fixed "runs 0.5s after entry" spec require threading the override through `walkTo` rather than just calling the glide setters directly from `flee`, and what does `?? ` buy over `|| ` for a 0 override?
 
 - [ ] The trigger moved from "60px of head visible" to "first pixel + fixed 500ms" at the user's request. What did the pixel-threshold version couple her reaction to (serpent speed, easing, screen width) that the stopwatch version deliberately doesn't — and when a stakeholder hands you an exact constant, why is encoding it verbatim better than translating it back into the old parameterization?
+
+- [ ] `isFullArtPromo` keys the include-list by `pack` + `collector_number`, not by `card_id`. Given that every full-art promo exists as TWO rows (one `set="Sword & Shield"`, one `set="Promos"`) with different `card_id`s but the same pack+number, why does the pack+number key cover both rows for free, and what would keying by `card_id` have cost in list length and maintainability?
+
+- [ ] The whole feature rests on there being no data field for "full art" — the rarity column, `subtypes`, and the Pokémon TCG API all just say `Promo`/`Basic`. When the distinguishing attribute a rule needs isn't in the data and can't be derived, why is a curated, human-reviewed include-list (with a documented maintenance step) a more honest design than inventing a fragile proxy (e.g. collector-number ranges or image heuristics)?
