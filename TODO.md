@@ -1010,3 +1010,7 @@
 - [ ] Clefairy's flee stacked three delays after the nose threshold — the 500ms beat, up to 100ms of poll cadence, and `walkTo`'s 300-650ms turn pause — while the serpent's `ease-in-out` glide was accelerating. Why did each delay look harmless alone, and why must the threshold be tuned against the SUM of the lag that follows it rather than in isolation?
 
 - [ ] The 500ms notice beat was deleted because `walkTo`'s look-then-turn pause already reads as her "noticing." What's the general smell when two layers of a system each add their own version of the same affordance (a reaction delay, a retry, a timeout), and why is the right fix usually deleting one rather than shrinking both?
+
+- [ ] The flee now passes `walkTo` a `lookOverrideMs` of 0 instead of letting the turning branch pick 300-650ms. Why did honoring a fixed "runs 0.5s after entry" spec require threading the override through `walkTo` rather than just calling the glide setters directly from `flee`, and what does `?? ` buy over `|| ` for a 0 override?
+
+- [ ] The trigger moved from "60px of head visible" to "first pixel + fixed 500ms" at the user's request. What did the pixel-threshold version couple her reaction to (serpent speed, easing, screen width) that the stopwatch version deliberately doesn't — and when a stakeholder hands you an exact constant, why is encoding it verbatim better than translating it back into the old parameterization?

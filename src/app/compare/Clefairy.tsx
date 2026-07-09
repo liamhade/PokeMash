@@ -289,11 +289,11 @@ const SERPENT_DIMS = SERPENTS.map((serpent) => ({
 // isn't a constant: it's measured off the board each visit (the lane under
 // the rating dials).
 const SERPENT_SPEED = 70;
-// How much of the serpent must be on screen before she notices him — just the
-// nose (Gyarados's head alone is ~140px), so she reacts the moment the player
-// can see something. Keep it small: her real reaction lag comes AFTER this
-// (poll cadence + walkTo's turn pause), while the eased glide accelerates.
-const SERPENT_NOSE_PX = 60;
+// Her reaction time: she starts running this long after the serpent's nose
+// first breaks the screen edge (user-tuned; a fixed stopwatch, not a
+// distance). The dash starts on this beat exactly — the flee passes walkTo a
+// zero look pause, so no random turn delay stacks on top.
+const SERPENT_NOTICE_MS = 500;
 // The crossing speed is derived from VISIT_MS (crossMs = VISIT_MS - 600, distance
 // fixed by the screen), so a longer visit == a slower swim. Scaled up over time
 // (12_500 -> 16_667 -> 22_223, x4/3 each) to slow both serpents ~25% per pass; the
@@ -551,8 +551,15 @@ export default function Clefairy({ picks }: { picks: number }) {
     // Walk to (tx, ty): look where you're going first — face the target, turning
     // around (back view) only when the trek climbs the screen, with a longer beat
     // when the orientation actually changes — then glide there at `speed`.
+    // `lookOverrideMs` replaces that look beat (0 = whip around and go: panic).
     // Returns the full look+walk duration so callers can schedule past it.
-    function walkTo(tx: number, ty: number, onArrive?: () => void, speed = WALK_SPEED): number {
+    function walkTo(
+      tx: number,
+      ty: number,
+      onArrive?: () => void,
+      speed = WALK_SPEED,
+      lookOverrideMs?: number,
+    ): number {
       // A click can interrupt a glide in flight, and the refs hold that walk's
       // TARGET, not where she visually is — so a downward click mid-descent would
       // read as "upward" against the stale target and wrongly show her back.
@@ -572,7 +579,7 @@ export default function Clefairy({ picks }: { picks: number }) {
       const dir: 1 | -1 = dx >= 0 ? 1 : -1;
       const back = dy < -BACK_DY; // negative y is up-screen; downward walks stay front-facing
       const turning = dir !== facingRef.current || back !== backRef.current;
-      const lookMs = turning ? 300 + Math.random() * 350 : 150;
+      const lookMs = lookOverrideMs ?? (turning ? 300 + Math.random() * 350 : 150);
       if (Math.abs(dx) > 8) {
         facingRef.current = dir;
         setFacing(dir);
@@ -808,9 +815,9 @@ export default function Clefairy({ picks }: { picks: number }) {
       // continuous run all the way there, with her first peek chained onto the
       // ARRIVAL (a fixed-time peek could fire mid-run and yank her to the card
       // top in a single 350ms hop: the "teleport"). The flee doesn't start at
-      // visit time though: she watches his REAL position and bolts once his
-      // nose is visibly on screen — she must react to the monster the player
-      // can see, not to a timer.
+      // visit time though: she watches his REAL position and bolts a fixed
+      // SERPENT_NOTICE_MS after his nose breaks the screen edge — timed off
+      // the monster the player can see, not off a schedule.
       const herX = xRef.current;
       const off = (c: CardRect) => Math.abs((c.left + c.right) / 2 - herX);
       const card = cards.find((c) => c.winner) ?? cards.reduce((a, b) => (off(a) <= off(b) ? a : b));
@@ -832,6 +839,7 @@ export default function Clefairy({ picks }: { picks: number }) {
             nervousPeek(card, hide.y);
           },
           speed,
+          0, // panic: whip around and run, no look-around beat
         );
       };
 
@@ -856,30 +864,26 @@ export default function Clefairy({ picks }: { picks: number }) {
       const y = Math.min(0, lowest + 6 + dim.stripH);
       const crossMs = VISIT_MS - 600;
       const crossSpeed = Math.abs(endX - startX) / (crossMs / 1000);
-      // She flees when the player can actually SEE him: the glide is an
-      // ease-in-out transition, which starts far slower than the average
-      // crossSpeed — a distance/speed timer fires while the nose is still
-      // off screen. Poll his real mid-glide position (read off the animating
-      // transform, like her own walkTo does) and bolt once SERPENT_NOSE_PX
-      // of head is on screen, plus a 500ms beat to notice — react instantly
-      // and she reads as psychic rather than alert.
+      // The stopwatch starts when the player can actually SEE him: the glide
+      // is an ease-in-out transition, which starts far slower than the
+      // average crossSpeed — a distance/speed timer fires while the nose is
+      // still off screen. Poll his real mid-glide position (read off the
+      // animating transform, like her own walkTo does); the moment the first
+      // pixel of nose is on screen, she runs SERPENT_NOTICE_MS later.
       function watchForNose() {
         const el = serpentPosRef.current;
         const t = el && getComputedStyle(el).transform;
         if (t && t !== "none") {
           const m = new DOMMatrixReadOnly(t);
-          // Head = leading edge: the right of the sprite box heading right,
+          // Nose = leading edge: the right of the sprite box heading right,
           // the left of it heading left (the box spans [m41, m41 + dim.w]).
           const visible = dir === 1 ? m.m41 + dim.w + w / 2 : w / 2 - m.m41;
-          if (visible >= SERPENT_NOSE_PX) {
-            // No extra "notice" beat here: walkTo's own look-then-turn pause
-            // (300-650ms when she changes facing) is the visible reaction,
-            // and the serpent keeps advancing through every ms we add.
-            flee();
+          if (visible >= 1) {
+            after(SERPENT_NOTICE_MS, flee);
             return;
           }
         }
-        after(100, watchForNose);
+        after(50, watchForNose); // 50ms cadence: entry detected within ~2px
       }
       watchForNose();
       serpentRef.current = { x: startX, y };
