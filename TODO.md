@@ -1022,3 +1022,7 @@
 - [ ] `name_chosen` is a server column backfilled to `true` for existing profiles, rather than a `pokemash_username_prompted:<id>` localStorage flag like `TransferPrompt` uses. What does the DB flag buy across devices and against the two components that both call `ensureProfile`, and in what scenario would the localStorage approach wrongly re-prompt or wrongly stay silent?
 
 - [ ] `UsernamePrompt` calls `ensureProfile()` inside `onAuthStateChange` even though `AccountControl` already does, relying on `ensure_profile`'s `on conflict do nothing` and `name_chosen` being distinct from "profile exists." Why is piggy-backing "is this user new?" on profile-row existence race-prone, and why does splitting out an explicit resolved-flag make the once-ever prompt order-independent?
+
+- [ ] `loadSeededPair` seeds the board by calling `/api/comparison/next?winnerId=<seed>` rather than a dedicated endpoint. Why does the existing `winnerId` path already return exactly what a seed needs (the card fetched directly even when it's outside the sampled pool, plus one opponent), and what would a separate seed endpoint have duplicated?
+
+- [ ] `loadSeededPair` strips the `?seed` with `window.history.replaceState` instead of `router.replace`. Trace what would happen to the mount `useEffect` (whose deps now include `seedCardId`) if the seed were cleared via the Next router mid-load — why does that re-fire risk clobber the seeded board, and why doesn't `replaceState` trip it?

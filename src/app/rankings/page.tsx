@@ -123,7 +123,7 @@ function RankingCard({ card }: { card: RankedCard }) {
         onMouseLeave={handleMouseLeave}
         onAnimationEnd={() => setWiggling(false)}
         style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
-        className={["cursor-pointer [perspective:1000px]", wiggling ? "wiggle" : ""].join(" ")}
+        className={["group cursor-pointer [perspective:1000px]", wiggling ? "wiggle" : ""].join(" ")}
       >
         <div
           className={[
@@ -131,7 +131,11 @@ function RankingCard({ card }: { card: RankedCard }) {
             flipped ? "[transform:rotateY(180deg)]" : "",
           ].join(" ")}
         >
-          {/* Front: the card image. */}
+          {/* Front: the card image, plus a corner button that loads this card into
+              Play. A tiny target kept clear of the flip surface; faint at rest so it
+              stays tappable on touch (where there's no hover) without competing with
+              the art, brighter on hover. stopPropagation so loading isn't read as a
+              flip; the ?seed lands the card on the compare board. */}
           <div className="absolute inset-0 [backface-visibility:hidden]">
             <Image
               src={card.image_url}
@@ -140,6 +144,35 @@ function RankingCard({ card }: { card: RankedCard }) {
               height={CARD_HEIGHT}
               className="rounded-xl shadow-md"
             />
+            <Link
+              href={`/compare?seed=${card.card_id}`}
+              onClick={(event) => event.stopPropagation()}
+              aria-label={`Compare ${card.name} in Play`}
+              title="Compare in Play"
+              className="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-red-600/90 text-white opacity-80 shadow-sm backdrop-blur-sm transition-all hover:scale-110 hover:bg-red-600 group-hover:opacity-100"
+            >
+              {/* Crossed swords: "compare / head-to-head". */}
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M14.5 17.5 4 6V3h3l11.5 12.5" />
+                <path d="m13 19 6-6" />
+                <path d="m16 16 4 4" />
+                <path d="m19 21 2-2" />
+                <path d="M9.5 17.5 20 6V3h-3L5.5 15.5" />
+                <path d="m11 19-6-6" />
+                <path d="m8 16-4 4" />
+                <path d="m5 21-2-2" />
+              </svg>
+            </Link>
           </div>
 
           {/* Back: detail table + referral button, shared with the Play screen's flip. */}
