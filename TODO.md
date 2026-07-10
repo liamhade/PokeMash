@@ -1026,3 +1026,7 @@
 - [ ] `loadSeededPair` seeds the board by calling `/api/comparison/next?winnerId=<seed>` rather than a dedicated endpoint. Why does the existing `winnerId` path already return exactly what a seed needs (the card fetched directly even when it's outside the sampled pool, plus one opponent), and what would a separate seed endpoint have duplicated?
 
 - [ ] `loadSeededPair` strips the `?seed` with `window.history.replaceState` instead of `router.replace`. Trace what would happen to the mount `useEffect` (whose deps now include `seedCardId`) if the seed were cleared via the Next router mid-load — why does that re-fire risk clobber the seeded board, and why doesn't `replaceState` trip it?
+
+- [ ] `tcgplayerUrl` in `cardInfo.ts` now wraps BOTH the product-page URL and the name-search fallback in `AFFILIATE_LINK` via `?u=<encoded destination>`. Why does the destination have to be `encodeURIComponent`-encoded even though it's already a valid URL, and what would break in the redirect if we passed the search fallback's own `?q=` through unencoded?
+
+- [ ] The affiliate link is a single `partner.tcgplayer.com/c/<publisher>/<campaign>/<program>` constant that Impact 301-redirects to the real page (adding `irclickid`/`irpid` tracking). Why is routing every Buy click through a third-party redirect an acceptable tradeoff here, and what's the failure posture for the user if `partner.tcgplayer.com` were ever down compared to linking `www.tcgplayer.com` directly?

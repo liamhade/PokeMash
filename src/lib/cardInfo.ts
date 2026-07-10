@@ -18,11 +18,18 @@ export function formatPrice(price: number | null | undefined): string {
   return price ? `$${price.toFixed(2)}` : "—";
 }
 
+// Our TCGplayer affiliate link (Impact program): /c/<publisher>/<campaign>/<program>.
+// Deep-linking to a specific page is done by passing the destination URL, encoded,
+// as the `u` parameter — Impact tracks the click, then forwards to `u`.
+const AFFILIATE_LINK = "https://partner.tcgplayer.com/c/7449011/1780961/21018";
+
 // Link for the Buy button: the card's own TCGplayer product page when we have its
 // id (cards.tcgplayer_product_id, backfilled by scripts/backfill-tcgplayer.ts), or a
-// name search for the ~1.4% of cards without one. Add the affiliate partner code
-// here once the program is approved — this is the only place URLs are built.
+// name search for the ~1.4% of cards without one. Both are wrapped in our affiliate
+// link so the purchase is credited to us — this is the only place URLs are built.
 export function tcgplayerUrl(name: string, productId?: number | null): string {
-  if (productId) return `https://www.tcgplayer.com/product/${productId}`;
-  return `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(name)}`;
+  const destination = productId
+    ? `https://www.tcgplayer.com/product/${productId}`
+    : `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(name)}`;
+  return `${AFFILIATE_LINK}?u=${encodeURIComponent(destination)}`;
 }
