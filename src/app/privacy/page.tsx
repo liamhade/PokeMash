@@ -72,8 +72,8 @@ export default function PrivacyPage() {
             Buy links
           </h2>
           <p>
-            &ldquo;Buy on TCGplayer&rdquo; buttons are affiliate links. Clicking
-            one takes you to TCGplayer; we send them nothing about you.
+            The TCGplayer and eBay buy buttons are affiliate links. Clicking
+            one takes you to that store; we send them nothing about you.
           </p>
         </section>
 

@@ -1030,3 +1030,7 @@
 - [ ] `tcgplayerUrl` in `cardInfo.ts` now wraps BOTH the product-page URL and the name-search fallback in `AFFILIATE_LINK` via `?u=<encoded destination>`. Why does the destination have to be `encodeURIComponent`-encoded even though it's already a valid URL, and what would break in the redirect if we passed the search fallback's own `?q=` through unencoded?
 
 - [ ] The affiliate link is a single `partner.tcgplayer.com/c/<publisher>/<campaign>/<program>` constant that Impact 301-redirects to the real page (adding `irclickid`/`irpid` tracking). Why is routing every Buy click through a third-party redirect an acceptable tradeoff here, and what's the failure posture for the user if `partner.tcgplayer.com` were ever down compared to linking `www.tcgplayer.com` directly?
+
+- [ ] `ebayUrl` targets a search (`/sch/i.html?_nkw=`) scoped by `packName(pack)` rather than a product page like `tcgplayerUrl` does. What property of eBay's marketplace makes a per-card URL impossible to backfill the way `tcgplayer_product_id` was, and why does stripping the pack's "(BS)" abbreviation matter for search recall?
+
+- [ ] `EBAY_CAMPAIGN_ID` is a null constant that flips `ebayUrl` from a plain search link to an EPN-tracked one, and the two Buy buttons share one flex row instead of stacking. Why is shipping the un-monetized link now (rather than waiting for the campaign id) the right sequencing, and what does the single-row layout protect on a card back that has overflowed twice before?
