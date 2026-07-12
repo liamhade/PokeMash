@@ -32,12 +32,18 @@ export default function CardBack({ details, buyName, buyProductId, buyPack }: Ca
       {/* flex-1 stretches the table over all the height the buttons/disclosure don't
           use, and the browser hands a stretched table's extra height to its rows —
           so the details spread across the full card instead of clumping mid-card. */}
-      <table className="w-full flex-1 text-[10px] md:text-xs">
+      {/* Values sit LEFT-aligned beside their labels (not pushed to the card's right
+          edge), so the pair reads as one unit instead of a spanning gap. w-full on the
+          value cell hands ALL the surplus width to that column — without it, auto
+          table layout splits the surplus across both columns and the gap comes back. */}
+      <table className="w-full flex-1 text-[11px] md:text-sm">
         <tbody>
           {details.map(([label, value]) => (
             <tr key={label} className="border-b border-neutral-100 last:border-0">
-              <td className="py-0.5 md:py-1.5 pr-1.5 md:pr-2 font-semibold text-neutral-500">{label}</td>
-              <td className="py-0.5 md:py-1.5 text-right break-words text-neutral-800">{value}</td>
+              {/* nowrap: w-full on the value cell squeezes this column to min-content,
+                  which would stack a multi-word label one word per line. */}
+              <td className="whitespace-nowrap py-px md:py-1.5 pr-2 md:pr-3 font-semibold text-neutral-500">{label}</td>
+              <td className="w-full py-px md:py-1.5 break-words text-neutral-800">{value}</td>
             </tr>
           ))}
         </tbody>

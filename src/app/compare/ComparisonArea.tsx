@@ -149,7 +149,7 @@ export default function ComparisonArea({
           ["Pack", packName(card.pack)],
           ["Set", orDash(card.set)],
           ["Released", orDash(card.release_date)],
-          ["Near Mint Market Price", formatPrice(card.market_price)],
+          ["Price", formatPrice(card.market_price)],
         ];
 
         return (

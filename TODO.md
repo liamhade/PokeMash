@@ -1042,3 +1042,11 @@
 - [ ] `handleShuffle` reuses `loadNextPair` (no `excludeId`), slides the pair "above", and clears `streak`/`streakCardId`/`lastPick` — but deliberately does NOT touch `preloadRef`. Trace what happens to the keep-mode challenger queues keyed by the departed cards, and why leaving them is harmless while clearing `lastPick` is not optional.
 
 - [ ] Shuffle discards a matchup without recording anything, unlike every other board change (picks write ratings, undo reverses them). What does letting users skip pairs for free do to the comparison data the Glicko-2 rankings are built from, and why is that acceptable here where a forced-choice design ("you must pick one") might matter in a serious rating system?
+
+- [ ] The shuffle glyph is now two cubic Bézier S-curves (`C 9 18, 15 6, 21 6`) each ending on a horizontal tangent, with a separate `<polyline>` chevron at the end point. Why does the arrowhead only read correctly if the curve arrives level (what would a steep arrival angle do to the chevron), and why are the head and shaft separate elements instead of one path?
+
+- [ ] Icon-only buttons like ShuffleButton/UndoButton carry no text, so the `aria-label` is their entire accessible name. When the glyph changed from straight to curved arrows nothing else needed touching — what contract between the SVG (aria-hidden) and the button keeps visual redesigns free, and what breaks it?
+
+- [ ] `CardBack`'s value cell gained `w-full` and the label cell `whitespace-nowrap`. Explain the failure chain we hit without the nowrap: why does `w-full` on one column drive the OTHER column to min-content, and why did that stack "Near Mint Market Price" one word per line instead of two?
+
+- [ ] Fitting the enlarged text ultimately came from shortening the price label to "Price" (widening the value column ~26px on the phone card), not from shrinking fonts back down. Why is cutting content the higher-leverage fix on a fixed-size card where every value wrap costs a full line-height, and how does that align with the remove-over-add UI philosophy?

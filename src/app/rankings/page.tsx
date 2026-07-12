@@ -91,7 +91,7 @@ function RankingCard({ card }: { card: RankedCard }) {
     ["Set", orDash(card.set)],
     ["Pack", packName(card.pack)],
     ["Released", orDash(card.release_date)],
-    ["Near Mint Market Price", formatPrice(card.market_price)],
+    ["Price", formatPrice(card.market_price)],
   ];
   // Only universal-scope cards carry a rater count.
   if (card.raters !== undefined) {
