@@ -22,7 +22,8 @@ export default function ShuffleButton({ onShuffle, disabled, className }: Shuffl
         className ?? "",
       ].join(" ")}
     >
-      {/* Crossing-arrows shuffle glyph. */}
+      {/* Crossing-arrows shuffle glyph: two S-curves swapping lanes, each ending
+          level so its chevron head reads as "continues right". */}
       <svg
         viewBox="0 0 24 24"
         className="h-5 w-5"
@@ -33,11 +34,10 @@ export default function ShuffleButton({ onShuffle, disabled, className }: Shuffl
         strokeLinejoin="round"
         aria-hidden
       >
-        <polyline points="16 3 21 3 21 8" />
-        <line x1="4" y1="20" x2="21" y2="3" />
-        <polyline points="21 16 21 21 16 21" />
-        <line x1="15" y1="15" x2="21" y2="21" />
-        <line x1="4" y1="4" x2="9" y2="9" />
+        <path d="M2 18 C 9 18, 15 6, 21 6" />
+        <polyline points="17 2 21 6 17 10" />
+        <path d="M2 6 C 9 6, 15 18, 21 18" />
+        <polyline points="17 14 21 18 17 22" />
       </svg>
     </button>
   );
