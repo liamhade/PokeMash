@@ -1038,3 +1038,7 @@
 - [ ] `CardBack`'s table gained `flex-1` and the container dropped `justify-center`. When a flex item is a `<table>` stretched taller than its content, where does the extra height actually go (rows? tbody? padding?), and why does the default `vertical-align: middle` on `td` matter for how the spread reads?
 
 - [ ] Filling the card by distributing leftover height (flex-1 on the table) was chosen over bumping font/padding sizes. Why is "let the container distribute free space" safer than "make the content bigger" on a back that renders in two differently-sized slots (44vw Play card, 238px rankings card) and has overflowed twice before?
+
+- [ ] `handleShuffle` reuses `loadNextPair` (no `excludeId`), slides the pair "above", and clears `streak`/`streakCardId`/`lastPick` — but deliberately does NOT touch `preloadRef`. Trace what happens to the keep-mode challenger queues keyed by the departed cards, and why leaving them is harmless while clearing `lastPick` is not optional.
+
+- [ ] Shuffle discards a matchup without recording anything, unlike every other board change (picks write ratings, undo reverses them). What does letting users skip pairs for free do to the comparison data the Glicko-2 rankings are built from, and why is that acceptable here where a forced-choice design ("you must pick one") might matter in a serious rating system?
