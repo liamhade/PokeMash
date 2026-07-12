@@ -1034,3 +1034,7 @@
 - [ ] `ebayUrl` targets a search (`/sch/i.html?_nkw=`) scoped by `packName(pack)` rather than a product page like `tcgplayerUrl` does. What property of eBay's marketplace makes a per-card URL impossible to backfill the way `tcgplayer_product_id` was, and why does stripping the pack's "(BS)" abbreviation matter for search recall?
 
 - [ ] `EBAY_CAMPAIGN_ID` is a null constant that flips `ebayUrl` from a plain search link to an EPN-tracked one, and the two Buy buttons share one flex row instead of stacking. Why is shipping the un-monetized link now (rather than waiting for the campaign id) the right sequencing, and what does the single-row layout protect on a card back that has overflowed twice before?
+
+- [ ] `CardBack`'s table gained `flex-1` and the container dropped `justify-center`. When a flex item is a `<table>` stretched taller than its content, where does the extra height actually go (rows? tbody? padding?), and why does the default `vertical-align: middle` on `td` matter for how the spread reads?
+
+- [ ] Filling the card by distributing leftover height (flex-1 on the table) was chosen over bumping font/padding sizes. Why is "let the container distribute free space" safer than "make the content bigger" on a back that renders in two differently-sized slots (44vw Play card, 238px rankings card) and has overflowed twice before?

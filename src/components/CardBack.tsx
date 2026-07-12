@@ -28,8 +28,11 @@ export default function CardBack({ details, buyName, buyProductId, buyPack }: Ca
     // slot, smaller than the ~238px rankings card this back was tuned for, so the
     // md sizes overflow it (name off the top, disclosure off the bottom). The
     // compact base fits the phone card; md restores the roomier desktop sizing.
-    <div className="absolute inset-0 flex flex-col justify-center gap-0.5 md:gap-2 rounded-xl bg-white p-1.5 md:p-3 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
-      <table className="w-full text-[10px] md:text-xs">
+    <div className="absolute inset-0 flex flex-col gap-0.5 md:gap-2 rounded-xl bg-white p-1.5 md:p-3 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
+      {/* flex-1 stretches the table over all the height the buttons/disclosure don't
+          use, and the browser hands a stretched table's extra height to its rows —
+          so the details spread across the full card instead of clumping mid-card. */}
+      <table className="w-full flex-1 text-[10px] md:text-xs">
         <tbody>
           {details.map(([label, value]) => (
             <tr key={label} className="border-b border-neutral-100 last:border-0">
