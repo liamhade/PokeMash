@@ -35,10 +35,10 @@ export default function ShuffleButton({ onShuffle, disabled, className }: Shuffl
         strokeLinejoin="round"
         aria-hidden
       >
-        <path d="M2 7 C 10 7, 7 17, 15 17 H 21" />
-        <polyline points="17.5 13.5 21 17 17.5 20.5" />
-        <path d="M2 17 C 10 17, 7 7, 15 7 H 21" />
-        <polyline points="17.5 3.5 21 7 17.5 10.5" />
+        <path d="M2 5 C 10 5, 7 19, 15 19 H 21" />
+        <polyline points="17.5 15.5 21 19 17.5 22.5" />
+        <path d="M2 19 C 10 19, 7 5, 15 5 H 21" />
+        <polyline points="17.5 1.5 21 5 17.5 8.5" />
       </svg>
     </button>
   );
