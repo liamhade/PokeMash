@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — PokeMash",
-  description: "What PokeMash stores about you and why.",
+  title: "Privacy Policy — CardMash",
+  description: "What CardMash stores about you and why.",
 };
 
 // Plain-language privacy policy, linked from the sign-in modal. Keep it honest
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
             Your choices
           </h2>
           <p>
-            You can use PokeMash without an account, and sign out at any time.
+            You can use CardMash without an account, and sign out at any time.
             To delete your account and everything stored under it, open an
             issue at{" "}
             <a
