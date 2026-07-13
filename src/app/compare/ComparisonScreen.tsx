@@ -290,15 +290,24 @@ export default function ComparisonScreen({ seedCardId }: { seedCardId?: string }
     });
   }, []);
 
-  const loadNextPair = useCallback(async () => {
+  // Fetch a fresh random pair under the current filters. Split from loadNextPair so
+  // callers can START the fetch early (e.g. while a slide-out animation runs) and
+  // present the result later. Resolves null when the pool can't supply two cards.
+  const fetchNextPair = useCallback(async (): Promise<Card[] | null> => {
     const playerId = await getPlayerId();
     const res = await fetch(
       `/api/comparison/next?playerId=${playerId}${buildFilterQuery(filtersRef.current)}`,
     );
     const { cards: next } = (await res.json()) as { cards?: Card[] };
+    return next && next.length >= 2 ? next : null;
+  }, []);
+
+  // Fetch (or await `pending`, a fetch the caller already started) and mount the pair.
+  const loadNextPair = useCallback(async (pending?: Promise<Card[] | null>) => {
+    const next = await (pending ?? fetchNextPair());
 
     // Filters can match fewer than two cards; clear the board and show a message.
-    if (!next || next.length < 2) {
+    if (!next) {
       setPickedId(null);
       setHoveredId(null);
       setCards(null);
@@ -307,7 +316,7 @@ export default function ComparisonScreen({ seedCardId }: { seedCardId?: string }
       return;
     }
     mountPair(next);
-  }, [mountPair]);
+  }, [fetchNextPair, mountPair]);
 
   // Load a board seeded with a specific card the player picked in Rankings
   // ("Compare in Play"). winnerId returns [thatCard, opponent] — fetching the
@@ -820,18 +829,84 @@ export default function ComparisonScreen({ seedCardId }: { seedCardId?: string }
     }).catch(() => {});
   }
 
-  // "Shuffle": slide the whole pair out and fetch a fresh random one — no pick, so no
-  // rating change and nothing persisted. The streak ends (its card is leaving the board)
+  // "Shuffle": replace the whole pair with a fresh random one — no pick, so no rating
+  // change and nothing persisted. The streak ends (its card is leaving the board)
   // and the undo snapshot is dropped: restoring a matchup that no longer led to this
   // board (and reversing that older pick's ratings) would be surprising after a shuffle.
+  // Serves the new pair from the preload queues when it can (the same warmed cards a
+  // pick would get, via the same one-motion overlap), so most shuffles are as fast as
+  // picks; only an empty queue pays a fetch, started in PARALLEL with the slide-out.
   function handleShuffle() {
     if (!ready || !cards) return;
+    const pair = cards;
     setReady(false);
     setStreak(0);
     setStreakCardId(null);
     setLastPick(null);
-    setPos(positionsFor(cards, "above"));
-    setTimeout(() => loadNextPair(), SLIDE_MS);
+    // No pick happened: clear the previous winner's flash so the departing overlay
+    // can't remount (and replay) it.
+    setPickedId(null);
+
+    // Draw the replacement pair from whichever preload store is live. Keep Winner off
+    // queues whole pairs — exactly what a shuffle wants. Keep Winner on queues
+    // challengers per on-board side; taking one from each side gives two fresh
+    // policy-drawn cards whose art is already warming (they were matched to the
+    // departing cards' ratings, which is fine for a "show me something else" gesture).
+    const store =
+      preloadRef.current?.filterKey === buildFilterQuery(filtersRef.current)
+        ? preloadRef.current
+        : undefined;
+    const onBoard = new Set(pair.map((card) => card.card_id));
+    let next: Card[] | undefined;
+    if (store?.mode === "fresh") {
+      next = popFreshPair(store.pairs, onBoard);
+    } else if (store?.mode === "keep") {
+      const left = popChallenger(
+        [store.queues[pair[0].card_id], store.donated[pair[0].card_id]],
+        onBoard,
+      );
+      // The two sides' queues are fetched independently and CAN hold the same card;
+      // excluding `left` keeps the drawn pair distinct.
+      const right = popChallenger(
+        [store.queues[pair[1].card_id], store.donated[pair[1].card_id]],
+        left ? new Set([...onBoard, left.card_id]) : onBoard,
+      );
+      if (left && right) next = [left, right];
+      // Both residents leave the board, so their queues die with them (the preload
+      // effect rebuilds queues keyed to the new pair).
+      for (const card of pair) {
+        delete store.queues[card.card_id];
+        delete store.donated[card.card_id];
+      }
+    }
+
+    if (next && next.every((card) => imageReady(card.image_url))) {
+      // Fast path: pair in hand with decoded art — the same overlap swap a preloaded
+      // pick uses. No ratings changed, so each departing dial holds its number.
+      const fresh = next;
+      overlapFresh(
+        pair,
+        fresh,
+        pair.map((old, i) => {
+          const rating = Math.round(ratingOf(old).r);
+          return { card: old, overId: fresh[i].card_id, dial: { from: rating, to: rating } };
+        }),
+      );
+      return;
+    }
+
+    // Slow path: slide the pair out while the replacement is prepared in parallel —
+    // a queued-but-undecoded pair just needs its art (the slide buys download time);
+    // with nothing queued, the fetch runs DURING the slide instead of after it.
+    setPos(positionsFor(pair, "above"));
+    if (next) {
+      const queued = next;
+      queued.forEach((card) => warmImage(card.image_url));
+      setTimeout(() => mountPair(queued), SLIDE_MS);
+    } else {
+      const pending = fetchNextPair();
+      setTimeout(() => loadNextPair(pending), SLIDE_MS);
+    }
   }
 
   // Desktop shortcut: Left/Right arrow picks the left/right card. cards[0] and
