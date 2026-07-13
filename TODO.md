@@ -1054,3 +1054,7 @@
 - [ ] The shuffle glyph's new paths (`M2 7 C 10 7, 7 17, 15 17 H 21`) place both Bézier control points near mid-width, then finish with an `H` line. How does pulling the controls toward the center concentrate the crossover there (vs. the old `C 9 18, 15 6, 21 6` full-width sweep), and what does the trailing `H 21` guarantee about the head's approach angle?
 
 - [ ] Recreating a reference image as inline SVG path data was chosen over exporting/embedding the reference itself. On a 20px icon inside a 36px button, why do hand-tuned 24-viewBox paths with the app's shared stroke conventions (width 2, round caps) beat a pixel-perfect asset, and what stays consistent with UndoButton for free?
+
+- [ ] The disclaimer went into `layout.tsx` as a `<footer>` after `<main className="flex flex-1 flex-col">` rather than into each page. How does the body's `min-h-full flex flex-col` + main's `flex-1` guarantee the footer hugs the viewport bottom on short pages but flows after content on long ones, and why doesn't it fight rankings' `sticky bottom-0` meter?
+
+- [ ] Nominative fair use lets a fan project NAME Nintendo/The Pokémon Company/Game Freak in a disclaimer, yet the disclaimer itself still reduces legal risk. What distinct problems do the "not affiliated/endorsed/sponsored" clause and the "images © their respective owners" clause each address (trademark confusion vs. copyright acknowledgment), and why does an affiliate-monetized site raise the stakes for both?

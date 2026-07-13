@@ -49,6 +49,12 @@ export default function RootLayout({
         {/* Invisible until a new user's first sign-in, to offer a username. */}
         <UsernamePrompt />
         <main className="flex flex-1 flex-col">{children}</main>
+        {/* Fan-project legal disclaimer, on every page. One quiet line so it
+            never competes with the content above it. */}
+        <footer className="px-4 py-2 text-center text-[10px] leading-tight text-neutral-400">
+          PokeMash is not affiliated with, endorsed by, or sponsored by Nintendo, The
+          Pok&eacute;mon Company, or Game Freak. Card images &copy; their respective owners.
+        </footer>
       </body>
     </html>
   );
