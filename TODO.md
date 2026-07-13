@@ -1070,3 +1070,7 @@
 - [ ] The rankings toolbar fix pairs `flex-wrap` on the row with `w-full md:w-auto` on the opened search pill. Why does that combination land the search on its own full-width line only on phones, and what would the input's old fixed `w-28` have done inside a `w-full` wrapper that `min-w-0 flex-1` fixes?
 
 - [ ] The header, scope toggle, and footer all fit phones by stepping sizes down at the same `md:` breakpoint rather than measuring content. Why is "design each breakpoint so content can't overflow" more robust than relying on flexbox shrinking (recall the squished-avatar bug: what decides which flex child absorbs the deficit when nothing fits)?
+
+- [ ] In `handleShuffle`'s keep-mode fast path, why must the `right` challenger be popped with `left.card_id` added to the exclusion set when the two sides' queues were fetched independently — and what visible bug would skipping that dedupe allow onto the board?
+
+- [ ] Shuffle's fallback starts `fetchNextPair()` at click time and passes the pending promise into `loadNextPair` after the slide, rather than calling `loadNextPair()` in the timeout as before. What does overlapping the two latencies change about the worst-case wait (think max vs sum), and why does the same reasoning already appear in `swapLoserForFresh`'s `slideStart` accounting?
