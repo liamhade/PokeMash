@@ -351,7 +351,11 @@ function RankingsScreen() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center gap-4 px-6 py-4">
+      {/* Toolbar. On phones the full-size row is wider than the screen, so it
+          steps down: controls spread edge-to-edge (justify-between) instead of
+          left-clustering, and flex-wrap lets the opened search drop to its own
+          full-width line rather than squeezing into the leftover sliver. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 md:justify-start md:gap-4 md:px-6 md:py-4">
         <div className="relative">
           <FilterButton onClick={() => setFilterOpen(true)} />
           {hasActiveFilters(filters) && (
@@ -362,14 +366,16 @@ function RankingsScreen() {
           )}
         </div>
 
-        {/* Scope toggle: my list, the community-average leaderboard, or a friend's. */}
-        <div className="flex rounded-full border border-neutral-300 p-0.5 text-sm font-medium">
+        {/* Scope toggle: my list, the community-average leaderboard, or a friend's.
+            Phones get shorter labels and smaller text — the full wording alone is
+            wider than a phone screen. */}
+        <div className="flex rounded-full border border-neutral-300 p-0.5 text-xs md:text-sm font-medium">
           {(
             [
-              { value: "mine", label: "My Rankings" },
-              { value: "universal", label: "Universal" },
-              { value: "friend", label: "Friend's Rankings" },
-            ] as { value: Scope; label: string }[]
+              { value: "mine", label: "My Rankings", shortLabel: "Mine" },
+              { value: "universal", label: "Universal", shortLabel: "Universal" },
+              { value: "friend", label: "Friend's Rankings", shortLabel: "Friends" },
+            ] as { value: Scope; label: string; shortLabel: string }[]
           ).map((option) => (
             <button
               key={option.value}
@@ -387,13 +393,14 @@ function RankingsScreen() {
                 }
               }}
               className={[
-                "rounded-full px-3 py-1 transition-colors",
+                "rounded-full px-2 md:px-3 py-1 transition-colors",
                 option.value === scope
                   ? "bg-red-600 text-white"
                   : "text-neutral-600 hover:text-neutral-900",
               ].join(" ")}
             >
-              {option.label}
+              <span className="md:hidden">{option.shortLabel}</span>
+              <span className="hidden md:inline">{option.label}</span>
             </button>
           ))}
         </div>
@@ -401,7 +408,9 @@ function RankingsScreen() {
         {/* Name search: an icon until it's needed, an inline pill input while open.
             Esc or the × collapses it (clearing any active query). */}
         {searchOpen ? (
-          <div className="flex items-center gap-2 rounded-full border border-neutral-300 px-3 py-1.5">
+          // w-full below md: flex-wrap drops the open search onto its own line,
+          // where the input can fill the screen width instead of a cramped sliver.
+          <div className="flex w-full items-center gap-2 rounded-full border border-neutral-300 px-3 py-1.5 md:w-auto">
             <svg
               viewBox="0 0 24 24"
               className="h-4 w-4 shrink-0 text-neutral-400"
@@ -423,7 +432,7 @@ function RankingsScreen() {
               }}
               placeholder="Search cards"
               aria-label="Search cards by name"
-              className="w-28 bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400 md:w-40"
+              className="min-w-0 flex-1 bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400 md:w-40 md:flex-none"
             />
             <button
               type="button"
