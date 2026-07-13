@@ -213,6 +213,15 @@ function RankingsScreen() {
   const [friends, setFriends] = useState<Friend[] | null>(null);
   const friendName = friends?.find((f) => f.user_id === selectedFriendId)?.display_name;
 
+  // Name search: a collapsed icon button until opened. The ref mirrors the input so
+  // fetchPage (and loadMore's later pages) read the current query without threading
+  // it through every signature — the same ref pattern the compare screen's filters
+  // use. Debounced so a fetch fires per pause in typing, not per keystroke.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const searchRef = useRef("");
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // The last page index loaded, and a token that invalidates in-flight fetches when
   // the filter/scope changes — so a slow "load more" can't append to a newer list.
   const pageRef = useRef(0);
@@ -239,8 +248,10 @@ function RankingsScreen() {
       const playerId = which === "friend" ? friend : await getPlayerId();
       if (!playerId) return { rankings: [] }; // friend scope with nobody picked yet
       const scopeParam = which === "universal" ? "&scope=universal" : "";
+      const q = searchRef.current.trim();
+      const searchParam = q ? `&q=${encodeURIComponent(q)}` : "";
       return fetch(
-        `/api/rankings?playerId=${playerId}${scopeParam}&page=${page}${filterQuery(applied)}`,
+        `/api/rankings?playerId=${playerId}${scopeParam}&page=${page}${filterQuery(applied)}${searchParam}`,
       ).then((res) => res.json());
     },
     [filterQuery],
@@ -311,6 +322,28 @@ function RankingsScreen() {
     if (scope === "friend" && friends === null) loadFriends();
   }, [scope, friends, loadFriends]);
 
+  // Type → wait for a pause → reload page 0 under the new query. The list keeps
+  // showing the previous results until the fresh page lands (loadFirstPage clears it).
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    searchRef.current = value;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(
+      () => loadFirstPage(filters, scope, selectedFriendId),
+      300,
+    );
+  }
+
+  // Collapse back to the icon; if a query was active, drop it and reload unfiltered.
+  function closeSearch() {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    const hadQuery = searchRef.current.trim() !== "";
+    setSearchOpen(false);
+    setSearch("");
+    searchRef.current = "";
+    if (hadQuery) loadFirstPage(filters, scope, selectedFriendId);
+  }
+
   // More pages remain when we've loaded fewer cards than the player's total ranks.
   // Universal sends no comparedCount, so its list never shows "load more" (capped at 100).
   const hasMore =
@@ -365,6 +398,64 @@ function RankingsScreen() {
           ))}
         </div>
 
+        {/* Name search: an icon until it's needed, an inline pill input while open.
+            Esc or the × collapses it (clearing any active query). */}
+        {searchOpen ? (
+          <div className="flex items-center gap-2 rounded-full border border-neutral-300 px-3 py-1.5">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 shrink-0 text-neutral-400"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16" y2="16" />
+            </svg>
+            <input
+              autoFocus
+              value={search}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") closeSearch();
+              }}
+              placeholder="Search cards"
+              aria-label="Search cards by name"
+              className="w-28 bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400 md:w-40"
+            />
+            <button
+              type="button"
+              onClick={closeSearch}
+              aria-label="Close search"
+              className="text-neutral-400 transition-colors hover:text-neutral-700"
+            >
+              ×
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search cards by name"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-300 text-neutral-600 transition-colors hover:border-neutral-400 hover:text-neutral-800"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16" y2="16" />
+            </svg>
+          </button>
+        )}
+
         {/* Friend picker - only in friend scope, and only once there are friends
             to choose from (otherwise the empty-state message below points to /friends). */}
         {scope === "friend" && friends && friends.length > 0 && (
@@ -413,11 +504,13 @@ function RankingsScreen() {
           <div className="flex flex-1 flex-col items-center gap-8 overflow-y-auto px-4 py-10">
             {cards.length === 0 ? (
               <p className="text-neutral-500">
-                {scope === "friend"
-                  ? "No rankings here yet — they haven't compared any cards."
-                  : scope === "universal"
-                    ? "No community rankings yet — be the first to compare some cards!"
-                    : "No rankings yet — head to Play to start comparing!"}
+                {search.trim()
+                  ? "No ranked cards match your search."
+                  : scope === "friend"
+                    ? "No rankings here yet — they haven't compared any cards."
+                    : scope === "universal"
+                      ? "No community rankings yet — be the first to compare some cards!"
+                      : "No rankings yet — head to Play to start comparing!"}
               </p>
             ) : (
               cards.map((card) => <RankingCard key={card.card_id} card={card} />)

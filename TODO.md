@@ -1058,3 +1058,7 @@
 - [ ] The disclaimer went into `layout.tsx` as a `<footer>` after `<main className="flex flex-1 flex-col">` rather than into each page. How does the body's `min-h-full flex flex-col` + main's `flex-1` guarantee the footer hugs the viewport bottom on short pages but flows after content on long ones, and why doesn't it fight rankings' `sticky bottom-0` meter?
 
 - [ ] Nominative fair use lets a fan project NAME Nintendo/The Pokémon Company/Game Freak in a disclaimer, yet the disclaimer itself still reduces legal risk. What distinct problems do the "not affiliated/endorsed/sponsored" clause and the "images © their respective owners" clause each address (trademark confusion vs. copyright acknowledgment), and why does an affiliate-monetized site raise the stakes for both?
+
+- [ ] The rankings search threads `?q=` through `searchRef` (read inside `fetchPage`) instead of adding a parameter to `fetchPage`/`loadFirstPage`/`loadMore`. What does the ref buy when "load more" fires pages later, and what stale-closure bug would `handleSearchChange` have if the debounce callback captured `search` state instead of reading the ref?
+
+- [ ] The API applies `namePattern` to the ranks list, the universal details chunks, AND the `poolQuery` meter denominator — and escapes `%`/`_` before building the ilike pattern. Why must a user-facing "filter" touch every query that measures the same population (what would the progress meter read if the pool skipped it), and what could a search for the literal string "100%" do unescaped?

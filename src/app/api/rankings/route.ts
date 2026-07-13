@@ -66,6 +66,13 @@ export async function GET(request: NextRequest) {
   const hasMin = params.get("minPrice") !== null && !Number.isNaN(minPrice);
   const hasMax = params.get("maxPrice") !== null && !Number.isNaN(maxPrice);
 
+  // Free-text name search (?q=), case-insensitive substring. Applied wherever the
+  // series/price filters are, so the list, meter numerator and pool denominator all
+  // measure the same population. % and _ are LIKE wildcards — escape them so a
+  // literal search can't glob.
+  const q = (params.get("q") ?? "").trim();
+  const namePattern = q ? `%${q.replace(/[%_]/g, "\\$&")}%` : null;
+
   const supabase = createClient(await cookies());
 
   // --- Universal scope: average every player's rating per card ---------------
@@ -125,6 +132,7 @@ export async function GET(request: NextRequest) {
           chunk.map((entry) => entry.card_id),
         );
       if (series.length > 0) detailsQuery = detailsQuery.or(seriesOrFilter(series));
+      if (namePattern) detailsQuery = detailsQuery.ilike("name", namePattern);
       if (hasMin || hasMax) {
         detailsQuery = detailsQuery.not(PRICE_COLUMN, "is", null).neq(PRICE_COLUMN, PRICE_JUNK);
         if (hasMin) detailsQuery = detailsQuery.gte(PRICE_COLUMN, minPrice);
@@ -173,6 +181,7 @@ export async function GET(request: NextRequest) {
   if (series.length > 0) {
     ranksQuery = ranksQuery.or(seriesOrFilter(series), { referencedTable: "cards" });
   }
+  if (namePattern) ranksQuery = ranksQuery.ilike("cards.name", namePattern);
   if (hasMin || hasMax) {
     ranksQuery = ranksQuery
       .not(`cards.${PRICE_COLUMN}`, "is", null)
@@ -190,6 +199,7 @@ export async function GET(request: NextRequest) {
     .select("card_id", { count: "exact", head: true })
     .eq("eligible", true);
   if (series.length > 0) poolQuery = poolQuery.or(seriesOrFilter(series));
+  if (namePattern) poolQuery = poolQuery.ilike("name", namePattern);
   if (hasMin || hasMax) {
     poolQuery = poolQuery.not(PRICE_COLUMN, "is", null).neq(PRICE_COLUMN, PRICE_JUNK);
     if (hasMin) poolQuery = poolQuery.gte(PRICE_COLUMN, minPrice);
