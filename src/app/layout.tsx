@@ -62,7 +62,7 @@ export default function RootLayout({
             never competes with the content above it. Leads with what the site IS
             (unofficial fan project) and names the actual rights-holders printed
             on real cards. */}
-        <footer className="px-4 py-2 text-center text-[10px] leading-tight text-neutral-400">
+        <footer className="px-4 py-2 text-center text-[8px] leading-tight text-neutral-400 md:text-[10px]">
           CardMash is an unofficial fan project, not affiliated with, endorsed, or
           sponsored by Nintendo, The Pok&eacute;mon Company, Creatures Inc., or GAME
           FREAK inc. Pok&eacute;mon and card images &copy; their respective owners.
