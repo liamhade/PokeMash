@@ -1062,3 +1062,7 @@
 - [ ] The rankings search threads `?q=` through `searchRef` (read inside `fetchPage`) instead of adding a parameter to `fetchPage`/`loadFirstPage`/`loadMore`. What does the ref buy when "load more" fires pages later, and what stale-closure bug would `handleSearchChange` have if the debounce callback captured `search` state instead of reading the ref?
 
 - [ ] The API applies `namePattern` to the ranks list, the universal details chunks, AND the `poolQuery` meter denominator — and escapes `%`/`_` before building the ilike pattern. Why must a user-facing "filter" touch every query that measures the same population (what would the progress meter read if the pool skipped it), and what could a search for the literal string "100%" do unescaped?
+
+- [ ] The CardMash wordmark is a styled `<span>` (Fredoka + `border-2 rounded-full`) instead of a replacement PNG. Beyond crispness at any pixel density, what did the old `pokemash_logo.png` approach force on NavBar (the four stacked drop-shadows, next/image sizing) that plain text simply can't need, and when would an image asset still win?
+
+- [ ] The rebrand renamed every USER-FACING "PokeMash" but deliberately left `pokemash_player_id`, `pokemash:comparison:v6`, and the GitHub URL untouched. What would renaming the two storage keys have done to every existing anonymous player, and why is a brand string in UI copy categorically different from a brand string in a persistence key?

@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import NavButton from "./NavButton";
 import HowItWorks from "./HowItWorks";
@@ -14,19 +13,14 @@ import AccountControl from "./AccountControl";
 export default function NavBar() {
   return (
     <header className="sticky top-0 z-50 relative flex items-center bg-white pl-4 pr-1 md:px-6 py-2 shadow-md">
-      <Link href="/" className="-ml-1 flex items-center">
-        {/* The original retro logo (pokeball + bubbly Pokemon-style wordmark). The
-            source PNG's outline is thin and light. Until the asset is redrawn (see
-            TODO: make logo dark), stack dark drop-shadows on all four sides to fake a
-            bolder, darker outline — drop-shadow traces the image's alpha edge. */}
-        <Image
-          src="/pokemash_logo.png"
-          alt="PokeMash"
-          height={100}
-          width={200}
-          priority
-          className="h-auto w-[80px] [filter:drop-shadow(1px_0_0_#1a1a1a)_drop-shadow(-1px_0_0_#1a1a1a)_drop-shadow(0_1px_0_#1a1a1a)_drop-shadow(0_-1px_0_#1a1a1a)]"
-        />
+      <Link href="/" className="flex items-center">
+        {/* Wordmark in the style of Nintendo's vintage "racetrack" logo: bold
+            rounded red letters inside a slim red oval. Pure text + border (no
+            image asset), so it stays crisp at any density and inherits nothing
+            from the old pokeball PNG. */}
+        <span className="rounded-full border-2 border-red-600 px-3 py-0.5 text-lg leading-snug text-red-600 [font-family:var(--font-logo)]">
+          CardMash
+        </span>
       </Link>
 
       <nav className="ml-auto md:ml-0 md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 flex items-center gap-2">

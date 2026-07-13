@@ -78,7 +78,7 @@ export default function CardBack({ details, buyName, buyProductId, buyPack }: Ca
 
       {/* FTC affiliate disclosure — required wherever a referral link appears. */}
       <span className="text-center text-[8px] md:text-[9px] leading-tight text-neutral-400">
-        As an affiliate, PokeMash earns from qualifying purchases.
+        As an affiliate, CardMash earns from qualifying purchases.
       </span>
     </div>
   );
