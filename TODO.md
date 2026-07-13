@@ -1034,3 +1034,23 @@
 - [ ] `ebayUrl` targets a search (`/sch/i.html?_nkw=`) scoped by `packName(pack)` rather than a product page like `tcgplayerUrl` does. What property of eBay's marketplace makes a per-card URL impossible to backfill the way `tcgplayer_product_id` was, and why does stripping the pack's "(BS)" abbreviation matter for search recall?
 
 - [ ] `EBAY_CAMPAIGN_ID` is a null constant that flips `ebayUrl` from a plain search link to an EPN-tracked one, and the two Buy buttons share one flex row instead of stacking. Why is shipping the un-monetized link now (rather than waiting for the campaign id) the right sequencing, and what does the single-row layout protect on a card back that has overflowed twice before?
+
+- [ ] `CardBack`'s table gained `flex-1` and the container dropped `justify-center`. When a flex item is a `<table>` stretched taller than its content, where does the extra height actually go (rows? tbody? padding?), and why does the default `vertical-align: middle` on `td` matter for how the spread reads?
+
+- [ ] Filling the card by distributing leftover height (flex-1 on the table) was chosen over bumping font/padding sizes. Why is "let the container distribute free space" safer than "make the content bigger" on a back that renders in two differently-sized slots (44vw Play card, 238px rankings card) and has overflowed twice before?
+
+- [ ] `handleShuffle` reuses `loadNextPair` (no `excludeId`), slides the pair "above", and clears `streak`/`streakCardId`/`lastPick` — but deliberately does NOT touch `preloadRef`. Trace what happens to the keep-mode challenger queues keyed by the departed cards, and why leaving them is harmless while clearing `lastPick` is not optional.
+
+- [ ] Shuffle discards a matchup without recording anything, unlike every other board change (picks write ratings, undo reverses them). What does letting users skip pairs for free do to the comparison data the Glicko-2 rankings are built from, and why is that acceptable here where a forced-choice design ("you must pick one") might matter in a serious rating system?
+
+- [ ] The shuffle glyph is now two cubic Bézier S-curves (`C 9 18, 15 6, 21 6`) each ending on a horizontal tangent, with a separate `<polyline>` chevron at the end point. Why does the arrowhead only read correctly if the curve arrives level (what would a steep arrival angle do to the chevron), and why are the head and shaft separate elements instead of one path?
+
+- [ ] Icon-only buttons like ShuffleButton/UndoButton carry no text, so the `aria-label` is their entire accessible name. When the glyph changed from straight to curved arrows nothing else needed touching — what contract between the SVG (aria-hidden) and the button keeps visual redesigns free, and what breaks it?
+
+- [ ] `CardBack`'s value cell gained `w-full` and the label cell `whitespace-nowrap`. Explain the failure chain we hit without the nowrap: why does `w-full` on one column drive the OTHER column to min-content, and why did that stack "Near Mint Market Price" one word per line instead of two?
+
+- [ ] Fitting the enlarged text ultimately came from shortening the price label to "Price" (widening the value column ~26px on the phone card), not from shrinking fonts back down. Why is cutting content the higher-leverage fix on a fixed-size card where every value wrap costs a full line-height, and how does that align with the remove-over-add UI philosophy?
+
+- [ ] The shuffle glyph's new paths (`M2 7 C 10 7, 7 17, 15 17 H 21`) place both Bézier control points near mid-width, then finish with an `H` line. How does pulling the controls toward the center concentrate the crossover there (vs. the old `C 9 18, 15 6, 21 6` full-width sweep), and what does the trailing `H 21` guarantee about the head's approach angle?
+
+- [ ] Recreating a reference image as inline SVG path data was chosen over exporting/embedding the reference itself. On a 20px icon inside a 36px button, why do hand-tuned 24-viewBox paths with the app's shared stroke conventions (width 2, round caps) beat a pixel-perfect asset, and what stays consistent with UndoButton for free?

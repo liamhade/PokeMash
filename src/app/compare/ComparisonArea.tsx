@@ -5,6 +5,7 @@ import { DEFAULT_RATING } from "@/lib/glicko2";
 import { formatPrice, orDash, packName } from "@/lib/cardInfo";
 import RatingDial from "./RatingDial";
 import UndoButton from "@/components/UndoButton";
+import ShuffleButton from "@/components/ShuffleButton";
 import CardBack from "@/components/CardBack";
 
 // r/rd/mu are the card's Glicko-2 rating (this player's), sent by /api/comparison/next so
@@ -69,6 +70,8 @@ type ComparisonAreaProps = {
   // "Go back" wiring for the undo button centered above the pair.
   canUndo: boolean;
   onUndo: () => void;
+  // Replaces the whole pair with a fresh random one (no pick recorded).
+  onShuffle: () => void;
 };
 
 export default function ComparisonArea({
@@ -86,6 +89,7 @@ export default function ComparisonArea({
   onHover,
   canUndo,
   onUndo,
+  onShuffle,
 }: ComparisonAreaProps) {
   // Which card (if any) is showing its info back. At most one at a time: flipping a card
   // closes the other, and any pick closes everything. A flipped card can't be picked —
@@ -145,7 +149,7 @@ export default function ComparisonArea({
           ["Pack", packName(card.pack)],
           ["Set", orDash(card.set)],
           ["Released", orDash(card.release_date)],
-          ["Near Mint Market Price", formatPrice(card.market_price)],
+          ["Price", formatPrice(card.market_price)],
         ];
 
         return (
@@ -323,11 +327,16 @@ export default function ComparisonArea({
         })}
       </div>
 
-      {/* Undo control, centered under the gap between the two cards (spacing mirrors its
-          old above-the-pair spot). Present whenever a board is up (greyed when there's
-          nothing to go back to) so the cards don't shift when it becomes actionable. It
-          shares the bottom band with the serpents' swim path; they just pass over it. */}
-      {cards && <UndoButton onUndo={onUndo} disabled={!canUndo} className="mt-3 md:mt-4 translate-y-8" />}
+      {/* Undo + shuffle controls, straddling the center under the gap between the two
+          cards (spacing mirrors the undo button's old above-the-pair spot). Present
+          whenever a board is up (greyed when not actionable) so the cards don't shift.
+          They share the bottom band with the serpents' swim path; they just pass over. */}
+      {cards && (
+        <div className="mt-3 md:mt-4 flex translate-y-8 gap-3">
+          <UndoButton onUndo={onUndo} disabled={!canUndo} />
+          <ShuffleButton onShuffle={onShuffle} disabled={!ready} />
+        </div>
+      )}
     </div>
   );
 }

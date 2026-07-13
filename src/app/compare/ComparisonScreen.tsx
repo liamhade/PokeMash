@@ -820,6 +820,20 @@ export default function ComparisonScreen({ seedCardId }: { seedCardId?: string }
     }).catch(() => {});
   }
 
+  // "Shuffle": slide the whole pair out and fetch a fresh random one — no pick, so no
+  // rating change and nothing persisted. The streak ends (its card is leaving the board)
+  // and the undo snapshot is dropped: restoring a matchup that no longer led to this
+  // board (and reversing that older pick's ratings) would be surprising after a shuffle.
+  function handleShuffle() {
+    if (!ready || !cards) return;
+    setReady(false);
+    setStreak(0);
+    setStreakCardId(null);
+    setLastPick(null);
+    setPos(positionsFor(cards, "above"));
+    setTimeout(() => loadNextPair(), SLIDE_MS);
+  }
+
   // Desktop shortcut: Left/Right arrow picks the left/right card. cards[0] and
   // cards[1] match the render order below, and Keep Winner replaces the loser in
   // place so the index→side mapping stays stable across rounds. handlePick itself
@@ -896,6 +910,7 @@ export default function ComparisonScreen({ seedCardId }: { seedCardId?: string }
         onHover={setHoveredId}
         canUndo={lastPick !== null && ready}
         onUndo={handleUndo}
+        onShuffle={handleShuffle}
       />
 
       <PanelRight
