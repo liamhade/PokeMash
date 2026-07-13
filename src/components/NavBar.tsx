@@ -18,12 +18,12 @@ export default function NavBar() {
             rounded red letters inside a slim red oval. Pure text + border (no
             image asset), so it stays crisp at any density and inherits nothing
             from the old pokeball PNG. */}
-        <span className="rounded-full border-2 border-red-600 px-3 py-0.5 text-lg leading-snug text-red-600 [font-family:var(--font-logo)]">
+        <span className="rounded-full border-2 border-red-600 px-2.5 md:px-3 py-0.5 text-base md:text-lg leading-snug text-red-600 [font-family:var(--font-logo)]">
           CardMash
         </span>
       </Link>
 
-      <nav className="ml-auto md:ml-0 md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 flex items-center gap-2">
+      <nav className="ml-auto md:ml-0 md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 flex items-center gap-1 md:gap-2">
         <NavButton href="/compare">Play</NavButton>
         <NavButton href="/rankings">Rankings</NavButton>
       </nav>
