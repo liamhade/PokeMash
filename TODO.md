@@ -1074,3 +1074,7 @@
 - [ ] In `handleShuffle`'s keep-mode fast path, why must the `right` challenger be popped with `left.card_id` added to the exclusion set when the two sides' queues were fetched independently — and what visible bug would skipping that dedupe allow onto the board?
 
 - [ ] Shuffle's fallback starts `fetchNextPair()` at click time and passes the pending promise into `loadNextPair` after the slide, rather than calling `loadNextPair()` in the timeout as before. What does overlapping the two latencies change about the worst-case wait (think max vs sum), and why does the same reasoning already appear in `swapLoserForFresh`'s `slideStart` accounting?
+
+- [ ] `artSettled` builds its pending list from `imageWarmWaits`, whose entries resolve on decode success AND failure (the rejection handler returns instead of rethrowing). What would a rejecting promise in that list do to the `Promise.race` hold, and why is "settle, never reject" the right contract for a wait that gates an animation?
+
+- [ ] The slide-in hold is capped at `ART_GRACE_MS` rather than waiting for decode unconditionally. What failure mode does the cap trade away, what does it trade for (think: saturated 1.5Mbps vs dead network), and why does the grey skeleton remain the correct fallback rendering past the cap?
