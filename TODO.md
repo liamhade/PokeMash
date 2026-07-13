@@ -1050,3 +1050,7 @@
 - [ ] `CardBack`'s value cell gained `w-full` and the label cell `whitespace-nowrap`. Explain the failure chain we hit without the nowrap: why does `w-full` on one column drive the OTHER column to min-content, and why did that stack "Near Mint Market Price" one word per line instead of two?
 
 - [ ] Fitting the enlarged text ultimately came from shortening the price label to "Price" (widening the value column ~26px on the phone card), not from shrinking fonts back down. Why is cutting content the higher-leverage fix on a fixed-size card where every value wrap costs a full line-height, and how does that align with the remove-over-add UI philosophy?
+
+- [ ] The shuffle glyph's new paths (`M2 7 C 10 7, 7 17, 15 17 H 21`) place both Bézier control points near mid-width, then finish with an `H` line. How does pulling the controls toward the center concentrate the crossover there (vs. the old `C 9 18, 15 6, 21 6` full-width sweep), and what does the trailing `H 21` guarantee about the head's approach angle?
+
+- [ ] Recreating a reference image as inline SVG path data was chosen over exporting/embedding the reference itself. On a 20px icon inside a 36px button, why do hand-tuned 24-viewBox paths with the app's shared stroke conventions (width 2, round caps) beat a pixel-perfect asset, and what stays consistent with UndoButton for free?
