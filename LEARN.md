@@ -636,3 +636,26 @@
   (prod mid-deploy + a Turbopack `.next` cache serving old JS). What's the general
   lesson about trusting a bug report's described behavior before confirming which
   build produced it — and why measure `getBoundingClientRect` rather than eyeball it?
+
+## Instant Shuffle + art-decode grace
+
+- [ ] Shuffle's keep-mode fast path builds the new pair from the two sides' challenger
+  queues — cards rating-matched to the DEPARTING pair. Why is that sampling acceptable
+  for a "show me something else" gesture when it wouldn't be for the opening pair of a
+  session, and what did reusing the queues buy that a dedicated shuffle preload wouldn't?
+
+- [ ] The fallback starts `fetchNextPair()` at click time and hands the pending promise
+  to `loadNextPair` after the slide-out. Where else in ComparisonScreen does the same
+  "overlap the animation with the fetch, wait on max not sum" idea appear, and what's
+  the worst-case wait in each formulation?
+
+- [ ] `artSettled` holds a slide-in until art decodes but caps the wait at ART_GRACE_MS.
+  Under a saturated 1.5Mbps throttle the grey skeleton still appears (grace expires);
+  at 8Mbps it almost never does. Why is capping correct even though it "fails" the
+  saturated case — what would an uncapped wait do on a dead connection, and which of
+  the two states (grey card vs empty board) is the honest one to show?
+
+- [ ] The grey-at-center detector polled per animation frame for `translate-y-0` +
+  `span.animate-pulse` and was run against the OLD code first. Why is proving the
+  harness can detect the bug (26 hits) as important as the after-fix run, and what
+  would a 0-hits-before run have meant?

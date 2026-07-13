@@ -95,6 +95,9 @@ function buildFilterQuery(filters: Filters): string {
 // load, so the swap fast paths gate on imageReady — a preloaded card whose art is still
 // in flight takes the slower slide path instead, buying the download time to finish.
 const imageWarmth = new Map<string, boolean>();
+// Decode completion per URL — resolves on success AND failure (never rejects), so a
+// mount path can hold a slide-in until the art settles without re-tracking decode state.
+const imageWarmWaits = new Map<string, Promise<void>>();
 
 function imageReady(url: string): boolean {
   return imageWarmth.get(url) === true;
@@ -115,10 +118,40 @@ function warmImage(url: string) {
   if (props.sizes) img.sizes = props.sizes;
   if (props.srcSet) img.srcset = props.srcSet;
   img.src = props.src;
-  img.decode().then(
-    () => imageWarmth.set(url, true),
-    () => imageWarmth.delete(url), // failed/aborted: forget it so a later warm can retry
+  imageWarmWaits.set(
+    url,
+    img.decode().then(
+      () => {
+        imageWarmth.set(url, true);
+      },
+      () => {
+        // Failed/aborted: forget it so a later warm can retry.
+        imageWarmth.delete(url);
+        imageWarmWaits.delete(url);
+      },
+    ),
   );
+}
+
+// How long a slide-in will wait for art to decode before mounting anyway — the grey
+// skeleton pulse covers whatever remains. Long enough for a typical CDN fetch+decode
+// (~70-90KB WebP), short enough that a dead network never reads as a frozen board.
+const ART_GRACE_MS = 1000;
+
+// Resolves once every url's art is decoded, or after ART_GRACE_MS — whichever comes
+// first. Kicks off the warms itself, so a caller just awaits this before sliding
+// cards in and they arrive painted instead of pulsing grey and filling in at center.
+function artSettled(urls: string[]): Promise<void> {
+  urls.forEach(warmImage);
+  const pending = urls
+    .filter((url) => !imageReady(url))
+    .map((url) => imageWarmWaits.get(url))
+    .filter((wait): wait is Promise<void> => wait !== undefined);
+  if (!pending.length) return Promise.resolve();
+  return Promise.race([
+    Promise.all(pending),
+    new Promise((resolve) => setTimeout(resolve, ART_GRACE_MS)),
+  ]).then(() => {});
 }
 
 // The prefetched next comparison. "keep": a shallow QUEUE of challengers per possible
@@ -268,6 +301,12 @@ export default function ComparisonScreen({ seedCardId }: { seedCardId?: string }
     cardsRef.current = cards;
   }, [cards]);
 
+  // Monotonic mount counter: each mountPair call claims a sequence number, and its
+  // async continuations bail if a newer mount started meanwhile (e.g. a filter change
+  // during the art-settle wait) — otherwise the stale one would recenter dropped cards
+  // and flip `ready` while the newer pair is still mid-slide.
+  const mountSeqRef = useRef(0);
+
   // Animate a chosen pair in from below to center. Shared by the fetch path and the
   // preload path (which supplies the pair directly, skipping the fetch). Clears the
   // outgoing cards first so the new pair mounts below without the old ones flashing.
@@ -277,15 +316,24 @@ export default function ComparisonScreen({ seedCardId }: { seedCardId?: string }
     setCards(null);
     setPos({});
     setPoolEmpty(false);
+    const seq = ++mountSeqRef.current;
     requestAnimationFrame(() => {
+      if (mountSeqRef.current !== seq) return;
       setCards(next);
       setPos(positionsFor(next, "below"));
-      // Let the blank screen render for a beat before the cards slide in.
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          setPos(positionsFor(next, "center"));
-          setTimeout(() => setReady(true), SLIDE_MS);
-        }),
+      // Hold the slide-in until both arts are decoded (bounded by ART_GRACE_MS), so
+      // the cards arrive painted; the double rAF then lets the blank screen render
+      // for a beat before they slide in.
+      artSettled(next.map((card) => card.image_url)).then(() =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            if (mountSeqRef.current !== seq) return;
+            setPos(positionsFor(next, "center"));
+            setTimeout(() => {
+              if (mountSeqRef.current === seq) setReady(true);
+            }, SLIDE_MS);
+          }),
+        ),
       );
     });
   }, []);
@@ -545,6 +593,9 @@ export default function ComparisonScreen({ seedCardId }: { seedCardId?: string }
       return;
     }
     const challenger = fresh;
+    // Start the art download NOW (warmImage dedupes if the pick already warmed it) so
+    // it runs during whatever slide time remains instead of after the mount.
+    warmImage(challenger.image_url);
 
     // Swap once the loser's slide is done — measured from when the slide STARTED (pick
     // time), not from when the fetch resolved. A fixed SLIDE_MS wait here would stack a
@@ -563,11 +614,15 @@ export default function ComparisonScreen({ seedCardId }: { seedCardId?: string }
         updated[challenger.card_id] = "below";
         return updated;
       });
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          setPos((prev) => ({ ...prev, [challenger.card_id]: "center" }));
-          setTimeout(() => setReady(true), SLIDE_MS);
-        }),
+      // Hold the slide-in until the art is decoded (bounded by ART_GRACE_MS), so the
+      // challenger arrives painted instead of pulsing grey and filling in at center.
+      artSettled([challenger.image_url]).then(() =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            setPos((prev) => ({ ...prev, [challenger.card_id]: "center" }));
+            setTimeout(() => setReady(true), SLIDE_MS);
+          }),
+        ),
       );
     }, remaining);
   }
