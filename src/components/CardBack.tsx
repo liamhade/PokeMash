@@ -20,9 +20,12 @@ type CardBackProps = {
   // The card's pack, scoping the eBay search past same-name cards. Optional for
   // the same restored-save reason as buyProductId.
   buyPack?: string | null;
+  // The card's id, sent as the eBay link's EPN customid so affiliate reports
+  // attribute purchases per card. Required — card_id predates every saved shape.
+  buyCardId: string;
 };
 
-export default function CardBack({ details, buyName, buyProductId, buyPack }: CardBackProps) {
+export default function CardBack({ details, buyName, buyProductId, buyPack, buyCardId }: CardBackProps) {
   return (
     // Type/padding step DOWN below md: the mobile Play card is a 44vw (~172px)
     // slot, smaller than the ~238px rankings card this back was tuned for, so the
@@ -65,7 +68,7 @@ export default function CardBack({ details, buyName, buyProductId, buyPack }: Ca
           TCGplayer
         </a>
         <a
-          href={ebayUrl(buyName, buyPack)}
+          href={ebayUrl(buyName, buyPack, buyCardId)}
           target="_blank"
           rel="noopener noreferrer sponsored"
           aria-label="Buy on eBay"

@@ -23,21 +23,22 @@ export function formatPrice(price: number | null | undefined): string {
 // as the `u` parameter — Impact tracks the click, then forwards to `u`.
 const AFFILIATE_LINK = "https://partner.tcgplayer.com/c/7449011/1780961/21018";
 
-// Our eBay Partner Network campaign id — null until the referral account is set
-// up. Once set, ebayUrl appends EPN's tracking parameters so purchases credit us;
-// until then the button links a plain search.
-const EBAY_CAMPAIGN_ID: string | null = null;
+// Our eBay Partner Network campaign id. ebayUrl appends EPN's tracking
+// parameters so purchases credit us.
+const EBAY_CAMPAIGN_ID = "5339165455";
 
 // Link for the eBay Buy button: a search for the card, scoped by pack to cut
 // same-name noise (eBay has no stable per-card page — listings churn, so search
-// is the durable target). Pack is optional like the Play screen's Card fields.
-export function ebayUrl(name: string, pack?: string | null): string {
+// is the durable target). Pack/cardId are optional like the Play screen's Card
+// fields; cardId rides EPN's customid so transaction reports show which card
+// drove each purchase.
+export function ebayUrl(name: string, pack?: string | null, cardId?: string | null): string {
   const query = ["pokemon", name, pack ? packName(pack) : ""].filter(Boolean).join(" ");
   const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`;
-  if (!EBAY_CAMPAIGN_ID) return url;
   // mkcid=1 (EPN) / mkrid (US rotation id) / toolid identify the program;
   // campid is what makes the click ours.
-  return `${url}&mkcid=1&mkrid=711-53200-19255-0&siteid=0&campid=${EBAY_CAMPAIGN_ID}&toolid=10001&mkevt=1`;
+  const customid = cardId ? `&customid=${encodeURIComponent(cardId)}` : "";
+  return `${url}&mkcid=1&mkrid=711-53200-19255-0&siteid=0&campid=${EBAY_CAMPAIGN_ID}${customid}&toolid=10001&mkevt=1`;
 }
 
 // Link for the Buy button: the card's own TCGplayer product page when we have its

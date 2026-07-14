@@ -276,6 +276,7 @@ export default function ComparisonArea({
                   buyName={card.name}
                   buyProductId={card.tcgplayer_product_id}
                   buyPack={card.pack}
+                  buyCardId={card.card_id}
                 />
               </div>
             </div>
