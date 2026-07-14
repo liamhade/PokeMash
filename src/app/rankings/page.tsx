@@ -181,6 +181,7 @@ function RankingCard({ card }: { card: RankedCard }) {
             buyName={card.name}
             buyProductId={card.tcgplayer_product_id}
             buyPack={card.pack}
+            buyCardId={card.card_id}
           />
         </div>
       </div>
