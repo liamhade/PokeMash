@@ -1086,3 +1086,15 @@
 - [ ] `layout.tsx` sets `metadataBase: new URL("https://cardmash.io")` and gives `openGraph.url` the relative value `"/"`. What does Next do with that relative URL at render time, and what would `og:url` have contained if `metadataBase` were omitted?
 
 - [ ] The Google sign-in flow needed zero code changes for the new domain because `AccountControl` passes `${location.origin}/auth/callback` and the callback route reads `origin` from the request. Why is deriving the redirect from the request origin more robust than an env-configured site URL — and what's the one thing that still must be updated by hand (and where)?
+
+## eBay affiliate activation + per-card customid
+
+- [ ] `CardBack` declares `buyCardId` as REQUIRED while its siblings `buyProductId`/`buyPack`
+  are optional "because older sessionStorage saves predate them." Why is `card_id` exempt
+  from that restored-save rule, and what does making the prop required buy us at the two
+  call sites that an optional prop wouldn't?
+
+- [ ] EPN's `customid` is free text echoed back verbatim in transaction reports, and we send
+  the card_id UUID rather than the human-readable card name. What property of a tracking
+  key matters more than readability here, and through what table does a UUID in an EPN
+  report get turned back into "which card sold"?
