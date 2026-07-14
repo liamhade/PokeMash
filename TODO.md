@@ -1098,3 +1098,9 @@
   the card_id UUID rather than the human-readable card name. What property of a tracking
   key matters more than readability here, and through what table does a UUID in an EPN
   report get turned back into "which card sold"?
+
+## Impact verification token refresh (cardmash.io)
+
+- [ ] `layout.tsx` renders the Impact tag as a raw `<meta name="impact-site-verification" value=...>` with a `@ts-expect-error`, instead of going through Next's `metadata.verification` API. What specifically about Impact's tag makes the typed metadata route unusable, and what would break if you dropped the `@ts-expect-error`?
+
+- [ ] Editing the website property URL in Impact regenerated the verification token, so we replaced the old value rather than keeping both. Why is a single current token the right call here, and what would having two `impact-site-verification` metas with different values actually do to the verification check?
