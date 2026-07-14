@@ -35,10 +35,11 @@ const APP_NAME = "CardMash";
 const APP_DESCRIPTION = "Rank Pokémon cards through head-to-head comparisons.";
 
 export const metadata: Metadata = {
-  // The production domain. metadataBase lets Next resolve the relative `url` below (and
-  // any future OG image) to absolute cardmash.io URLs — required for correct canonical
-  // and social-preview links; without it Next falls back to localhost.
-  metadataBase: new URL("https://cardmash.io"),
+  // The production domain — the www host is canonical (the apex 308-redirects to it).
+  // metadataBase lets Next resolve the relative `url` below (and any future OG image)
+  // to absolute URLs — required for correct canonical and social-preview links;
+  // without it Next falls back to localhost.
+  metadataBase: new URL("https://www.cardmash.io"),
   title: APP_NAME,
   description: APP_DESCRIPTION,
   // So a shared cardmash.io link unfurls with the app's name and pitch rather than a

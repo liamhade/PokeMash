@@ -51,8 +51,9 @@ covers it), but it only works once the project is configured in the dashboard:
 2. **Enable the provider:** Supabase dashboard → Authentication → Sign In / Providers
    → Google → paste the client ID + secret.
 3. **Allow our redirect targets:** Authentication → URL Configuration → set the
-   Site URL to the production domain (`https://cardmash.io`) and add
-   `http://localhost:3000/**` and `https://cardmash.io/**` to Redirect URLs —
+   Site URL to the canonical production domain (`https://www.cardmash.io` — the apex
+   `cardmash.io` 308-redirects to www) and add `http://localhost:3000/**`,
+   `https://www.cardmash.io/**`, and `https://cardmash.io/**` to Redirect URLs —
    `signInWithOAuth` sends users back to `{origin}/auth/callback`, which must be on
    this allowlist. (The app reads `origin` at runtime, so no code change is needed
    when the domain changes — only this dashboard allowlist.)
