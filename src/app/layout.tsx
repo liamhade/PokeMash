@@ -73,7 +73,7 @@ export default function RootLayout({
             (non-standard `value=` attribute, which the Next metadata API can't emit);
             React hoists it into <head>. Verifies TCGplayer-referral site ownership. */}
         {/* @ts-expect-error -- `value` isn't a typed <meta> attribute, but Impact requires it verbatim */}
-        <meta name="impact-site-verification" value="e08dad82-096a-4e98-aa58-209905478efd" />
+        <meta name="impact-site-verification" value="f7e950fd-4984-41a6-90e3-9fe9d8a04c36" />
         <NavBar />
         {/* Invisible until a just-signed-in user has anonymous history to adopt. */}
         <TransferPrompt />

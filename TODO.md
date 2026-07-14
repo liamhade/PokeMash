@@ -1104,3 +1104,7 @@
 - [ ] `layout.tsx` renders the Impact tag as a raw `<meta name="impact-site-verification" value=...>` with a `@ts-expect-error`, instead of going through Next's `metadata.verification` API. What specifically about Impact's tag makes the typed metadata route unusable, and what would break if you dropped the `@ts-expect-error`?
 
 - [ ] Editing the website property URL in Impact regenerated the verification token, so we replaced the old value rather than keeping both. Why is a single current token the right call here, and what would having two `impact-site-verification` metas with different values actually do to the verification check?
+
+- [ ] Diagnosing the failed Impact verify took three curl probes: `-sI` on the apex (showed a bodyless 308), `-sL` (showed the tag after the redirect), and a bot-UA fetch (ruled out crawler blocking). What does each flag isolate that the others can't, and why did the bare `curl -s https://cardmash.io` tell us nothing?
+
+- [ ] The verification token changed every time the property URL was edited in Impact's dashboard, while our repo held one hardcoded value — a mutable external system racing an immutable deploy artifact. What ordering rule between "mutate the dashboard" and "deploy the token" makes this converge, and what breaks it?
