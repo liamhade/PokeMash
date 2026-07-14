@@ -1078,3 +1078,7 @@
 - [ ] `artSettled` builds its pending list from `imageWarmWaits`, whose entries resolve on decode success AND failure (the rejection handler returns instead of rethrowing). What would a rejecting promise in that list do to the `Promise.race` hold, and why is "settle, never reject" the right contract for a wait that gates an animation?
 
 - [ ] The slide-in hold is capped at `ART_GRACE_MS` rather than waiting for decode unconditionally. What failure mode does the cap trade away, what does it trade for (think: saturated 1.5Mbps vs dead network), and why does the grey skeleton remain the correct fallback rendering past the cap?
+
+- [ ] In `/api/rankings`, `buildRankMap` re-fetches the player's whole ranked list (paged, `card_id` only) purely to number the search results, running only when `namePattern` is set. Why can't the rank be derived from the name-filtered ranks page alone, and why is `from + index + 1` exactly wrong once a `q` narrows that page?
+
+- [ ] The universal scope fixes the same bug differently: it drops the `ilike` from the details query, keeps the series/price filters, and advances `rank` for every filtered card while emitting only JS name-matches. Why does personal scope need a whole separate query (the rank map) while universal can piggyback on the walk it already does over `ordered`?
