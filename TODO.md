@@ -1082,3 +1082,7 @@
 - [ ] In `/api/rankings`, `buildRankMap` re-fetches the player's whole ranked list (paged, `card_id` only) purely to number the search results, running only when `namePattern` is set. Why can't the rank be derived from the name-filtered ranks page alone, and why is `from + index + 1` exactly wrong once a `q` narrows that page?
 
 - [ ] The universal scope fixes the same bug differently: it drops the `ilike` from the details query, keeps the series/price filters, and advances `rank` for every filtered card while emitting only JS name-matches. Why does personal scope need a whole separate query (the rank map) while universal can piggyback on the walk it already does over `ordered`?
+
+- [ ] `layout.tsx` sets `metadataBase: new URL("https://cardmash.io")` and gives `openGraph.url` the relative value `"/"`. What does Next do with that relative URL at render time, and what would `og:url` have contained if `metadataBase` were omitted?
+
+- [ ] The Google sign-in flow needed zero code changes for the new domain because `AccountControl` passes `${location.origin}/auth/callback` and the callback route reads `origin` from the request. Why is deriving the redirect from the request origin more robust than an env-configured site URL — and what's the one thing that still must be updated by hand (and where)?

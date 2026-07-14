@@ -31,9 +31,30 @@ const fredoka = Fredoka({
   subsets: ["latin"],
 });
 
+const APP_NAME = "CardMash";
+const APP_DESCRIPTION = "Rank Pokémon cards through head-to-head comparisons.";
+
 export const metadata: Metadata = {
-  title: "CardMash",
-  description: "Rank Pokémon cards through head-to-head comparisons.",
+  // The production domain. metadataBase lets Next resolve the relative `url` below (and
+  // any future OG image) to absolute cardmash.io URLs — required for correct canonical
+  // and social-preview links; without it Next falls back to localhost.
+  metadataBase: new URL("https://cardmash.io"),
+  title: APP_NAME,
+  description: APP_DESCRIPTION,
+  // So a shared cardmash.io link unfurls with the app's name and pitch rather than a
+  // bare URL. No image yet — a text preview beats pointing OG at the favicon.
+  openGraph: {
+    title: APP_NAME,
+    description: APP_DESCRIPTION,
+    url: "/",
+    siteName: APP_NAME,
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: APP_NAME,
+    description: APP_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
