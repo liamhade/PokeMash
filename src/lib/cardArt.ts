@@ -7,11 +7,22 @@
 // covered yet (e.g. newly imported sets), so a stale backfill degrades gracefully
 // instead of breaking art.
 
+// Storage copies are served through our same-origin proxy (src/app/art/[file]/
+// route.ts) rather than Supabase directly, so the CDN and browsers cache them
+// (immutable) instead of burning metered Supabase egress per view. The DB keeps
+// the full Supabase URL as the source of truth; only this fold rewrites it.
+const ART_PROXY_PATH = "/art/";
+
 // Folds art_url into image_url and drops it, so API payloads keep a single image
 // field and the client never needs to know where the art is hosted.
 export function withStorageArt<T extends { image_url: string | null; art_url: string | null }>(
   row: T,
 ): Omit<T, "art_url"> {
   const { art_url, ...rest } = row;
-  return { ...rest, image_url: art_url ?? rest.image_url };
+  return {
+    ...rest,
+    image_url: art_url
+      ? ART_PROXY_PATH + art_url.slice(art_url.lastIndexOf("/") + 1)
+      : rest.image_url,
+  };
 }

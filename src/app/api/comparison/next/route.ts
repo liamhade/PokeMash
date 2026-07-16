@@ -326,16 +326,7 @@ export async function GET(request: NextRequest) {
         (!hasMinElo || (rankByCardId.get(row.card_id) ?? DEFAULT_RATING).r >= minElo) &&
         !byId.has(row.card_id)
       ) {
-        byId.set(row.card_id, {
-          card_id: row.card_id,
-          name: row.name,
-          image_url: row.art_url ?? row.image_url,
-          set: row.set,
-          pack: row.pack,
-          release_date: row.release_date,
-          market_price: row.market_price,
-          tcgplayer_product_id: row.tcgplayer_product_id,
-        });
+        byId.set(row.card_id, withStorageArt(row));
       }
     }
     return [...byId.values()];

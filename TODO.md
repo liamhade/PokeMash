@@ -1118,3 +1118,17 @@
 - [ ] The rank span fix chose a wider fixed box (`w-20`) over `min-w-12` (grow to fit). What does the fixed width guarantee across ROWS of the rankings list that a grow-to-fit box would break, given each row is centered independently by `items-center`?
 
 - [ ] The 48px→73px overflow only became user-visible after the true-rank change shipped. Why did the old sequential numbering make four-digit ranks nearly unreachable on screen, and what does that suggest about re-checking a component's layout assumptions when the RANGE of the data it renders changes?
+
+## Card-art proxy + CDN cache
+
+- [ ] The `/art/[file]` route validates the segment against a strict UUID-dot-webp
+  regex before building the Supabase fetch URL. What request could a looser check
+  (say, "any string without slashes") let through, given Next decodes `%2F` in path
+  segments and `fetch` normalizes `../` in URLs — and why does the failure return 404
+  with `Cache-Control: no-store` instead of letting the CDN cache the miss?
+
+- [ ] The response carries `max-age=31536000, s-maxage=31536000, immutable`, which
+  is only safe because `backfill-card-art.ts` never overwrites an object at an
+  existing name. What is the general contract between "cache forever" and "content
+  addressed by an immutable URL," and what user-visible failure appears the moment
+  any layer breaks that contract by editing a file in place?
