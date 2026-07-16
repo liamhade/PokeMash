@@ -176,12 +176,17 @@ type Preload =
   | { mode: "fresh"; filterKey: string; pairs: Card[][] };
 
 // Challengers to keep queued per potential winner. Deep enough that rapid picks can't
-// drain it before a refill lands, shallow enough that entries stay fresh (a queued
-// matchup was chosen against the winner's rating at fetch time, which keeps moving).
-const QUEUE_DEPTH = 3;
-// Only the front of each queue gets its image downloaded+decoded ahead of time — warming
-// all of it would spend bandwidth on art that is often discarded with the losing side.
-const WARM_DEPTH = 2;
+// drain it before a refill lands (each /next round trip can take 1-3s, absorbing 2-3
+// picks' worth of drain), shallow enough that entries stay fresh (a queued matchup was
+// chosen against the winner's rating at fetch time, which keeps moving).
+const QUEUE_DEPTH = 4;
+// How many queued cards get their image downloaded+decoded ahead of time. The full
+// queue: a sustained same-winner streak pops the warmed front faster than a late warm
+// can decode, so any unwarmed tail turns some pick into a visible mid-streak hitch
+// (measured: ~7 of 16 rapid picks stalled 0.8-1.2s at WARM_DEPTH 2). Warming a queue
+// entry that ends up discarded costs ~80KB — the immutable-cached art may be re-served
+// later anyway — so snappiness wins over the bandwidth saving.
+const WARM_DEPTH = QUEUE_DEPTH;
 // Whole pairs to keep queued with Keep Winner off — enough to cover an instant re-pick
 // while the per-pick refill is still in flight. Unlike the keep-mode queues, nothing
 // here is speculative (there's no losing side to discard), so every queued card's
