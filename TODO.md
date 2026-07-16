@@ -1196,3 +1196,11 @@
 - [ ] `ml-auto` on the last flex item and `justify-between` on the container can both
   put an item at the right edge — what different behavior do the two produce for the
   items in the middle, and why is `ml-auto` the right fit for this toolbar?
+
+- [ ] In `ShareTop8Button.tsx`, `copyImage` hands `ClipboardItem` a *promise* of the
+  fetched blob instead of awaiting the fetch first. What Safari rule does that ordering
+  satisfy, and what would break if the fetch completed before `clipboard.write` was called?
+
+- [ ] "Save image" and "Copy image" reuse the share page's `/top8/<code>/opengraph-image`
+  rendering rather than drawing the top 8 onto a client-side canvas. What problems does
+  that dodge (think canvas tainting and design drift), and what's the cost of the choice?

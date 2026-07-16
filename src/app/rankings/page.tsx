@@ -96,7 +96,10 @@ function RankingCard({ card }: { card: RankedCard }) {
   ];
   // Only universal-scope cards carry a rater count.
   if (card.raters !== undefined) {
-    details.push(["Ranked by", `${card.raters} player${card.raters === 1 ? "" : "s"}`]);
+    details.push([
+      "Ranked by",
+      `${card.raters} player${card.raters === 1 ? "" : "s"}`,
+    ]);
   }
 
   return (
@@ -129,7 +132,10 @@ function RankingCard({ card }: { card: RankedCard }) {
         onMouseLeave={handleMouseLeave}
         onAnimationEnd={() => setWiggling(false)}
         style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
-        className={["group cursor-pointer [perspective:1000px]", wiggling ? "wiggle" : ""].join(" ")}
+        className={[
+          "group cursor-pointer [perspective:1000px]",
+          wiggling ? "wiggle" : "",
+        ].join(" ")}
       >
         <div
           className={[
@@ -204,21 +210,30 @@ function RankingsScreen() {
   // Accumulated across "load more": null = first page still loading. meta holds the
   // personal progress counts (undefined under the universal scope, which sends none).
   const [cards, setCards] = useState<RankedCard[] | null>(null);
-  const [meta, setMeta] = useState<{ comparedCount?: number; poolTotal?: number }>({});
+  const [meta, setMeta] = useState<{
+    comparedCount?: number;
+    poolTotal?: number;
+  }>({});
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [filterOpen, setFilterOpen] = useState(false);
   // Applied price/series filters (the eras/minElo fields stay unset — the modal here
   // only renders the price and series sections).
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [scope, setScope] = useState<Scope>(initialFriendId ? "friend" : "mine");
+  const [scope, setScope] = useState<Scope>(
+    initialFriendId ? "friend" : "mine",
+  );
 
   // The picked friend (only meaningful under the "friend" scope) and the list of
   // friends to choose from. friends === null means "not loaded yet"; it's fetched
   // lazily the first time the friend scope is active.
-  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(initialFriendId);
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(
+    initialFriendId,
+  );
   const [friends, setFriends] = useState<Friend[] | null>(null);
-  const friendName = friends?.find((f) => f.user_id === selectedFriendId)?.display_name;
+  const friendName = friends?.find(
+    (f) => f.user_id === selectedFriendId,
+  )?.display_name;
 
   // Name search: a collapsed icon button until opened. The ref mirrors the input so
   // fetchPage (and loadMore's later pages) read the current query without threading
@@ -273,7 +288,10 @@ function RankingsScreen() {
       fetchPage(applied, which, friend, 0).then((data) => {
         if (requestRef.current !== token) return; // superseded by a newer load
         setCards(data.rankings ?? []);
-        setMeta({ comparedCount: data.comparedCount, poolTotal: data.poolTotal });
+        setMeta({
+          comparedCount: data.comparedCount,
+          poolTotal: data.poolTotal,
+        });
       });
     },
     [fetchPage],
@@ -300,8 +318,12 @@ function RankingsScreen() {
     const { data: auth } = await supabase.auth.getUser();
     const uid = auth.user?.id;
     if (!uid) return setFriends([]);
-    const { data: rows } = await supabase.from("friendships").select("user_a, user_b");
-    const ids = (rows ?? []).map((row) => (row.user_a === uid ? row.user_b : row.user_a));
+    const { data: rows } = await supabase
+      .from("friendships")
+      .select("user_a, user_b");
+    const ids = (rows ?? []).map((row) =>
+      row.user_a === uid ? row.user_b : row.user_a,
+    );
     if (ids.length === 0) return setFriends([]);
     const { data } = await supabase
       .from("profiles")
@@ -354,48 +376,34 @@ function RankingsScreen() {
   // More pages remain when we've loaded fewer cards than the player's total ranks.
   // Universal sends no comparedCount, so its list never shows "load more" (capped at 100).
   const hasMore =
-    cards !== null && meta.comparedCount !== undefined && cards.length < meta.comparedCount;
+    cards !== null &&
+    meta.comparedCount !== undefined &&
+    cards.length < meta.comparedCount;
 
   return (
     <div className="flex flex-1 flex-col">
-      {/* Toolbar. On phones the full-size row is wider than the screen, so it
-          steps down: controls spread edge-to-edge (justify-between) instead of
-          left-clustering, and flex-wrap lets the opened search drop to its own
-          full-width line rather than squeezing into the leftover sliver. */}
-      <div className="flex flex-wrap items-start justify-between gap-2 px-3 py-3 md:justify-start md:gap-4 md:px-6 md:py-4">
-        {/* Filter with Share stacked directly beneath it, same width — one left
-            column on phones (Share only in the mine scope). On md+ the column
-            dissolves (contents) so both become direct toolbar items, and Share
-            is sent to the top right: order-last places it after every other
-            control, ml-auto absorbs the leftover row width. */}
-        <div className="flex flex-col gap-2 md:contents">
-          <div className="relative">
-            <FilterButton onClick={() => setFilterOpen(true)} className="w-28" />
-            {hasActiveFilters(filters) && (
-              <span
-                aria-hidden
-                className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-600 ring-2 ring-white"
-              />
-            )}
-          </div>
-          {scope === "mine" && (
-            // ShareTop8Button puts className on its inner pill, so the flex-item
-            // positioning has to live on this wrapper.
-            <div className="md:order-last md:ml-auto">
-              <ShareTop8Button className="w-28" />
-            </div>
-          )}
-        </div>
-
+      {/* Toolbar: the scope toggle top left, and an icon cluster top right —
+          Filter and Share circles flanking Search, everything 36px (h-9) tall.
+          flex-wrap + the cluster's conditional w-full let the opened search
+          take a full-width second line on phones. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 md:px-6 md:py-4">
         {/* Scope toggle: my list, the community-average leaderboard, or a friend's.
             Phones get shorter labels and smaller text — the full wording alone is
             wider than a phone screen. */}
-        <div className="flex rounded-full border border-neutral-300 p-0.5 text-xs md:text-sm font-medium">
+        <div className="flex h-9 items-center rounded-full border border-neutral-300 p-0.5 text-xs md:text-sm font-medium">
           {(
             [
-              { value: "mine", label: "My Rankings", shortLabel: "Mine" },
-              { value: "universal", label: "Universal", shortLabel: "Universal" },
-              { value: "friend", label: "Friend's Rankings", shortLabel: "Friends" },
+              { value: "mine", label: "My Rankings", shortLabel: "Me" },
+              {
+                value: "universal",
+                label: "Universal",
+                shortLabel: "Universal",
+              },
+              {
+                value: "friend",
+                label: "Friend's Rankings",
+                shortLabel: "Friends",
+              },
             ] as { value: Scope; label: string; shortLabel: string }[]
           ).map((option) => (
             <button
@@ -407,7 +415,8 @@ function RankingsScreen() {
                 // Friend scope waits for a pick unless one's already chosen; the
                 // other scopes load right away.
                 if (option.value === "friend") {
-                  if (selectedFriendId) loadFirstPage(filters, "friend", selectedFriendId);
+                  if (selectedFriendId)
+                    loadFirstPage(filters, "friend", selectedFriendId);
                   else setCards(null);
                 } else {
                   loadFirstPage(filters, option.value, null);
@@ -426,88 +435,108 @@ function RankingsScreen() {
           ))}
         </div>
 
-        {/* Name search: an icon until it's needed, an inline pill input while open.
-            Esc or the × collapses it (clearing any active query). */}
-        {searchOpen ? (
-          // w-full below md: flex-wrap drops the open search onto its own line,
-          // where the input can fill the screen width instead of a cramped sliver.
-          <div className="flex w-full items-center gap-2 rounded-full border border-neutral-300 px-3 py-1.5 md:w-auto">
-            <svg
-              viewBox="0 0 24 24"
-              className="h-4 w-4 shrink-0 text-neutral-400"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16" y2="16" />
-            </svg>
-            <input
-              autoFocus
-              value={search}
-              onChange={(event) => handleSearchChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") closeSearch();
-              }}
-              placeholder="Search cards"
-              aria-label="Search cards by name"
-              className="min-w-0 flex-1 bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400 md:w-40 md:flex-none"
-            />
+        {/* Icon cluster. While the search is open the cluster goes w-full below
+            md, so flex-wrap drops it onto its own line where the input can fill
+            the screen width (Filter and Share ride along, flanking it) instead
+            of squeezing into the sliver beside the toggle. */}
+        <div
+          className={`flex items-center gap-2 ${searchOpen ? "w-full md:w-auto" : ""}`}
+        >
+          {/* Filter — a circle directly left of Search; red dot = active filters. */}
+          <div className="relative">
+            <FilterButton variant="icon" onClick={() => setFilterOpen(true)} />
+            {hasActiveFilters(filters) && (
+              <span
+                aria-hidden
+                className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-600 ring-2 ring-white"
+              />
+            )}
+          </div>
+
+          {/* Name search: an icon until it's needed, an inline pill input while open.
+              Esc or the × collapses it (clearing any active query). */}
+          {searchOpen ? (
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-neutral-300 px-3 py-1.5 md:flex-none">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4 shrink-0 text-neutral-400"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16" y2="16" />
+              </svg>
+              <input
+                autoFocus
+                value={search}
+                onChange={(event) => handleSearchChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") closeSearch();
+                }}
+                placeholder="Search cards"
+                aria-label="Search cards by name"
+                className="min-w-0 flex-1 bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400 md:w-40 md:flex-none"
+              />
+              <button
+                type="button"
+                onClick={closeSearch}
+                aria-label="Close search"
+                className="text-neutral-400 transition-colors hover:text-neutral-700"
+              >
+                ×
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
-              onClick={closeSearch}
-              aria-label="Close search"
-              className="text-neutral-400 transition-colors hover:text-neutral-700"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search cards by name"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-300 text-neutral-600 transition-colors hover:border-neutral-400 hover:text-neutral-800"
             >
-              ×
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16" y2="16" />
+              </svg>
             </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            aria-label="Search cards by name"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-300 text-neutral-600 transition-colors hover:border-neutral-400 hover:text-neutral-800"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16" y2="16" />
-            </svg>
-          </button>
-        )}
+          )}
 
-        {/* Friend picker - only in friend scope, and only once there are friends
-            to choose from (otherwise the empty-state message below points to /friends). */}
-        {scope === "friend" && friends && friends.length > 0 && (
-          <select
-            value={selectedFriendId ?? ""}
-            onChange={(event) => {
-              const id = event.target.value || null;
-              setSelectedFriendId(id);
-              if (id) loadFirstPage(filters, "friend", id);
-            }}
-            className="rounded-full border border-neutral-300 px-3 py-1 text-sm font-medium text-neutral-700 outline-none transition-colors hover:border-neutral-400"
-          >
-            <option value="" disabled>
-              Select a friend
-            </option>
-            {friends.map((friend) => (
-              <option key={friend.user_id} value={friend.user_id}>
-                {friend.display_name}
+          {/* Share — the golden circle directly right of Search (mine scope only). */}
+          {scope === "mine" && <ShareTop8Button />}
+
+          {/* Friend picker - only in friend scope, and only once there are friends
+              to choose from (otherwise the empty-state message below points to /friends). */}
+          {scope === "friend" && friends && friends.length > 0 && (
+            <select
+              value={selectedFriendId ?? ""}
+              onChange={(event) => {
+                const id = event.target.value || null;
+                setSelectedFriendId(id);
+                if (id) loadFirstPage(filters, "friend", id);
+              }}
+              className="h-9 rounded-full border border-neutral-300 px-3 text-sm font-medium text-neutral-700 outline-none transition-colors hover:border-neutral-400"
+            >
+              <option value="" disabled>
+                Select a friend
               </option>
-            ))}
-          </select>
-        )}
+              {friends.map((friend) => (
+                <option key={friend.user_id} value={friend.user_id}>
+                  {friend.display_name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {scope === "friend" && !selectedFriendId ? (
@@ -543,7 +572,9 @@ function RankingsScreen() {
                       : "No rankings yet — head to Play to start comparing!"}
               </p>
             ) : (
-              cards.map((card) => <RankingCard key={card.card_id} card={card} />)
+              cards.map((card) => (
+                <RankingCard key={card.card_id} card={card} />
+              ))
             )}
 
             {/* Reveal the next page rather than rendering thousands of cards at once. */}
@@ -566,8 +597,10 @@ function RankingsScreen() {
               cards rated before a pool-rule tightening can exceed today's pool. */}
           {meta.comparedCount !== undefined && (
             <div className="sticky bottom-0 border-t border-neutral-200 bg-white py-4 text-center font-semibold text-neutral-800 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">
-              {scope === "friend" ? `${friendName ?? "Your friend"} has` : "You've"} compared{" "}
-              {meta.comparedCount.toLocaleString("en-US")}
+              {scope === "friend"
+                ? `${friendName ?? "Your friend"} has`
+                : "You've"}{" "}
+              compared {meta.comparedCount.toLocaleString("en-US")}
               {meta.poolTotal
                 ? ` of ${meta.poolTotal.toLocaleString("en-US")} cards (${Math.min(100, Math.round((meta.comparedCount / meta.poolTotal) * 100))}%)`
                 : " cards"}
