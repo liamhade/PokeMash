@@ -205,7 +205,12 @@ function RankingsScreen() {
   // ?player=<uuid> deep-links straight into a friend's list (linked from /friends).
   // Read once at mount to seed the scope + selection; after that the toggle and the
   // friend picker own the selection, so there's no live URL to keep in sync.
-  const initialFriendId = useSearchParams().get("player");
+  const initialParams = useSearchParams();
+  const initialFriendId = initialParams.get("player");
+  // ?scope=universal makes the community leaderboard directly linkable — the one
+  // scope that means something to a visitor with no history. The others stay
+  // URL-less: "mine" is the default and "friend" needs ?player= anyway.
+  const initialUniversal = initialParams.get("scope") === "universal";
 
   // Accumulated across "load more": null = first page still loading. meta holds the
   // personal progress counts (undefined under the universal scope, which sends none).
@@ -221,7 +226,7 @@ function RankingsScreen() {
   // only renders the price and series sections).
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [scope, setScope] = useState<Scope>(
-    initialFriendId ? "friend" : "mine",
+    initialUniversal ? "universal" : initialFriendId ? "friend" : "mine",
   );
 
   // The picked friend (only meaningful under the "friend" scope) and the list of
