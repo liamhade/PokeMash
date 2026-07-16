@@ -86,8 +86,8 @@ export default async function Top8OgImage({ params }: { params: Promise<{ code: 
             justifyContent: "center",
             fontSize: 20,
             boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
-            background: rank === 1 ? "#dc2626" : "#ffffff",
-            color: rank === 1 ? "#ffffff" : "#737373",
+            background: "#dc2626",
+            color: "#ffffff",
           }}
         >
           {rank}
