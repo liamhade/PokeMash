@@ -1221,3 +1221,13 @@
 - [ ] Why does queue-drain math say a prefetch queue must be at least ceil(fetch_latency
   / pick_interval) deep to keep a sustained streak on the fast path — and why did warming
   only the front 2 entries break that guarantee even when the queue itself never emptied?
+
+- [ ] `vercel.json` pins `regions` to `pdx1` because the Supabase project runs in AWS
+  us-west-2. Trace one `/api/comparison/next` request before and after: which network
+  legs got shorter, which one got LONGER for an East Coast user, and why is that trade
+  still a large net win for this route's 2+ sequential Supabase round trips?
+
+- [ ] The measured symptom was ~0.4-1.2s TTFB on warm art-proxy misses with only 4ms of
+  DB time (`x-envoy-upstream-service-time`). What general principle says compute should
+  live next to the data rather than next to the user, and at what request shape (how many
+  DB round trips per request) does the opposite placement start to win?
