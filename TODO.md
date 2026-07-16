@@ -1132,3 +1132,27 @@
   existing name. What is the general contract between "cache forever" and "content
   addressed by an immutable URL," and what user-visible failure appears the moment
   any layer breaks that contract by editing a file in place?
+
+## My Top 8 share
+
+- [ ] The share link packs the eight card_ids themselves into the URL (`lib/top8.ts`)
+  instead of referencing the sharer's playerId. What could any recipient of a
+  playerId-bearing link do via `transfer_player_data` (whose only ownership proof is
+  possession of the uuid), and what second property — visible when a player keeps
+  ranking after sharing — does packing the cards buy for free?
+
+- [ ] `opengraph-image.tsx` loads its fonts with `readFile(join(process.cwd(), ...))`
+  after the `fetch(new URL(..., import.meta.url))` pattern 500'd. Why can't Node's
+  fetch resolve the URL that pattern produces in the Node runtime, and what does the
+  literal `process.cwd()` join additionally guarantee at deploy time via Next's file
+  tracing?
+
+- [ ] The OG renderer inlines the original pkmncards JPEGs (with a browser UA) rather
+  than our own `/art` WebP copies that every other surface uses. Which two independent
+  constraints force that choice, and why is per-share upstream load acceptable here
+  when per-view load was worth building a whole proxy to avoid?
+
+- [ ] The share page shows no sharer name or avatar, even for signed-in users with a
+  profile. What abuse class does keeping user-controlled text out of pages (and OG
+  images) rendered under our domain avoid, and what growth cost does that anonymity
+  pay in how the link performs on social feeds?
