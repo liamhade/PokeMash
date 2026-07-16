@@ -364,8 +364,11 @@ function RankingsScreen() {
           full-width line rather than squeezing into the leftover sliver. */}
       <div className="flex flex-wrap items-start justify-between gap-2 px-3 py-3 md:justify-start md:gap-4 md:px-6 md:py-4">
         {/* Filter with Share stacked directly beneath it, same width — one left
-            column on every viewport (Share only in the mine scope). */}
-        <div className="flex flex-col gap-2">
+            column on phones (Share only in the mine scope). On md+ the column
+            dissolves (contents) so both become direct toolbar items, and Share
+            is sent to the top right: order-last places it after every other
+            control, ml-auto absorbs the leftover row width. */}
+        <div className="flex flex-col gap-2 md:contents">
           <div className="relative">
             <FilterButton onClick={() => setFilterOpen(true)} className="w-28" />
             {hasActiveFilters(filters) && (
@@ -375,7 +378,13 @@ function RankingsScreen() {
               />
             )}
           </div>
-          {scope === "mine" && <ShareTop8Button className="w-28" />}
+          {scope === "mine" && (
+            // ShareTop8Button puts className on its inner pill, so the flex-item
+            // positioning has to live on this wrapper.
+            <div className="md:order-last md:ml-auto">
+              <ShareTop8Button className="w-28" />
+            </div>
+          )}
         </div>
 
         {/* Scope toggle: my list, the community-average leaderboard, or a friend's.

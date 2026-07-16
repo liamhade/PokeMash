@@ -1187,3 +1187,12 @@
 - [ ] Why does a visible contact address materially change how a DMCA complaint
   plays out for a site hosted on Vercel/Supabase — what does the notice recipient
   (you vs. the host) get to decide in each case?
+
+- [ ] In `rankings/page.tsx`, the Filter/Share column wrapper gained `md:contents`.
+  What does `display: contents` do to that div's role in the toolbar's flex layout,
+  and why do `md:order-last md:ml-auto` then have to sit on a new wrapper around
+  `ShareTop8Button` rather than in its `className` prop?
+
+- [ ] `ml-auto` on the last flex item and `justify-between` on the container can both
+  put an item at the right edge — what different behavior do the two produce for the
+  items in the middle, and why is `ml-auto` the right fit for this toolbar?
