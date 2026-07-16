@@ -15,6 +15,10 @@
 // (e.g. PokéGear, Neo Genesis 88/111). The 12 vintage Item trainers below were added by
 // hand to close that leak; the vintage Gym-Leader/character cards (Misty, Blaine, Lass…)
 // are the era's Supporter analog and are deliberately KEPT, like modern Supporters.
+//
+// Pitch Black (PBL, Jul 2026) predates its pokemontcg.io listing, so its 6 new
+// Item/Stadium/Tool names were added by hand from TCGplayer's "Card Type" field
+// (via tcgcsv) — fold them into the next API regeneration.
 export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "academy at night",
   "accompanying flute",
@@ -39,6 +43,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "ancient ruins",
   "ancient tomb",
   "ange floette",
+  "antique armor fossil",
   "antique cover fossil",
   "antique dome fossil",
   "antique helix fossil",
@@ -47,6 +52,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "antique plume fossil",
   "antique root fossil",
   "antique sail fossil",
+  "antique skull fossil",
   "apricorn forest",
   "aqua diffuser",
   "aqua patch",
@@ -62,6 +68,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "audino spirit link",
   "awakening drum",
   "babiri berry",
+  "backtrack badge",
   "balloon berry",
   "battle cage",
   "battle city",
@@ -175,6 +182,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "damage pump",
   "dangerous drill",
   "dangerous laser",
+  "dark bell",
   "dark city",
   "dark claw",
   "dark patch",
@@ -296,6 +304,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "forest seal stone",
   "fossil excavation kit",
   "fossil excavation map",
+  "fossil quarry",
   "fresh water set",
   "friend ball",
   "frozen city",
@@ -777,6 +786,7 @@ export const EXCLUDED_TRAINER_NAMES = new Set<string>([
   "transformation tome",
   "treasure tracker",
   "trekking shoes",
+  "tremendous bomb",
   "trick coin",
   "trick shovel",
   "tropical beach",
