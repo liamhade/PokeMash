@@ -87,7 +87,13 @@ export default function RootLayout({
         <footer className="px-4 py-2 text-center text-[8px] leading-tight text-neutral-400 md:text-[10px]">
           CardMash is an unofficial fan project, not affiliated with, endorsed, or
           sponsored by Nintendo, The Pok&eacute;mon Company, Creatures Inc., or GAME
-          FREAK inc. Pok&eacute;mon and card images &copy; their respective owners.
+          FREAK inc. Pok&eacute;mon and card images &copy; their respective owners.{" "}
+          {/* Contact address so takedown requests reach us directly instead of
+              going to the host (which would pull the site rather than forward). */}
+          Contact:{" "}
+          <a href="mailto:cardmash.io@gmail.com" className="underline">
+            cardmash.io@gmail.com
+          </a>
         </footer>
       </body>
     </html>

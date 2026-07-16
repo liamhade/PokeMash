@@ -1179,3 +1179,11 @@
   the rankings page sets to `w-28`, while the compare screen passes none. Why is an
   optional passthrough the right seam here rather than baking the width into
   `PillButton` or into the shared `FilterButton` itself?
+
+- [ ] The contact email in `layout.tsx`'s footer sits inside JSX that uses `{" "}`
+  before "Contact:" and around the `<a>` tag. What whitespace behavior of JSX makes
+  these explicit space expressions necessary where a plain text file wouldn't need them?
+
+- [ ] Why does a visible contact address materially change how a DMCA complaint
+  plays out for a site hosted on Vercel/Supabase — what does the notice recipient
+  (you vs. the host) get to decide in each case?
