@@ -1212,3 +1212,12 @@
 - [ ] Why is showing the unaltered X/Reddit logo to label a share target safe
   (nominative trademark use) when redrawing a "slightly changed" version of a logo can
   actually be riskier?
+
+- [ ] `WARM_DEPTH` is now defined as `= QUEUE_DEPTH` rather than the literal 4. Beyond
+  style, what invariant does that binding encode, and what silent regression could a
+  future edit that bumps `QUEUE_DEPTH` alone have caused if the two were independent
+  literals?
+
+- [ ] Why does queue-drain math say a prefetch queue must be at least ceil(fetch_latency
+  / pick_interval) deep to keep a sustained streak on the fast path — and why did warming
+  only the front 2 entries break that guarantee even when the queue itself never emptied?
