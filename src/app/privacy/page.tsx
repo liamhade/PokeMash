@@ -12,7 +12,7 @@ export default function PrivacyPage() {
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-10">
       <h1 className="mb-1 text-2xl font-bold text-neutral-800">Privacy Policy</h1>
-      <p className="mb-8 text-sm text-neutral-400">Last updated July 7, 2026</p>
+      <p className="mb-8 text-sm text-neutral-400">Last updated July 16, 2026</p>
 
       <div className="space-y-6 text-sm leading-relaxed text-neutral-600">
         <section>
@@ -64,6 +64,19 @@ export default function PrivacyPage() {
             The only cookies we set are the authentication session cookies
             needed to keep you signed in. There are no tracking or analytics
             cookies.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-2 text-base font-semibold text-neutral-800">
+            Analytics
+          </h2>
+          <p>
+            We count page views with Vercel Web Analytics so we can tell which
+            pages get visited and where visitors come from. It&rsquo;s
+            cookieless and anonymous: no identifier is stored in your browser,
+            and visits can&rsquo;t be traced back to you or linked to your
+            rankings.
           </p>
         </section>
 
