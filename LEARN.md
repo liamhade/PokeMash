@@ -659,3 +659,21 @@
   `span.animate-pulse` and was run against the OLD code first. Why is proving the
   harness can detect the bug (26 hits) as important as the after-fix run, and what
   would a 0-hits-before run have meant?
+
+## Colocating Vercel functions with Supabase (slow card loading)
+
+- [ ] The diagnosis began from a wrong hypothesis: `curl -I` (HEAD) against Supabase
+  storage showed `cache-control: no-cache` / `cf-cache-status: REVALIDATED`, but GETs
+  serve `public, max-age=31536000` and cache fine. Why must a cache investigation always
+  measure the request method the real client sends, and what would the (unnecessary)
+  re-upload have cost if the single-object SQL check hadn't been run first?
+
+- [ ] `x-envoy-upstream-service-time: 4` against a ~500ms TTFB is what pinned the
+  problem on the network path rather than the database. Rebuild the chain: which hops
+  make up the difference, and how did resolving `db.<ref>.supabase.co` to an IPv6 in
+  `2600:1f14::/34` (checked against AWS ip-ranges.json) close the case?
+
+- [ ] After pinning functions to pdx1 the API TTFB fell ~2-3x but the art-proxy MISS
+  stayed ~0.85s. Why did colocation help the multi-round-trip API so much more than the
+  single-fetch art proxy, and what does that say about where the art proxy's time
+  actually goes?
