@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Mono, Bitcount_Prop_Single, Fredoka } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 import TransferPrompt from "@/components/TransferPrompt";
@@ -80,6 +81,11 @@ export default function RootLayout({
         {/* Invisible until a new user's first sign-in, to offer a username. */}
         <UsernamePrompt />
         <main className="flex flex-1 flex-col">{children}</main>
+        {/* Vercel Web Analytics: cookieless page-view + referrer counting (visitors
+            are a daily-rotating hash, nothing stored in the browser — the privacy
+            page's Analytics section describes exactly this; keep the two in sync).
+            No-ops in dev and on hosts where Analytics isn't enabled. */}
+        <Analytics />
         {/* Fan-project legal disclaimer, on every page. One quiet line so it
             never competes with the content above it. Leads with what the site IS
             (unofficial fan project) and names the actual rights-holders printed
