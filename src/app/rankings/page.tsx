@@ -100,10 +100,13 @@ function RankingCard({ card }: { card: RankedCard }) {
   }
 
   return (
-    <div className="flex items-center gap-6">
-      {/* w-20 fits four digits (Space Mono at text-3xl needs ~73px) — the pool caps
-          ranks at four digits, and w-12 let a 1,000+ rank spill into the card. */}
-      <span className="w-20 text-right text-3xl font-bold text-neutral-400">
+    // Three columns with the card in the middle and equal 1fr rails either side,
+    // so the CARD is what's centered on screen (equal margins) — the rank number
+    // rides the left rail, right-aligned so every row's number hugs the card's
+    // left edge and they line up down the list. Smaller rank text below md keeps
+    // a four-digit rank inside the narrow left rail on a phone.
+    <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center">
+      <span className="justify-self-end pr-4 text-2xl font-bold text-neutral-400 md:pr-6 md:text-3xl">
         {card.rank}
       </span>
       {/* Flip toggle. A role=button div (not a <button>) so the back face's referral <a>
@@ -359,15 +362,20 @@ function RankingsScreen() {
           steps down: controls spread edge-to-edge (justify-between) instead of
           left-clustering, and flex-wrap lets the opened search drop to its own
           full-width line rather than squeezing into the leftover sliver. */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 md:justify-start md:gap-4 md:px-6 md:py-4">
-        <div className="relative">
-          <FilterButton onClick={() => setFilterOpen(true)} />
-          {hasActiveFilters(filters) && (
-            <span
-              aria-hidden
-              className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-600 ring-2 ring-white"
-            />
-          )}
+      <div className="flex flex-wrap items-start justify-between gap-2 px-3 py-3 md:justify-start md:gap-4 md:px-6 md:py-4">
+        {/* Filter with Share stacked directly beneath it, same width — one left
+            column on every viewport (Share only in the mine scope). */}
+        <div className="flex flex-col gap-2">
+          <div className="relative">
+            <FilterButton onClick={() => setFilterOpen(true)} className="w-28" />
+            {hasActiveFilters(filters) && (
+              <span
+                aria-hidden
+                className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-600 ring-2 ring-white"
+              />
+            )}
+          </div>
+          {scope === "mine" && <ShareTop8Button className="w-28" />}
         </div>
 
         {/* Scope toggle: my list, the community-average leaderboard, or a friend's.
@@ -468,11 +476,6 @@ function RankingsScreen() {
             </svg>
           </button>
         )}
-
-        {/* Share my Top 8 — my own list only; a friend's or the community's top
-            cards aren't mine to share. The button fetches the true (unfiltered)
-            top 8 itself, so it works no matter what the list currently shows. */}
-        {scope === "mine" && <ShareTop8Button />}
 
         {/* Friend picker - only in friend scope, and only once there are friends
             to choose from (otherwise the empty-state message below points to /friends). */}

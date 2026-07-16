@@ -10,8 +10,9 @@ import { encodeTop8, TOP8_COUNT } from "@/lib/top8";
 // share sheet, falling back to the clipboard where navigator.share doesn't
 // exist (most desktop browsers). Fetches the top cards fresh at tap time so
 // the link is always the TRUE unfiltered top 8, whatever filters or search the
-// rankings list currently shows.
-export default function ShareTop8Button() {
+// rankings list currently shows. `className` sizes the pill (the rankings page
+// fixes its width to match the Filter button it sits under).
+export default function ShareTop8Button({ className }: { className?: string }) {
   // A transient status line ("Link copied") floated under the button.
   const [note, setNote] = useState<string | null>(null);
   const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -54,7 +55,9 @@ export default function ShareTop8Button() {
 
   return (
     <div className="relative">
-      <PillButton onClick={share}>Share</PillButton>
+      <PillButton onClick={share} className={className}>
+        Share
+      </PillButton>
       {note && (
         <span className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-medium text-neutral-600 shadow-md">
           {note}

@@ -1156,3 +1156,26 @@
   profile. What abuse class does keeping user-controlled text out of pages (and OG
   images) rendered under our domain avoid, and what growth cost does that anonymity
   pay in how the link performs on social feeds?
+
+## Rankings toolbar + card centering
+
+- [ ] The rankings row switched from `flex items-center gap-6` (with a `w-20
+  text-right` rank box) to `grid grid-cols-[1fr_auto_1fr]` with the card in the
+  middle track. Both "center" the row, so why did only the grid version put equal
+  margins around the CARD — what was the old flex row actually centering, and where
+  did the ~60px of dead space for a rank like "1" come from?
+
+- [ ] The empty third grid column has no child element, yet it's load-bearing. What
+  would happen to the card's horizontal position if the template were
+  `grid-cols-[1fr_auto]` instead, and why does a 1fr track with no content still
+  claim its share of the free space?
+
+- [ ] The rank text drops to `text-2xl` below md while staying `text-3xl` on desktop.
+  A four-digit rank measures 59px at text-2xl but the left rail is only 52.5px wide at
+  375px viewport. Why does the card still not clip or trigger horizontal scroll there,
+  and at what viewport width does a four-digit rank stop shifting the card at all?
+
+- [ ] `FilterButton` and `ShareTop8Button` both gained an optional `className` that
+  the rankings page sets to `w-28`, while the compare screen passes none. Why is an
+  optional passthrough the right seam here rather than baking the width into
+  `PillButton` or into the shared `FilterButton` itself?
