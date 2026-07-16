@@ -677,3 +677,28 @@
   stayed ~0.85s. Why did colocation help the multi-round-trip API so much more than the
   single-fetch art proxy, and what does that say about where the art proxy's time
   actually goes?
+
+## Launch prep: universal deep link, web analytics, Pitch Black import
+
+- [ ] pkmncards (our catalog's usual source) had nothing the day before Pitch Black's
+  release, but tcgcsv had all 120 singles with numbers, rarities, product ids, AND a
+  typed "Card Type" field. What property of our `cards` schema made swapping the import
+  source a data-only decision (no app code), and which CLAUDE.md convention predicted
+  this exact situation?
+
+- [ ] `import-set.ts` stamps `tcgplayer_product_id` at insert time, letting
+  refresh-prices run without the id backfill. When backfill-tcgplayer.ts next runs it
+  rebuilds its ENTIRE stage from scratch — walk through why the hand-stamped PBL ids
+  survive that (which of scored-name-matching or the printed sync UPDATE's not-in
+  clause is doing the protecting?).
+
+- [ ] The art backfill's re-run threw ~400 "409 Duplicate" upload failures for objects
+  that already existed — its HEAD-based existence check said they were missing. Given
+  LEARN.md's earlier lesson that HEAD against Supabase storage lies about caching, what
+  should the existence probe be instead, and why did the failure still leave the data
+  correct (what made 409 the SAFE failure mode)?
+
+- [ ] Eligibility moved 6,702 → 6,732: exactly the 36 PBL secret-rare slots minus the
+  6 Ultra Rare Item/Tool trainer reprints. Reconstruct which rule caught each excluded
+  card (rarity drop? name list? energy suffix?) — and why did the two Special Energy
+  cards (#083/084, rarity "Rare") never even reach the trainer-name check?

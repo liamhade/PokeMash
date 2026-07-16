@@ -1231,3 +1231,27 @@
   DB time (`x-envoy-upstream-service-time`). What general principle says compute should
   live next to the data rather than next to the user, and at what request shape (how many
   DB round trips per request) does the opposite placement start to win?
+
+- [ ] In `rankings/page.tsx`, `?scope=universal` is read once at mount to seed
+  `useState<Scope>` and the URL is never synced afterwards. What breaks (or doesn't)
+  if a user toggles to "Mine" and then shares the URL from their address bar, and why
+  was one-shot seeding still the right call here over a live URL ↔ state sync?
+
+- [ ] The privacy page promises "no tracking or analytics cookies" and we added
+  Vercel Web Analytics anyway without changing that sentence. What's the technical
+  mechanism that keeps both statements true at once, and where's the line where a
+  future analytics feature (say, custom funnel events tied to a player id) would
+  force that Cookies section to change?
+
+- [ ] `import-set.ts` fills `tcgplayer_product_id` at insert time, which lets
+  `refresh-prices.ts` run immediately — but `backfill-tcgplayer.ts` can still be
+  re-run later and DELETEs+rebuilds the whole stage. Trace what happens to the
+  hand-inserted PBL ids on that next run: what property of the scored group-mapping
+  makes this safe, and what would make it clobber them?
+
+- [ ] Pitch Black's 6 new Item/Stadium/Tool names were typed into
+  `excludedTrainerNames.ts` from TCGplayer's "Card Type" field instead of the
+  pokemontcg.io regeneration the file header prescribes. Why is a name-keyed
+  exclusion list the fragile part of this design compared to a card-type column,
+  and what specific failure appears if the next API regeneration DROPS a name we
+  hand-added (hint: think about who re-adds it)?
