@@ -59,13 +59,8 @@ export default async function Top8Page({ params }: { params: Promise<{ code: str
               height={CARD_HEIGHT}
               className="h-auto w-40 rounded-xl shadow-md md:w-[238px]"
             />
-            {/* Rank badge, hung off the card's corner; #1 gets the accent color. */}
-            <span
-              className={[
-                "absolute -left-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full text-base font-bold shadow-md",
-                i === 0 ? "bg-red-600 text-white" : "bg-white text-neutral-500",
-              ].join(" ")}
-            >
+            {/* Rank badge, hung off the card's corner — the app's single red accent. */}
+            <span className="absolute -left-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-base font-bold text-white shadow-md">
               {i + 1}
             </span>
           </div>
