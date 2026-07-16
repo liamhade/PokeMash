@@ -100,7 +100,9 @@ function RankingCard({ card }: { card: RankedCard }) {
 
   return (
     <div className="flex items-center gap-6">
-      <span className="w-12 text-right text-3xl font-bold text-neutral-400">
+      {/* w-20 fits four digits (Space Mono at text-3xl needs ~73px) — the pool caps
+          ranks at four digits, and w-12 let a 1,000+ rank spill into the card. */}
+      <span className="w-20 text-right text-3xl font-bold text-neutral-400">
         {card.rank}
       </span>
       {/* Flip toggle. A role=button div (not a <button>) so the back face's referral <a>

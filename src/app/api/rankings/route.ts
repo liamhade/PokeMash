@@ -122,13 +122,11 @@ export async function GET(request: NextRequest) {
     // series filters in each query, and stop as soon as the leaderboard is full —
     // filtered-out cards simply don't come back from the details query.
     //
-    // The name search is a LOOKUP, not a re-ranking: a matched card keeps its true
-    // position in the community leaderboard. So series/price filter in the query (they
-    // define which cards hold a rank), but match the name in JS — `rank` advances for
-    // every filtered card while only the matches are emitted.
+    // Filters and the name search are LOOKUPS, not re-rankings: a matched card keeps
+    // its true position in the full community leaderboard — its index in `ordered` —
+    // so a filtered list shows gapped rank numbers instead of renumbering from 1.
     const qLower = q.toLowerCase();
     const rankings: Record<string, unknown>[] = [];
-    let rank = 0; // position among series/price-filtered cards, name-agnostic
     for (let i = 0; i < ordered.length && rankings.length < UNIVERSAL_LIMIT; i += DETAILS_CHUNK) {
       const chunk = ordered.slice(i, i + DETAILS_CHUNK);
       let detailsQuery = supabase
@@ -149,14 +147,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
       const detailById = new Map((details ?? []).map((row) => [row.card_id, row]));
-      for (const entry of chunk) {
+      for (const [j, entry] of chunk.entries()) {
         if (rankings.length >= UNIVERSAL_LIMIT) break;
         const card = detailById.get(entry.card_id);
-        if (!card) continue; // filtered out by series/price — holds no rank here
-        rank += 1;
+        if (!card) continue; // filtered out by series/price
         if (q && !String(card.name).toLowerCase().includes(qLower)) continue;
         rankings.push({
-          rank,
+          rank: i + j + 1, // position in the full leaderboard, filter-agnostic
           r: Math.round(entry.r),
           raters: entry.raters,
           ...withStorageArt(card),
@@ -182,11 +179,14 @@ export async function GET(request: NextRequest) {
   // match, rather than returning them with a null relation. count: "exact" returns
   // the total matching ranks (ignoring the range) so the meter and "load more" know
   // the real total, not just this page's size.
+  // card_id tiebreak: equal-r rows otherwise come back in arbitrary per-query order,
+  // and the rank map below must number ties exactly as the list displays them.
   let ranksQuery = supabase
     .from("card_ranks")
     .select(`r, cards!inner(${CARD_COLUMNS})`, { count: "exact" })
     .eq("player_id", playerId)
-    .order("r", { ascending: false });
+    .order("r", { ascending: false })
+    .order("card_id");
   if (series.length > 0) {
     ranksQuery = ranksQuery.or(seriesOrFilter(series), { referencedTable: "cards" });
   }
@@ -215,36 +215,24 @@ export async function GET(request: NextRequest) {
     if (hasMax) poolQuery = poolQuery.lte(PRICE_COLUMN, maxPrice);
   }
 
-  // Under a name search, a matched card's rank must be its position in the full
-  // (series/price-filtered) list — NOT its index among the search matches, which is
+  // Under a filter or name search, a matched card's rank must be its true position
+  // in the player's FULL ranked list — NOT its index among the matches, which is
   // what the paged `from + index + 1` below would give. Build a card_id → position
-  // map from that same ordered population minus the name filter; only needed when
-  // searching. A build failure degrades to the paged offset rather than failing.
+  // map from the unfiltered list (same r-descending order as ranksQuery); only
+  // needed when something narrows the list, since the paged offset already IS the
+  // true rank otherwise. A build failure degrades to the paged offset.
   async function buildRankMap(): Promise<Map<string, number> | null> {
-    if (!namePattern) return null;
+    if (!namePattern && series.length === 0 && !hasMin && !hasMax) return null;
     const map = new Map<string, number>();
     let position = 0;
     for (let offset = 0; ; offset += RANKS_PAGE_SIZE) {
-      // Inner-join cards (matching ranksQuery) so the population — and thus the
-      // positions — are identical to the list's, and so the series/price filters can
-      // range over the embedded row.
-      let allRanks = supabase
+      const { data, error } = await supabase
         .from("card_ranks")
-        .select("card_id, cards!inner(card_id)")
+        .select("card_id")
         .eq("player_id", playerId!)
         .order("r", { ascending: false })
+        .order("card_id") // same tiebreak as ranksQuery — positions must line up
         .range(offset, offset + RANKS_PAGE_SIZE - 1);
-      if (series.length > 0) {
-        allRanks = allRanks.or(seriesOrFilter(series), { referencedTable: "cards" });
-      }
-      if (hasMin || hasMax) {
-        allRanks = allRanks
-          .not(`cards.${PRICE_COLUMN}`, "is", null)
-          .neq(`cards.${PRICE_COLUMN}`, PRICE_JUNK);
-        if (hasMin) allRanks = allRanks.gte(`cards.${PRICE_COLUMN}`, minPrice);
-        if (hasMax) allRanks = allRanks.lte(`cards.${PRICE_COLUMN}`, maxPrice);
-      }
-      const { data, error } = await allRanks;
       if (error) {
         // Partial numbering would be worse than none; drop the whole map so the list
         // degrades cleanly to the paged offset ranks.
@@ -278,8 +266,8 @@ export async function GET(request: NextRequest) {
     // The embedded `cards` relation is returned as an array by the typed client.
     const cardRow = Array.isArray(row.cards) ? row.cards[0] : row.cards;
     return {
-      // Under a search, use the card's true position in the full list; otherwise rank
-      // is absolute across pages, so offset by where this page starts.
+      // Under a filter or search, use the card's true position in the full list;
+      // otherwise rank is absolute across pages, so offset by where this page starts.
       rank: rankMap?.get(cardRow.card_id) ?? from + index + 1,
       r: row.r,
       ...withStorageArt(cardRow),

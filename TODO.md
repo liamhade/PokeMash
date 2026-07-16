@@ -1108,3 +1108,13 @@
 - [ ] Diagnosing the failed Impact verify took three curl probes: `-sI` on the apex (showed a bodyless 308), `-sL` (showed the tag after the redirect), and a bot-UA fetch (ruled out crawler blocking). What does each flag isolate that the others can't, and why did the bare `curl -s https://cardmash.io` tell us nothing?
 
 - [ ] The verification token changed every time the property URL was edited in Impact's dashboard, while our repo held one hardcoded value — a mutable external system racing an immutable deploy artifact. What ordering rule between "mutate the dashboard" and "deploy the token" makes this converge, and what breaks it?
+
+## Rankings filter true-rank
+
+- [ ] `buildRankMap` used to inner-join `cards` and re-apply the series/price filters; now it reads bare `card_ranks` with no join. Why did the `.order("card_id")` tiebreak on BOTH it and `ranksQuery` only become load-bearing with this change — what did the Centiskorch VMAX off-by-one (four cards sharing r = 1362.31…) reveal about how Postgres orders equal-`r` rows across two differently-shaped queries?
+
+- [ ] Filters now share the search's "lookup, not re-ranking" semantics, so a filtered list shows gapped numbers (3, 10, 15…) instead of a dense 1, 2, 3. What question does the gapped rank answer for the user that dense renumbering can't — and for what kind of list would dense renumbering be the honest choice instead?
+
+- [ ] The rank span fix chose a wider fixed box (`w-20`) over `min-w-12` (grow to fit). What does the fixed width guarantee across ROWS of the rankings list that a grow-to-fit box would break, given each row is centered independently by `items-center`?
+
+- [ ] The 48px→73px overflow only became user-visible after the true-rank change shipped. Why did the old sequential numbering make four-digit ranks nearly unreachable on screen, and what does that suggest about re-checking a component's layout assumptions when the RANGE of the data it renders changes?
