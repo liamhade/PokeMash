@@ -13,6 +13,7 @@ import FilterModal, {
 } from "@/components/FilterModal";
 import FilterButton from "@/components/FilterButton";
 import CardBack from "@/components/CardBack";
+import ShareTop8Button from "@/components/ShareTop8Button";
 import { formatPrice, orDash, packName } from "@/lib/cardInfo";
 
 type RankedCard = {
@@ -467,6 +468,11 @@ function RankingsScreen() {
             </svg>
           </button>
         )}
+
+        {/* Share my Top 8 — my own list only; a friend's or the community's top
+            cards aren't mine to share. The button fetches the true (unfiltered)
+            top 8 itself, so it works no matter what the list currently shows. */}
+        {scope === "mine" && <ShareTop8Button />}
 
         {/* Friend picker - only in friend scope, and only once there are friends
             to choose from (otherwise the empty-state message below points to /friends). */}
