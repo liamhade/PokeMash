@@ -1204,3 +1204,11 @@
 - [ ] "Save image" and "Copy image" reuse the share page's `/top8/<code>/opengraph-image`
   rendering rather than drawing the top 8 onto a client-side canvas. What problems does
   that dodge (think canvas tainting and design drift), and what's the cost of the choice?
+
+- [ ] `BrandGlyph` renders a filled single `path` while `StrokeGlyph` wraps stroked
+  children — why do the simple-icons brand marks need `fill="currentColor"` with no
+  stroke, and what would the X logo look like if it went through `StrokeGlyph` instead?
+
+- [ ] Why is showing the unaltered X/Reddit logo to label a share target safe
+  (nominative trademark use) when redrawing a "slightly changed" version of a logo can
+  actually be riskier?

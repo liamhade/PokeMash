@@ -17,6 +17,42 @@ import { encodeTop8, TOP8_COUNT } from "@/lib/top8";
 
 const SHARE_TITLE = "My Top 8 — CardMash";
 
+// The official X and Reddit glyphs (via the CC0 simple-icons set), shown to
+// label their share targets — nominative trademark use both brands' guidelines
+// permit, as long as the mark isn't altered. Rendered monochrome to match the
+// menu's neutral text.
+const X_LOGO_PATH =
+  "M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z";
+const REDDIT_LOGO_PATH =
+  "M12 0C5.373 0 0 5.373 0 12c0 3.314 1.343 6.314 3.515 8.485l-2.286 2.286C.775 23.225 1.097 24 1.738 24H12c6.627 0 12-5.373 12-12S18.627 0 12 0Zm4.388 3.199c1.104 0 1.999.895 1.999 1.999 0 1.105-.895 2-1.999 2-.946 0-1.739-.657-1.947-1.539v.002c-1.147.162-2.032 1.15-2.032 2.341v.007c1.776.067 3.4.567 4.686 1.363.473-.363 1.064-.58 1.707-.58 1.547 0 2.802 1.254 2.802 2.802 0 1.117-.655 2.081-1.601 2.531-.088 3.256-3.637 5.876-7.997 5.876-4.361 0-7.905-2.617-7.998-5.87-.954-.447-1.614-1.415-1.614-2.538 0-1.548 1.255-2.802 2.803-2.802.645 0 1.239.218 1.712.585 1.275-.79 2.881-1.291 4.64-1.365v-.01c0-1.663 1.263-3.034 2.88-3.207.188-.911.993-1.595 1.959-1.595Zm-8.085 8.376c-.784 0-1.459.78-1.506 1.797-.047 1.016.64 1.429 1.426 1.429.786 0 1.371-.369 1.418-1.385.047-1.017-.553-1.841-1.338-1.841Zm7.406 0c-.786 0-1.385.824-1.338 1.841.047 1.017.634 1.385 1.418 1.385.785 0 1.473-.413 1.426-1.429-.046-1.017-.721-1.797-1.506-1.797Zm-3.703 4.013c-.974 0-1.907.048-2.77.135-.147.015-.241.168-.183.305.483 1.154 1.622 1.964 2.953 1.964 1.33 0 2.47-.81 2.953-1.964.057-.137-.037-.29-.184-.305-.863-.087-1.795-.135-2.769-.135Z";
+
+// A filled single-path brand mark at menu-icon size.
+function BrandGlyph({ path }: { path: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="currentColor" aria-hidden>
+      <path d={path} />
+    </svg>
+  );
+}
+
+// A stroked generic glyph at the same size, matching the toolbar's icon style.
+function StrokeGlyph({ children }: { children: React.ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      {children}
+    </svg>
+  );
+}
+
 export default function ShareTop8Button() {
   // The /top8/<code> code while the menu is open; null = menu closed.
   const [code, setCode] = useState<string | null>(null);
@@ -148,6 +184,7 @@ export default function ShareTop8Button() {
             [
               {
                 label: "Post to X",
+                icon: <BrandGlyph path={X_LOGO_PATH} />,
                 run: () =>
                   openTab(
                     `https://twitter.com/intent/tweet?text=${encodeURIComponent(SHARE_TITLE)}&url=${encodeURIComponent(shareUrl)}`,
@@ -155,6 +192,7 @@ export default function ShareTop8Button() {
               },
               {
                 label: "Post to Reddit",
+                icon: <BrandGlyph path={REDDIT_LOGO_PATH} />,
                 run: () =>
                   openTab(
                     `https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(SHARE_TITLE)}`,
@@ -162,6 +200,12 @@ export default function ShareTop8Button() {
               },
               {
                 label: "Text a friend",
+                // Speech bubble.
+                icon: (
+                  <StrokeGlyph>
+                    <path d="M21 12a8 8 0 0 1-8 8H4l2.4-2.9A8 8 0 1 1 21 12z" />
+                  </StrokeGlyph>
+                ),
                 // sms:?&body= is the one form both iOS and Android accept.
                 // Navigate rather than open a tab — popup blockers and _blank
                 // don't play well with protocol handlers.
@@ -170,17 +214,48 @@ export default function ShareTop8Button() {
                   setCode(null);
                 },
               },
-              { label: "Copy link", run: copyLink },
-              { label: "Save image", run: saveImage },
-              { label: "Copy image", run: copyImage },
-            ] as { label: string; run: () => void }[]
+              {
+                label: "Copy link",
+                // Chain link.
+                icon: (
+                  <StrokeGlyph>
+                    <path d="M10 13a4 4 0 0 0 6 .5l3-3a4 4 0 1 0-5.7-5.6L11.6 6.6" />
+                    <path d="M14 11a4 4 0 0 0-6-.5l-3 3a4 4 0 1 0 5.7 5.6l1.7-1.7" />
+                  </StrokeGlyph>
+                ),
+                run: copyLink,
+              },
+              {
+                label: "Save image",
+                // Download arrow into a tray.
+                icon: (
+                  <StrokeGlyph>
+                    <path d="M12 3v12m0 0 5-5m-5 5-5-5" />
+                    <path d="M4 19h16" />
+                  </StrokeGlyph>
+                ),
+                run: saveImage,
+              },
+              {
+                label: "Copy image",
+                // Two stacked squares.
+                icon: (
+                  <StrokeGlyph>
+                    <rect x="9" y="9" width="12" height="12" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </StrokeGlyph>
+                ),
+                run: copyImage,
+              },
+            ] as { label: string; icon: React.ReactNode; run: () => void }[]
           ).map((item) => (
             <button
               key={item.label}
               type="button"
               onClick={item.run}
-              className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100"
             >
+              {item.icon}
               {item.label}
             </button>
           ))}
