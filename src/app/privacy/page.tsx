@@ -99,10 +99,10 @@ export default function PrivacyPage() {
             To delete your account and everything stored under it, open an
             issue at{" "}
             <a
-              href="https://github.com/liamhade/PokeMash/issues"
+              href="https://github.com/gspag77/CardMash/issues"
               className="underline hover:text-neutral-800"
             >
-              github.com/liamhade/PokeMash
+              github.com/gspag77/CardMash
             </a>{" "}
             and we&rsquo;ll take care of it.
           </p>
