@@ -1255,3 +1255,13 @@
   exclusion list the fragile part of this design compared to a card-type column,
   and what specific failure appears if the next API regeneration DROPS a name we
   hand-added (hint: think about who re-adds it)?
+
+- [ ] The repo move pushed identical `main` history to both gspag77/CardMash (origin)
+  and liamhade/PokeMash (liam remote). What specifically diverges the moment one side
+  merges a commit the other doesn't have, and why does the privacy page's issues link
+  make the REPO's identity (not just the code) part of the deployed product?
+
+- [ ] Creating the repo used `git credential fill` + the GitHub REST API instead of
+  the `gh` CLI. What is git's credential-helper chain actually doing there (where did
+  the token live, what scoped it), and why is a mirror-push migration unable to carry
+  issues/PRs when it carries every commit?
