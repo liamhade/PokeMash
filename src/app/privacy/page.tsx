@@ -96,13 +96,15 @@ export default function PrivacyPage() {
           </h2>
           <p>
             You can use CardMash without an account, and sign out at any time.
-            To delete your account and everything stored under it, open an
-            issue at{" "}
+            To delete your account and everything stored under it, email{" "}
+            {/* The repo went private, so a GitHub-issues link would 404 for
+                the public — deletion requests go to the same contact address
+                the footer already publishes. */}
             <a
-              href="https://github.com/gspag77/CardMash/issues"
+              href="mailto:cardmash.io@gmail.com"
               className="underline hover:text-neutral-800"
             >
-              github.com/gspag77/CardMash
+              cardmash.io@gmail.com
             </a>{" "}
             and we&rsquo;ll take care of it.
           </p>
