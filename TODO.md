@@ -1265,3 +1265,14 @@
   the `gh` CLI. What is git's credential-helper chain actually doing there (where did
   the token live, what scoped it), and why is a mirror-push migration unable to carry
   issues/PRs when it carries every commit?
+
+- [ ] Making gspag77/CardMash private forced the privacy page's deletion-request
+  channel from GitHub issues to the mailto already in the footer. What other
+  outward-facing surfaces silently assume repo visibility (think: DONE/LEARN files
+  now hidden, npm provenance, "open source" claims), and which of them is a
+  user-facing promise the way the issues link was?
+
+- [ ] A collaborator invite carries `write` permission while the repo owner keeps
+  admin. Which repo operations does Liam LOSE relative to owning the repo (settings,
+  visibility, app installs, force-push protections), and why is that asymmetry
+  exactly what this project wanted after the Vercel/Hobby single-owner lesson?
